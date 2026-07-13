@@ -38,9 +38,18 @@ var _perf: Node = null
 ## 매 틱 그룹 재검색을 피하기 위한 캐시 (성능문서 6.1).
 var _player: Node2D = null
 var _smell_grid: SmellGrid = null
+var _nav_agent: NavigationAgent2D = null
+var _alert_label: Label = null
+var _alert_remaining: float = 0.0
+
+## 배회 목표 선택용. 테스트는 seed 를 고정해 결정적으로 만든다.
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
 	move_target = global_position
+	rng.randomize()
+	_nav_agent = get_node_or_null(^"NavigationAgent2D")
+	_alert_label = get_node_or_null(^"AlertLabel")
 	if has_node("/root/PerfMonitor"):
 		_perf = get_node("/root/PerfMonitor")
 	if has_node("/root/EventBus"):
@@ -61,6 +70,32 @@ func _physics_process(delta: float) -> void:
 		_ai_tick()
 		if _perf != null:
 			_perf.end_sample(&"ai")
+
+	if _alert_remaining > 0.0:
+		_alert_remaining -= delta
+		if _alert_remaining <= 0.0 and _alert_label != null:
+			_alert_label.visible = false
+
+	_move_along_path()
+
+## NavigationAgent2D 를 따라 move_target 으로 이동한다.
+## 경로 재계산은 목표가 실제로 바뀐 프레임에만 일어난다 (매 프레임 재계산 금지).
+func _move_along_path() -> void:
+	if _nav_agent == null:
+		return
+	if _nav_agent.target_position != move_target:
+		_nav_agent.target_position = move_target
+	if _nav_agent.is_navigation_finished():
+		velocity = Vector2.ZERO
+		return
+	var next_position: Vector2 = _nav_agent.get_next_path_position()
+	var direction: Vector2 = next_position - global_position
+	if direction.is_zero_approx():
+		velocity = Vector2.ZERO
+		return
+	var speed: float = data.chase_speed if state == State.CHASE else data.walk_speed
+	velocity = direction.normalized() * speed
+	move_and_slide()
 
 ## 지각과 상태 결정 한 틱. physics 프레임 안에서 호출된다.
 ## 지각 우선순위: 시야(직접 지각) > 소리 > 냄새.
@@ -84,6 +119,8 @@ func _ai_tick() -> void:
 			elif state == State.INVESTIGATE and _arrived_at(move_target):
 				# 도착했는데 아무것도 없다 — 대상 상실, 배회 복귀 (설계서 14.1).
 				_change_state(State.WANDER)
+			elif state == State.WANDER and _arrived_at(move_target):
+				_pick_wander_target()
 		State.CHASE:
 			if _is_protected_by_fire(player) or _fire_index_containing(global_position, 1.0) >= 0:
 				# 플레이어가 불 곁에 도달했다 — 추격 포기 (목표 장면의 결말).
@@ -131,6 +168,12 @@ func _smell_step_target() -> Vector2:
 
 func _arrived_at(target: Vector2) -> bool:
 	return global_position.distance_to(target) <= data.investigate_arrive_distance
+
+## 다음 배회 목표. 도달 불가능한 지점은 NavigationAgent2D 가 가장 가까운 지점으로 보정한다.
+func _pick_wander_target() -> void:
+	var angle: float = rng.randf_range(0.0, TAU)
+	var distance: float = rng.randf_range(data.wander_range * 0.4, data.wander_range)
+	move_target = _clamp_outside_fires(global_position + Vector2.from_angle(angle) * distance)
 
 func _on_campfire_lit(campfire: Node, position: Vector2, radius: float) -> void:
 	_on_campfire_extinguished(campfire)
@@ -194,6 +237,9 @@ func _change_state(new_state: int) -> void:
 	state_changed.emit(previous_state, new_state)
 	if new_state == State.CHASE:
 		chase_started.emit()
+		_alert_remaining = data.alert_seconds
+		if _alert_label != null:
+			_alert_label.visible = true
 
 func _on_noise_emitted(position: Vector2, radius: float, source: Node) -> void:
 	if source == self:
