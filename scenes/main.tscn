@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=9 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/debug/performance_overlay.tscn" id="5_perfoverlay"]
 [ext_resource type="Script" path="res://scripts/senses/smell_grid.gd" id="6_smellgrid"]
 [ext_resource type="PackedScene" path="res://scenes/creature/raptor.tscn" id="7_raptor"]
+[ext_resource type="Script" path="res://scripts/senses/noise_debug.gd" id="8_noisedebug"]
 
 [node name="Main" type="Node2D"]
 
@@ -27,6 +28,10 @@ wind_strength = 1.0
 
 [node name="Raptor" parent="." instance=ExtResource("7_raptor")]
 position = Vector2(-800, 800)
+
+; 소음 반경 디버그 (F4 로 냄새 격자·랩터 표시와 함께 토글).
+[node name="NoiseDebug" type="Node2D" parent="."]
+script = ExtResource("8_noisedebug")
 
 [node name="Hud" parent="." instance=ExtResource("4_hud")]
 

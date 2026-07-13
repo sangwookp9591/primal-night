@@ -45,6 +45,9 @@ var _alert_remaining: float = 0.0
 ## 배회 목표 선택용. 테스트는 seed 를 고정해 결정적으로 만든다.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
+## 디버그 시각화 (설계서 13장): 상태, 감지 반경, 목표 지점, 경로.
+var debug_enabled: bool = false
+
 func _ready() -> void:
 	move_target = global_position
 	rng.randomize()
@@ -77,6 +80,43 @@ func _physics_process(delta: float) -> void:
 			_alert_label.visible = false
 
 	_move_along_path()
+
+	if debug_enabled:
+		queue_redraw()
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	var key_event: InputEventKey = event as InputEventKey
+	if key_event == null or not key_event.pressed or key_event.echo:
+		return
+	if key_event.keycode == KEY_F4:
+		debug_enabled = not debug_enabled
+		queue_redraw()
+
+func _draw() -> void:
+	if not debug_enabled:
+		return
+	var state_color: Color = [Color.GRAY, Color.YELLOW, Color.RED, Color.DODGER_BLUE][state]
+	# 감지 반경 (진입/이탈).
+	draw_arc(Vector2.ZERO, data.sight_radius, 0.0, TAU, 48, Color(state_color, 0.5), 1.5)
+	draw_arc(Vector2.ZERO, data.lose_sight_radius, 0.0, TAU, 48, Color(state_color, 0.2), 1.0)
+	# 현재 상태 이름.
+	draw_string(ThemeDB.fallback_font, Vector2(-24.0, -84.0), String(get_state_name()),
+		HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, state_color)
+	# 이동 목표 (조사 지점 / 추격 대상 / 도주 지점) X 마커.
+	var target_local: Vector2 = to_local(move_target)
+	draw_line(target_local + Vector2(-8.0, -8.0), target_local + Vector2(8.0, 8.0), state_color, 2.0)
+	draw_line(target_local + Vector2(-8.0, 8.0), target_local + Vector2(8.0, -8.0), state_color, 2.0)
+	# 마지막으로 들린 위치.
+	if _heard_news:
+		draw_circle(to_local(_last_heard_position), 6.0, Color.ORANGE)
+	# 현재 내비게이션 경로.
+	if _nav_agent != null:
+		var path: PackedVector2Array = _nav_agent.get_current_navigation_path()
+		for path_index: int in range(path.size() - 1):
+			draw_line(to_local(path[path_index]), to_local(path[path_index + 1]),
+				Color(state_color, 0.6), 1.0)
 
 ## NavigationAgent2D 를 따라 move_target 으로 이동한다.
 ## 경로 재계산은 목표가 실제로 바뀐 프레임에만 일어난다 (매 프레임 재계산 금지).

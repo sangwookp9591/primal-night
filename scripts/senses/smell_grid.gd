@@ -29,6 +29,9 @@ var _perf: Node = null
 var _snapshot_indices: PackedInt32Array = PackedInt32Array()
 var _snapshot_values: PackedFloat32Array = PackedFloat32Array()
 
+## 디버그 시각화 (설계서 5.4 / 13장). 출시 빌드에서는 켤 수 없다.
+var debug_enabled: bool = false
+
 func _ready() -> void:
 	add_to_group(&"smell_grid")
 	_cols = maxi(int(ceilf(area_size.x / config.cell_size)), 1)
@@ -48,6 +51,55 @@ func _process(delta: float) -> void:
 		_tick()
 		if _perf != null:
 			_perf.end_sample(&"scent")
+		if debug_enabled:
+			queue_redraw()
+
+## 디버그 조작. 입력 맵(project.godot)은 소유 밖이라 키를 직접 본다.
+## F4: 시각화 토글, F6: 바람 방향 45도 회전, F7: 바람 세기 순환 (1 → 0 → 0.5).
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	var key_event: InputEventKey = event as InputEventKey
+	if key_event == null or not key_event.pressed or key_event.echo:
+		return
+	match key_event.keycode:
+		KEY_F4:
+			debug_enabled = not debug_enabled
+			queue_redraw()
+		KEY_F6:
+			if wind_direction.is_zero_approx():
+				wind_direction = Vector2.RIGHT
+			else:
+				wind_direction = wind_direction.rotated(TAU / 8.0)
+			queue_redraw()
+		KEY_F7:
+			if wind_strength >= 0.75:
+				wind_strength = 0.0
+			elif wind_strength < 0.25:
+				wind_strength = 0.5
+			else:
+				wind_strength = 1.0
+			queue_redraw()
+
+func _draw() -> void:
+	if not debug_enabled:
+		return
+	# 활성 셀 농도 (붉은 사각형, 알파 = 농도).
+	var cell: float = config.cell_size
+	for cell_index: int in _active:
+		var cell_x: int = cell_index % _cols
+		var cell_y: int = cell_index / _cols
+		var alpha: float = clampf(_values[cell_index] / 60.0, 0.05, 0.6)
+		var top_left: Vector2 = to_local(area_origin + Vector2(float(cell_x) * cell, float(cell_y) * cell))
+		draw_rect(Rect2(top_left, Vector2(cell, cell)), Color(0.9, 0.1, 0.1, alpha))
+		draw_rect(Rect2(top_left, Vector2(cell, cell)), Color(0.9, 0.3, 0.2, 0.8), false, 1.0)
+	# 바람 화살표 (격자 원점 부근).
+	if not wind_direction.is_zero_approx() and wind_strength > 0.0:
+		var player: Node2D = get_tree().get_first_node_in_group(&"player") as Node2D
+		var anchor: Vector2 = to_local(player.global_position + Vector2(0.0, -96.0)) if player != null else to_local(area_origin)
+		var tip: Vector2 = anchor + wind_direction.normalized() * 48.0 * wind_strength
+		draw_line(anchor, tip, Color.CYAN, 2.0)
+		draw_circle(tip, 4.0, Color.CYAN)
 
 func get_smell_at(global_pos: Vector2) -> float:
 	var index: int = _cell_index(global_pos)
