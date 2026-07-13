@@ -30,6 +30,9 @@ var _pending_noise_position: Vector2 = Vector2.ZERO
 var _pending_noise_radius: float = 0.0
 var _has_pending_noise: bool = false
 
+## 켜진 모닥불 목록: [{node, position, radius}] (campfire_lit 로 등록·해제).
+var _campfires: Array[Dictionary] = []
+
 var _ai_elapsed: float = 0.0
 var _perf: Node = null
 ## 매 틱 그룹 재검색을 피하기 위한 캐시 (성능문서 6.1).
@@ -41,7 +44,10 @@ func _ready() -> void:
 	if has_node("/root/PerfMonitor"):
 		_perf = get_node("/root/PerfMonitor")
 	if has_node("/root/EventBus"):
-		get_node("/root/EventBus").noise_emitted.connect(_on_noise_emitted)
+		var event_bus: Node = get_node("/root/EventBus")
+		event_bus.noise_emitted.connect(_on_noise_emitted)
+		event_bus.campfire_lit.connect(_on_campfire_lit)
+		event_bus.campfire_extinguished.connect(_on_campfire_extinguished)
 
 func _physics_process(delta: float) -> void:
 	if _has_pending_noise:
@@ -63,24 +69,37 @@ func _ai_tick() -> void:
 
 	match state:
 		State.WANDER, State.INVESTIGATE:
-			if _can_see_player(player, data.sight_radius):
+			if _fire_index_containing(global_position, data.fire_exit_ratio) >= 0:
+				# 불이 막 켜져 반경 안에 갇혔다 — 즉시 물러난다.
+				_start_flee()
+			elif _can_see_player(player, data.sight_radius) and not _is_protected_by_fire(player):
 				move_target = player.global_position
 				_change_state(State.CHASE)
 			elif _heard_news:
-				move_target = _last_heard_position
+				move_target = _clamp_outside_fires(_last_heard_position)
 				_change_state(State.INVESTIGATE)
 			elif _smells_blood():
-				move_target = _smell_step_target()
+				move_target = _clamp_outside_fires(_smell_step_target())
 				_change_state(State.INVESTIGATE)
 			elif state == State.INVESTIGATE and _arrived_at(move_target):
 				# 도착했는데 아무것도 없다 — 대상 상실, 배회 복귀 (설계서 14.1).
 				_change_state(State.WANDER)
 		State.CHASE:
-			if _can_see_player(player, data.lose_sight_radius):
+			if _is_protected_by_fire(player) or _fire_index_containing(global_position, 1.0) >= 0:
+				# 플레이어가 불 곁에 도달했다 — 추격 포기 (목표 장면의 결말).
+				_start_flee()
+			elif _can_see_player(player, data.lose_sight_radius):
 				move_target = player.global_position
 			else:
 				# 시야 상실: 마지막 목격 위치(move_target)를 조사한다.
 				_change_state(State.INVESTIGATE)
+		State.FLEE:
+			var fire_index: int = _fire_index_containing(global_position, data.fire_exit_ratio)
+			if fire_index < 0:
+				# 이탈 반경 밖 — 히스테리시스 해제, 배회 복귀.
+				_change_state(State.WANDER)
+			else:
+				move_target = _flee_target_from(_campfires[fire_index])
 	_heard_news = false
 
 func _find_player() -> Node2D:
@@ -112,6 +131,57 @@ func _smell_step_target() -> Vector2:
 
 func _arrived_at(target: Vector2) -> bool:
 	return global_position.distance_to(target) <= data.investigate_arrive_distance
+
+func _on_campfire_lit(campfire: Node, position: Vector2, radius: float) -> void:
+	_on_campfire_extinguished(campfire)
+	_campfires.append({node = campfire, position = position, radius = radius})
+
+func _on_campfire_extinguished(campfire: Node) -> void:
+	for index: int in range(_campfires.size()):
+		if _campfires[index].node == campfire:
+			_campfires.remove_at(index)
+			return
+
+## pos 가 (반경 * ratio) 안에 드는 가장 가까운 불의 인덱스. 없으면 -1.
+## ratio 1.0 은 진입 판정, fire_exit_ratio 는 이탈 판정 — 이 간극이 히스테리시스다.
+func _fire_index_containing(pos: Vector2, ratio: float) -> int:
+	var best_index: int = -1
+	var best_distance: float = INF
+	for index: int in range(_campfires.size()):
+		var fire: Dictionary = _campfires[index]
+		var distance: float = pos.distance_to(fire.position)
+		if distance <= fire.radius * ratio and distance < best_distance:
+			best_distance = distance
+			best_index = index
+	return best_index
+
+func _is_protected_by_fire(player: Node2D) -> bool:
+	return player != null and _fire_index_containing(player.global_position, 1.0) >= 0
+
+func _start_flee() -> void:
+	var fire_index: int = _fire_index_containing(global_position, INF)
+	if fire_index >= 0:
+		move_target = _flee_target_from(_campfires[fire_index])
+	_change_state(State.FLEE)
+
+## 불에서 멀어지는 방향으로 이탈 반경 바깥 지점.
+func _flee_target_from(fire: Dictionary) -> Vector2:
+	var away: Vector2 = global_position - fire.position
+	if away.is_zero_approx():
+		away = Vector2.RIGHT
+	return fire.position + away.normalized() * fire.radius * data.fire_exit_ratio * 1.15
+
+## 목표 지점이 불 반경 안이면 반경 밖으로 밀어낸다 (불 안으로 들어오지 않는다).
+func _clamp_outside_fires(target: Vector2) -> Vector2:
+	for fire: Dictionary in _campfires:
+		if target.distance_to(fire.position) < fire.radius:
+			var away: Vector2 = target - fire.position
+			if away.is_zero_approx():
+				away = global_position - fire.position
+			if away.is_zero_approx():
+				away = Vector2.RIGHT
+			target = fire.position + away.normalized() * fire.radius * 1.05
+	return target
 
 func get_state_name() -> StringName:
 	return STATE_NAMES[state]
