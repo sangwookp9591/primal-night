@@ -106,6 +106,45 @@ func test_wind_advects_smell_downwind() -> void:
 		"이동한 만큼 원점 셀은 줄어야 한다")
 	assert_eq(grid.get_smell_at(upwind_spot), 0.0, "바람을 거스르는 쪽으로는 퍼지지 않는다")
 
+## 바람이 어느 방향이든 실제 이류는 그 방향으로 일어나야 한다 (설계서 5.4).
+## RIGHT 하나만 검증하면 wind offset 을 RIGHT 로 고정하는 결함이 통과한다 (T5 뮤테이션 M2).
+## 케이스: [이름, 바람 벡터, 기대 셀 오프셋] — 4방향 + 대각선 4방향.
+const WIND_DIRECTION_CASES: Array = [
+	["동풍", Vector2.RIGHT, Vector2i(1, 0)],
+	["서풍", Vector2.LEFT, Vector2i(-1, 0)],
+	["북풍", Vector2.UP, Vector2i(0, -1)],
+	["남풍", Vector2.DOWN, Vector2i(0, 1)],
+	["남동풍", Vector2(1.0, 1.0), Vector2i(1, 1)],
+	["남서풍", Vector2(-1.0, 1.0), Vector2i(-1, 1)],
+	["북동풍", Vector2(1.0, -1.0), Vector2i(1, -1)],
+	["북서풍", Vector2(-1.0, -1.0), Vector2i(-1, -1)],
+]
+
+func test_wind_advects_downwind_for_every_direction(
+		params: Array = use_parameters(WIND_DIRECTION_CASES)) -> void:
+	var direction_name: String = params[0]
+	var wind: Vector2 = params[1]
+	var offset: Vector2i = params[2]
+	var config: SmellGridConfig = _make_config()
+	var grid: SmellGrid = _make_grid(config)
+	grid.wind_direction = wind
+	grid.wind_strength = 1.0
+	var origin_spot: Vector2 = _cell_center(grid, 4, 4)
+	var downwind_spot: Vector2 = _cell_center(grid, 4 + offset.x, 4 + offset.y)
+	var upwind_spot: Vector2 = _cell_center(grid, 4 - offset.x, 4 - offset.y)
+	_event_bus.smell_emitted.emit(origin_spot, 100.0, &"blood")
+
+	grid._process(config.tick_interval)
+
+	assert_almost_eq(grid.get_smell_at(downwind_spot),
+		100.0 * config.advect_fraction * config.decay_factor, 0.001,
+		"%s: 바람이 부는 쪽 셀(오프셋 %s)로 이동분이 쌓여야 한다" % [direction_name, offset])
+	assert_eq(grid.get_smell_at(upwind_spot), 0.0,
+		"%s: 바람을 거스르는 쪽 셀로는 퍼지지 않는다" % direction_name)
+	assert_almost_eq(grid.get_smell_at(origin_spot),
+		100.0 * (1.0 - config.advect_fraction) * config.decay_factor, 0.001,
+		"%s: 이동분만큼 원점 셀은 줄어야 한다" % direction_name)
+
 func test_no_advection_when_wind_is_calm() -> void:
 	var config: SmellGridConfig = _make_config()
 	var grid: SmellGrid = _make_grid(config)
