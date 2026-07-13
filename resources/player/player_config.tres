@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PlayerConfig" load_steps=2 format=3 uid="uid://playerconfig"]
+
+[ext_resource type="Script" path="res://scripts/player/player_config.gd" id="1_playerconfig"]
+
+[resource]
+script = ExtResource("1_playerconfig")
+walk_speed = 150.0
+run_speed = 240.0
+base_walk_noise = 80.0
+base_run_noise = 160.0
+noise_emit_interval = 0.25
