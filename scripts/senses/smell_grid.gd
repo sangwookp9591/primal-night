@@ -14,9 +14,9 @@ const DEFAULT_CONFIG: SmellGridConfig = preload("res://data/creatures/smell_grid
 @export var area_origin: Vector2 = Vector2(-1280.0, -64.0)
 @export var area_size: Vector2 = Vector2(2560.0, 1472.0)
 
-## 바람은 월드 상태다. 디버그에서 바꿀 수 있다 (설계서 5.4).
-var wind_direction: Vector2 = Vector2.ZERO
-var wind_strength: float = 1.0
+## 바람은 월드 상태다. 씬에서 초기값을 주고 디버그에서 바꿀 수 있다 (설계서 5.4).
+@export var wind_direction: Vector2 = Vector2.ZERO
+@export var wind_strength: float = 1.0
 
 var _cols: int = 0
 var _rows: int = 0
