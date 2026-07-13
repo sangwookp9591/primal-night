@@ -1,1 +1,4 @@
 .worktrees/
+.godot/
+export/
+*.tmp

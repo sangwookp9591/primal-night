@@ -1,0 +1,3 @@
+[gd_scene format=4 uid="uid://primalnightmain"]
+
+[node name="Main" type="Node2D"]
