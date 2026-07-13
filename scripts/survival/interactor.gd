@@ -21,6 +21,7 @@ var current_target: Node = null
 var _player: Player = null
 var _hold_elapsed: float = 0.0
 var _hold_required: float = 0.0
+var _hold_prompt: String = ""
 
 func _ready() -> void:
 	_player = get_parent() as Player
@@ -39,7 +40,7 @@ func _process(delta: float) -> void:
 
 	_hold_elapsed += delta
 	if _hold_elapsed < _hold_required:
-		hold_changed.emit(_hold_elapsed / _hold_required, _prompt_of(current_target))
+		hold_changed.emit(_hold_elapsed / _hold_required, _hold_prompt)
 		return
 
 	# 완료. _end_hold 가 current_target 을 지우므로 먼저 붙잡아 둔다.
@@ -64,11 +65,12 @@ func begin() -> void:
 	current_target = target
 	_hold_required = hold
 	_hold_elapsed = 0.0
+	_hold_prompt = _prompt_of(target)
 	_player.movement_locked = true
 	if target.has_method("on_hold_started"):
 		target.on_hold_started(_player)
 	set_process(true)
-	hold_changed.emit(0.0, _prompt_of(target))
+	hold_changed.emit(0.0, _hold_prompt)
 
 ## 완료 전에 손을 떼면 취소된다. 아무 효과도 남기지 않는다.
 func cancel() -> void:
@@ -98,6 +100,7 @@ func _end_hold() -> void:
 	current_target = null
 	set_process(false)
 	_hold_elapsed = 0.0
+	_hold_prompt = ""
 	_player.movement_locked = false
 	if target != null and is_instance_valid(target) and target.has_method("on_hold_ended"):
 		target.on_hold_ended(_player)

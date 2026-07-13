@@ -10,9 +10,11 @@ extends Area2D
 const BANDAGE_ID: StringName = &"bandage"
 
 var _player: Player = null
+var _game_data: Node = null
 
 func _ready() -> void:
 	_player = get_parent() as Player
+	_game_data = get_node("/root/GameData")
 
 func can_interact(who: Node) -> bool:
 	if _player == null or not _player.health.is_bleeding:
@@ -27,7 +29,7 @@ func get_hold_seconds() -> float:
 
 func get_prompt() -> String:
 	# 표시 문구도 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
-	var bandage: ItemData = get_node("/root/GameData").get_item(BANDAGE_ID)
+	var bandage: ItemData = _game_data.get_item(BANDAGE_ID)
 	if bandage == null:
 		return ""
 	return "%s 사용" % bandage.display_name

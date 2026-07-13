@@ -10,6 +10,10 @@ const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
 var campfire: Campfire = null
+var _game_data: Node = null
+
+func _ready() -> void:
+	_game_data = get_node("/root/GameData")
 
 func can_interact(who: Node) -> bool:
 	if campfire != null:
@@ -27,9 +31,8 @@ func get_hold_seconds() -> float:
 
 func get_prompt() -> String:
 	# 표시 문구와 수치는 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
-	var game_data: Node = get_node("/root/GameData")
-	var stone: ItemData = game_data.get_item(&"stone")
-	var wood: ItemData = game_data.get_item(&"wood")
+	var stone: ItemData = _game_data.get_item(&"stone")
+	var wood: ItemData = _game_data.get_item(&"wood")
 	if stone == null or wood == null:
 		return ""
 	return "모닥불 설치 (%s x%d, %s x%d)" % [
