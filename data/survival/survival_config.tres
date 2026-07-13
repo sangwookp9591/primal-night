@@ -5,6 +5,8 @@
 [resource]
 script = ExtResource("1_survivalconfig")
 max_health = 100.0
+health_hurt_ratio = 0.6
+health_critical_ratio = 0.3
 max_stamina = 100.0
 stamina_run_drain = 20.0
 stamina_regen_idle = 15.0

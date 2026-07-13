@@ -6,6 +6,11 @@ extends Resource
 
 @export_group("Health")
 @export var max_health: float = 100.0
+## HUD 단계 표시 경계 (설계서 10.1: 숫자 나열보다 단계 표시).
+## 이 비율 아래면 "부상".
+@export var health_hurt_ratio: float = 0.6
+## 이 비율 아래면 "위독".
+@export var health_critical_ratio: float = 0.3
 
 @export_group("Stamina")
 @export var max_stamina: float = 100.0
