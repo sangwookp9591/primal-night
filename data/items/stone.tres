@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3 uid="uid://itemstone"]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"stone"
+display_name = "돌"
+stackable = true
+max_stack = 20
+weight = 1.0
