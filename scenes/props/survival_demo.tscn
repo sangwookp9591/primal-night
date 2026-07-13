@@ -12,25 +12,27 @@
 script = ExtResource("3_debughurt")
 damage = 25.0
 
+; test_world 는 x=0~80 을 세로로 막는 솔리드 벽 기둥이 있고 플레이어 스폰(0,180)이
+; 그 벽에 붙어 있다. 걸어서 닿을 수 있는 곳은 벽 왼쪽(x <= -40)뿐이라 여기에 배치한다.
 [node name="Bandage" parent="." instance=ExtResource("1_item")]
-position = Vector2(-80, 200)
+position = Vector2(-90, 190)
 item_id = &"bandage"
 count = 2
 
 [node name="Stone1" parent="." instance=ExtResource("1_item")]
-position = Vector2(80, 210)
+position = Vector2(-170, 150)
 item_id = &"stone"
 count = 2
 
 [node name="Stone2" parent="." instance=ExtResource("1_item")]
-position = Vector2(130, 240)
+position = Vector2(-210, 220)
 item_id = &"stone"
 count = 1
 
 [node name="Wood1" parent="." instance=ExtResource("1_item")]
-position = Vector2(40, 270)
+position = Vector2(-130, 280)
 item_id = &"wood"
 count = 2
 
 [node name="CampfireSite" parent="." instance=ExtResource("2_site")]
-position = Vector2(0, 300)
+position = Vector2(-190, 330)
