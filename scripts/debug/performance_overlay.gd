@@ -28,12 +28,20 @@ func _ready() -> void:
 	_refresh_text()
 
 func _process(delta: float) -> void:
-	if Input.is_key_pressed(KEY_F3):
-		_visible_in_debug = not _visible_in_debug
-		visible = _visible_in_debug
-
 	record_frame_ms(delta * 1000.0)
 	maybe_refresh(delta)
+
+func _unhandled_input(event: InputEvent) -> void:
+	handle_debug_toggle(event)
+
+func handle_debug_toggle(event: InputEvent) -> bool:
+	var key_event: InputEventKey = event as InputEventKey
+	if key_event == null or not key_event.pressed or key_event.echo or key_event.keycode != KEY_F3:
+		return false
+
+	_visible_in_debug = not _visible_in_debug
+	visible = _visible_in_debug
+	return true
 
 func record_frame_ms(frame_ms: float) -> void:
 	if _samples.size() != sample_capacity:

@@ -26,3 +26,15 @@ func test_refresh_interval_throttles_text_updates() -> void:
 
 	assert_false(updated_first)
 	assert_true(updated_second)
+
+func test_f3_key_event_toggles_visibility_once() -> void:
+	var overlay: CanvasLayer = autofree(OverlayScript.new())
+	overlay._ready()
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = KEY_F3
+	event.pressed = true
+
+	var toggled: bool = overlay.handle_debug_toggle(event)
+
+	assert_true(toggled)
+	assert_false(overlay.visible)
