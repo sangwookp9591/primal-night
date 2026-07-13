@@ -62,6 +62,30 @@ func test_smell_above_threshold_triggers_investigation_along_gradient() -> void:
 	assert_gt(raptor.move_target.x, raptor.global_position.x,
 		"정확한 발생 좌표가 아니라 농도가 진해지는 방향으로 이동한다")
 
+## ★ 공정성 규칙 회귀 방어 (T5 뮤테이션 M3): 냄새 조사 목표는 오직 격자 경사에서만
+## 나와야 한다. 실제 player 그룹 노드가 어디로 움직이든 목표는 변하지 않는다.
+func test_smell_investigation_target_is_independent_of_player_position() -> void:
+	var grid: SmellGrid = _spawn_smell_grid()
+	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2(50.0, 50.0))
+	var player: Node2D = _spawn_player(Vector2(350.0, 50.0))
+	await wait_physics_frames(1)
+	# 랩터 셀에 문턱 이상, 동쪽 셀에 더 진한 냄새 — 경사는 동쪽 한 셀.
+	_event_bus.smell_emitted.emit(Vector2(50.0, 50.0), 10.0, &"blood")
+	_event_bus.smell_emitted.emit(Vector2(150.0, 50.0), 100.0, &"blood")
+
+	raptor._ai_tick()
+	assert_eq(raptor.state, Raptor.State.INVESTIGATE, "전제: 냄새로 조사에 진입한다")
+	var gradient_target: Vector2 = raptor.move_target
+	assert_eq(gradient_target, Vector2(150.0, 50.0),
+		"조사 목표는 경사 방향 한 셀 전진 지점이다 (설계서 5.4)")
+
+	# 플레이어가 시야 밖에서 여러 번 이동해도 목표는 냄새 경사에서만 나온다.
+	for new_position: Vector2 in [Vector2(50.0, 450.0), Vector2(-350.0, -250.0)]:
+		player.position = new_position
+		raptor._ai_tick()
+		assert_eq(raptor.move_target, gradient_target,
+			"플레이어 위치 %s 와 무관하게 경사 목표를 유지해야 한다 (설계서 5.3)" % new_position)
+
 func test_smell_below_threshold_is_ignored() -> void:
 	var grid: SmellGrid = _spawn_smell_grid()
 	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2(50.0, 50.0))
