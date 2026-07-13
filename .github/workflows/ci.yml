@@ -42,7 +42,38 @@ jobs:
       - name: Run GUT
         run: |
           mkdir -p artifacts
-          "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit -gjunit_xml_file=res://artifacts/gut.xml
+          "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit -gjunit_xml_file=res://artifacts/gut.xml
+
+      # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
+      # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
+      - name: Verify no tests were silently skipped
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+
+          on_disk = {os.path.basename(p) for p in glob.glob("tests/**/test_*.gd", recursive=True)}
+          xml = open("artifacts/gut.xml", encoding="utf-8").read()
+
+          # 자체 생성한 리포트다. XML 파서를 쓸 이유가 없고, 속성만 뽑으면 충분하다.
+          suites = re.findall(r'<testsuite\s+([^>]*)>', xml)
+          reported, tests, failures = set(), 0, 0
+          for attrs in suites:
+              d = dict(re.findall(r'(\w+)="([^"]*)"', attrs))
+              reported.add(os.path.basename(d.get("name", "")))
+              tests += int(d.get("tests", 0))
+              failures += int(d.get("failures", 0)) + int(d.get("errors", 0))
+
+          missing = on_disk - reported
+          print(f"디스크 {len(on_disk)}개 / 리포트 {len(reported)}개 / 테스트 {tests}개 / 실패 {failures}건")
+
+          if missing:
+              sys.exit("::error::조용히 건너뛴 테스트 스크립트: " + ", ".join(sorted(missing)))
+          if tests == 0:
+              sys.exit("::error::테스트가 하나도 실행되지 않았다")
+          if failures:
+              sys.exit(f"::error::실패 {failures}건")
+          print("OK — 모든 테스트 스크립트가 실제로 실행되었고 전부 통과")
+          PY
 
       - name: Export Windows x86_64
         run: |
