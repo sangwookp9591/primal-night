@@ -2,3 +2,4 @@
 .godot/
 export/
 *.tmp
+.claude/settings.local.json
