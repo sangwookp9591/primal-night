@@ -1,0 +1,42 @@
+{
+	"build": "b227bab-dirty",
+	"custom": {
+		"ai_update_usec_p95": 0.0,
+		"navigation_requests_max_frame": 0,
+		"scent_update_usec_p95": 0.0
+	},
+	"duration_sec": 0.932053000000001,
+	"engine": "4.7-stable (official)",
+	"environment": {
+		"cpu": "Apple M5",
+		"display_server": "headless",
+		"gpu": "",
+		"os": "macOS",
+		"resolution": "headless"
+	},
+	"fps": {
+		"average": 128.748043297967,
+		"low_0_1_percent": 8.57142857142857,
+		"low_1_percent": 15.8402040218278
+	},
+	"frame_ms": {
+		"max": 116.666666666667,
+		"p50": 6.94444444444444,
+		"p95": 8.24841666847157,
+		"p99": 9.59433333333334
+	},
+	"hardware_id": "macos-dev-headless-not-minspec",
+	"measurement_note": "macOS 개발기 headless smoke 기준선이며 Windows 최소사양 예산 또는 출시 판정 수치가 아님.",
+	"memory_mb": {
+		"end": 23.2114000320435,
+		"peak": 23.2114000320435,
+		"start": 23.1852655410767
+	},
+	"scenario": "B01_HEADLESS_SMOKE",
+	"schema_version": 1,
+	"stalls": {
+		"over_100ms": 1,
+		"over_33ms": 1,
+		"over_50ms": 1
+	}
+}
