@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=4 uid="uid://performanceoverlaydebug"]
+
+[ext_resource type="Script" path="res://scripts/debug/performance_overlay.gd" id="1_overlay"]
+
+[node name="PerformanceOverlay" type="CanvasLayer"]
+script = ExtResource("1_overlay")
