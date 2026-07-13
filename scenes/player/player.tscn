@@ -1,7 +1,10 @@
-[gd_scene load_steps=4 format=4 uid="uid://playerscene"]
+[gd_scene load_steps=7 format=4 uid="uid://playerscene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
+[ext_resource type="Script" path="res://scripts/survival/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/survival/stamina_component.gd" id="4_stamina"]
+[ext_resource type="Resource" path="res://data/survival/survival_config.tres" id="5_survival"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -26,3 +29,11 @@ shape = SubResource("RectangleShape2D_player")
 [node name="Camera2D" type="Camera2D" parent="."]
 position_smoothing_enabled = true
 position_smoothing_speed = 6.0
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3_health")
+config = ExtResource("5_survival")
+
+[node name="StaminaComponent" type="Node" parent="."]
+script = ExtResource("4_stamina")
+config = ExtResource("5_survival")

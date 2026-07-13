@@ -9,6 +9,7 @@ max_stamina = 100.0
 stamina_run_drain = 20.0
 stamina_regen_idle = 15.0
 stamina_regen_walk = 7.0
+stamina_recover_threshold = 20.0
 bleed_damage_per_second = 2.0
 bleed_smell_interval = 0.5
 bleed_smell_strength = 60.0

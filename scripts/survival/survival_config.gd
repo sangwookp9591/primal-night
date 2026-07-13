@@ -15,6 +15,9 @@ extends Resource
 @export var stamina_regen_idle: float = 15.0
 ## 걷는 중 초당 회복량.
 @export var stamina_regen_walk: float = 7.0
+## 소진 후 다시 달릴 수 있게 되는 회복 임계치.
+## 0 보다 크기만 하면 달릴 수 있게 하면 매 프레임 달리기/걷기가 깜빡인다.
+@export var stamina_recover_threshold: float = 20.0
 
 @export_group("Bleeding")
 ## 출혈 중 초당 피해.
