@@ -11,7 +11,8 @@ var _event_bus: Node = null
 
 func _ready() -> void:
 	add_to_group("player")
-	_event_bus = get_node("/root/EventBus")
+	if has_node("/root/EventBus"):
+		_event_bus = get_node("/root/EventBus")
 
 func _physics_process(delta: float) -> void:
 	var input_vector: Vector2 = _get_input_vector()
@@ -31,7 +32,8 @@ func _physics_process(delta: float) -> void:
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
-		_event_bus.emit_signal("noise_emitted", global_position, _noise_radius, self)
+		if _event_bus != null:
+			_event_bus.emit_signal("noise_emitted", global_position, _noise_radius, self)
 
 func get_noise_radius() -> float:
 	return _noise_radius
