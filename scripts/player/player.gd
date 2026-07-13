@@ -8,6 +8,8 @@ const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_conf
 ## 생존 규칙은 컴포넌트가 소유한다. Player 는 입력과 이동만 안다 (설계서 9.2).
 @onready var health: HealthComponent = $HealthComponent
 @onready var stamina: StaminaComponent = $StaminaComponent
+@onready var inventory: Inventory = $Inventory
+@onready var interactor: Interactor = $Interactor
 
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
