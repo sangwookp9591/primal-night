@@ -44,6 +44,17 @@ jobs:
           mkdir -p artifacts
           "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit -gjunit_xml_file=res://artifacts/gut.xml
 
+      # 2주 목표 장면의 진짜 E2E 관문. 유닛 테스트는 각 조각만 지킨다 —
+      # 이건 부상 → 피 냄새 → 바람 이류 → 랩터 조사 → 추격 → 모닥불 → 후퇴 전 구간이
+      # 실제 main.tscn 에서 이어지는지 본다. (WEEK1_VERIFICATION_ROUND2.md R2-M-01)
+      # 고정 seed 라 결정적이다. 3회 돌려 비결정 회귀도 함께 막는다.
+      - name: Replay goal scene (E2E)
+        run: |
+          for i in 1 2 3; do
+            echo "--- goal scene replay $i/3 ---"
+            "$GODOT_BIN" --headless --path . -s scripts/creature/goal_scene_replay.gd | tee "artifacts/goal_scene_replay_$i.log"
+          done
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
