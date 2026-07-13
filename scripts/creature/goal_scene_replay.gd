@@ -11,6 +11,9 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const CAMPFIRE_SITE_POSITION: Vector2 = Vector2(-190.0, 330.0)
+## 재현 도구는 결정적이어야 한다 (B-01): 랩터 배회 RNG 만 고정 seed 로 덮어쓴다.
+## 게임 플레이는 raptor._ready() 의 randomize() 로 여전히 무작위다.
+const RAPTOR_RNG_SEED: int = 3
 
 var _main: Node2D = null
 var _player: Player = null
@@ -28,6 +31,7 @@ func _run() -> void:
 	get_root().add_child(_main)
 	_player = _main.get_node("Player")
 	_raptor = _main.get_node("Raptor")
+	_raptor.rng.seed = RAPTOR_RNG_SEED
 	_grid = _main.get_node("SmellGrid")
 	_raptor.state_changed.connect(_on_state_changed)
 	_raptor.chase_started.connect(func() -> void: _log("★ chase_started 신호 발신 (경고 '!' 표시)"))
@@ -36,9 +40,9 @@ func _run() -> void:
 	get_root().get_node("EventBus").campfire_lit.connect(
 		func(_campfire: Node, position: Vector2, radius: float) -> void:
 			_log("campfire_lit at %s radius %.0f" % [position, radius]))
-	_log("씬 로드 완료. player=%s raptor=%s wind=%s strength=%.1f" % [
+	_log("씬 로드 완료. player=%s raptor=%s wind=%s strength=%.1f rng_seed=%d" % [
 		_player.global_position, _raptor.global_position,
-		_grid.wind_direction, _grid.wind_strength])
+		_grid.wind_direction, _grid.wind_strength, RAPTOR_RNG_SEED])
 
 	# 1) 배회 관측 (3초).
 	_log("--- phase 1: 배회 관측 ---")
