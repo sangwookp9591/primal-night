@@ -1,17 +1,18 @@
 extends CanvasLayer
 
-const FrameMetricsScript = preload("res://scripts/debug/frame_metrics.gd")
+const HISTOGRAM_BUCKETS: int = 121
+const HISTOGRAM_BUCKET_WIDTH_MS: float = 1.0
 
 @export var sample_capacity: int = 240
-@export var refresh_interval_sec: float = 0.25
+@export var refresh_interval_sec: float = 1.0
 
 var _samples: PackedFloat64Array = PackedFloat64Array()
+var _histogram: PackedInt32Array = PackedInt32Array()
 var _sample_index: int = 0
 var _sample_count: int = 0
 var _refresh_elapsed_sec: float = 0.0
 var _visible_in_debug: bool = true
 var _label: Label
-var _calculator: RefCounted = FrameMetricsScript.new()
 
 func _ready() -> void:
 	if not OS.is_debug_build():
@@ -20,6 +21,7 @@ func _ready() -> void:
 		return
 
 	_samples.resize(sample_capacity)
+	_histogram.resize(HISTOGRAM_BUCKETS)
 	_label = Label.new()
 	_label.name = "Metrics"
 	_label.position = Vector2(12.0, 12.0)
@@ -28,6 +30,8 @@ func _ready() -> void:
 	_refresh_text()
 
 func _process(delta: float) -> void:
+	if not _visible_in_debug:
+		return
 	record_frame_ms(delta * 1000.0)
 	maybe_refresh(delta)
 
@@ -41,6 +45,7 @@ func handle_debug_toggle(event: InputEvent) -> bool:
 
 	_visible_in_debug = not _visible_in_debug
 	visible = _visible_in_debug
+	set_process(_visible_in_debug)
 	return true
 
 func record_frame_ms(frame_ms: float) -> void:
@@ -77,10 +82,8 @@ func _refresh_text() -> void:
 	if _label == null:
 		return
 
-	var summary: Dictionary = _calculator.summarize(get_recorded_frame_ms())
-	var frame_ms: Dictionary = summary["frame_ms"]
 	var lines: PackedStringArray = PackedStringArray()
-	lines.append("Frame ms now %.2f avg %.2f p95 %.2f" % [_latest_frame_ms(), _average_frame_ms(), frame_ms["p95"]])
+	lines.append("Frame ms now %.2f avg %.2f p95 %.2f" % [_latest_frame_ms(), _average_frame_ms(), _percentile_frame_ms(0.95)])
 	lines.append("Perf ai avg %.2f ms" % _perf_avg_ms(&"ai"))
 	lines.append("Objects %.0f DrawCalls %.0f Memory %.1f MB" % [
 		Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
@@ -99,9 +102,32 @@ func _average_frame_ms() -> float:
 	if _sample_count == 0:
 		return 0.0
 	var total_ms: float = 0.0
-	for frame_ms: float in get_recorded_frame_ms():
-		total_ms += frame_ms
+	for output_index: int in range(_sample_count):
+		total_ms += _samples[_sample_slot(output_index)]
 	return total_ms / float(_sample_count)
+
+func _percentile_frame_ms(percentile: float) -> float:
+	if _sample_count == 0:
+		return 0.0
+
+	_histogram.fill(0)
+	for output_index: int in range(_sample_count):
+		var bucket: int = clampi(int(_samples[_sample_slot(output_index)] / HISTOGRAM_BUCKET_WIDTH_MS), 0, HISTOGRAM_BUCKETS - 1)
+		_histogram[bucket] += 1
+
+	var target_rank: int = maxi(1, int(ceil(float(_sample_count) * percentile)))
+	var seen: int = 0
+	for bucket: int in range(HISTOGRAM_BUCKETS):
+		seen += _histogram[bucket]
+		if seen >= target_rank:
+			return float(bucket) * HISTOGRAM_BUCKET_WIDTH_MS
+	return float(HISTOGRAM_BUCKETS - 1) * HISTOGRAM_BUCKET_WIDTH_MS
+
+func _sample_slot(output_index: int) -> int:
+	var start_index: int = 0
+	if _sample_count == sample_capacity:
+		start_index = _sample_index
+	return (start_index + output_index) % sample_capacity
 
 func _perf_avg_ms(key: StringName) -> float:
 	if not is_inside_tree() or not has_node("/root/PerfMonitor"):
