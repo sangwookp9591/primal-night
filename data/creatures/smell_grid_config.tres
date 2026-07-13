@@ -6,6 +6,6 @@
 script = ExtResource("1_smellgridconfig")
 cell_size = 128.0
 tick_interval = 0.25
-decay_factor = 0.8
-advect_fraction = 0.4
+decay_factor = 0.85
+advect_fraction = 0.5
 min_active_value = 0.5
