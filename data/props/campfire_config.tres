@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CampfireConfig" load_steps=2 format=3 uid="uid://campfireconfig"]
+
+[ext_resource type="Script" path="res://scripts/props/campfire_config.gd" id="1_campfireconfig"]
+
+[resource]
+script = ExtResource("1_campfireconfig")
+light_radius = 220.0
+fuel_seconds = 60.0
+stone_cost = 3
+wood_cost = 2
+build_seconds = 1.0
