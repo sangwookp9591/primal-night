@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CreatureData" load_steps=2 format=3 uid="uid://raptordata"]
+
+[ext_resource type="Script" path="res://scripts/creature/creature_data.gd" id="1_creaturedata"]
+
+[resource]
+script = ExtResource("1_creaturedata")
+walk_speed = 90.0
+chase_speed = 200.0
+sight_radius = 180.0
+lose_sight_radius = 280.0
+smell_threshold = 8.0
+investigate_arrive_distance = 24.0
+ai_tick_interval = 0.2
+occlusion_attenuation = 0.5
+fire_exit_ratio = 1.3
+wander_range = 320.0
+alert_seconds = 1.0
