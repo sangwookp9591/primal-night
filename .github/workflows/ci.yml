@@ -70,6 +70,14 @@ jobs:
         run: |
           "$GODOT_BIN" --headless --path . -s scripts/net/network_conditions_harness.gd | tee artifacts/network_conditions_harness.log
 
+      # W2-T2: 2인 협동 하네스 — 실제 main.tscn 2개 + ENet 루프백으로
+      # 같은 아이템 동시 획득(정확히 1명, 복제/소실 0) → 클라 부상(변조 피해량 클램프)
+      # → 호스트 냄새 격자 blood 축적(호스트 단독 발신) → 호스트 붕대 치료 확정
+      # → 냄새 정지를 자동 판정한다 (설계서 7.2/7.4, 5.2).
+      - name: Two-player co-op harness (pickup/bleed/heal E2E)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/survival/two_player_coop_harness.gd | tee artifacts/two_player_coop_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
