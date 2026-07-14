@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=14 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -11,6 +11,8 @@
 [ext_resource type="Script" path="res://scripts/net/local_session_service.gd" id="9_netsession"]
 [ext_resource type="Script" path="res://scripts/net/net_movement.gd" id="10_netmovement"]
 [ext_resource type="Resource" path="res://resources/net/net_config.tres" id="11_netconfig"]
+[ext_resource type="Script" path="res://scripts/items/net_pickup.gd" id="12_netpickup"]
+[ext_resource type="Script" path="res://scripts/survival/net_survival.gd" id="13_netsurvival"]
 
 [node name="Main" type="Node2D"]
 
@@ -54,4 +56,13 @@ config = ExtResource("11_netconfig")
 [node name="NetMovement" type="Node" parent="."]
 script = ExtResource("10_netmovement")
 avatar_scene = ExtResource("2_player")
+config = ExtResource("11_netconfig")
+
+; 아이템 획득 호스트 권위 — 줍기 의도 검증·직렬 확정·복제 (설계서 7.2/7.4, W2-T2).
+[node name="NetPickup" type="Node" parent="."]
+script = ExtResource("12_netpickup")
+
+; 피해·출혈·붕대 치료 호스트 권위 + 생존 스냅샷 복제 (설계서 7.2/5.2, W2-T2).
+[node name="NetSurvival" type="Node" parent="."]
+script = ExtResource("13_netsurvival")
 config = ExtResource("11_netconfig")
