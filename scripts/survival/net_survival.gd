@@ -48,10 +48,8 @@ func _ready() -> void:
 	_guard.register_rule(&"apply_heal_lock", true, SNAPSHOT_MAX_PER_SECOND, HEAL_PAYLOAD_BYTES)
 	_guard.register_rule(&"apply_heal_result", true, SNAPSHOT_MAX_PER_SECOND, HEAL_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
-	_session.player_joined.connect(_on_player_joined)
-	# 재접속 피어는 새 peer id 를 받는다 — 재등록하지 않으면 unknown_sender 로
-	# 거부되어 재접속 후 부상·치료 의도가 죽는다 (tests/net/test_net_resync.gd, W2-T5).
-	_session.player_reconnected.connect(_on_player_joined)
+	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
+	_guard.watch_session(_session)
 	_session.player_left.connect(_on_player_left)
 
 
@@ -323,12 +321,7 @@ func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> 
 	_snapshot_bleedings[index] = 1 if avatar.health.is_bleeding else 0
 
 
-func _on_player_joined(player_id: StringName) -> void:
-	_guard.add_peer(_session.get_peer_for_player(player_id))
-
-
 func _on_player_left(player_id: StringName) -> void:
-	_guard.remove_peer(_session.get_peer_for_player(player_id))
 	if not multiplayer.is_server():
 		return
 	# 치료자 또는 환자가 이탈하면 그 치료 세션을 끊는다 (설계서 5.2/7.3 경계).

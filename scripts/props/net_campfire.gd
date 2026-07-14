@@ -49,9 +49,7 @@ func _ready() -> void:
 	_guard.register_rule(&"confirm_campfire_build", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.register_rule(&"confirm_campfire_extinguished", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
-	_session.player_joined.connect(_on_player_joined)
-	_session.player_reconnected.connect(_on_player_joined)
-	_session.player_left.connect(_on_player_left)
+	_guard.watch_session(_session)
 
 
 func _physics_process(delta: float) -> void:
@@ -160,17 +158,7 @@ func _on_campfire_extinguished(campfire: Node) -> void:
 
 
 func _is_valid_path(path: String) -> bool:
-	# 명시적 스키마: 비어 있지 않고, 길이 상한 안이며, 월드 밖으로 탈출하지 않는 상대 경로.
-	return not path.is_empty() and path.length() <= SITE_PATH_MAX_LENGTH \
-		and not path.begins_with("/") and not path.contains("..")
-
-
-func _on_player_joined(player_id: StringName) -> void:
-	_guard.add_peer(_session.get_peer_for_player(player_id))
-
-
-func _on_player_left(player_id: StringName) -> void:
-	_guard.remove_peer(_session.get_peer_for_player(player_id))
+	return RpcGuard.is_safe_relative_path(path, SITE_PATH_MAX_LENGTH)
 
 
 func _host_id() -> StringName:

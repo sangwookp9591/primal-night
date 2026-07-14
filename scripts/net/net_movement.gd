@@ -59,6 +59,9 @@ func _ready() -> void:
 	_guard.register_rule(&"apply_snapshot", true,
 		CONTROL_RPC_MAX_PER_SECOND, config.snapshot_max_payload_bytes)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
+	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
+	# 아래 구독들은 스폰·제거 등 이 노드 고유 작업만 담당한다.
+	_guard.watch_session(_session)
 	_avatars[_session.get_player_id_for_peer(RpcGuard.HOST_PEER_ID)] = _host_player
 	_session.player_joined.connect(_on_player_joined)
 	_session.player_reconnected.connect(_on_player_reconnected)
@@ -173,7 +176,6 @@ func _on_player_joined(player_id: StringName) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer: int = _session.get_peer_for_player(player_id)
-	_guard.add_peer(peer)
 	_last_intent_ticks[peer] = _ticks
 	var spawn_position: Vector2 = _host_player.global_position + config.client_spawn_offset
 	_spawn(player_id, peer, spawn_position)
@@ -184,7 +186,6 @@ func _on_player_left(player_id: StringName) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer: int = _session.get_peer_for_player(player_id)
-	_guard.remove_peer(peer)
 	_last_intent_ticks.erase(peer)
 	if _avatars.has(player_id):
 		_pending_despawn_seconds[player_id] = DISCONNECT_DESPAWN_SECONDS
@@ -194,7 +195,6 @@ func _on_player_reconnected(player_id: StringName) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer: int = _session.get_peer_for_player(player_id)
-	_guard.add_peer(peer)
 	_last_intent_ticks[peer] = _ticks
 	_pending_despawn_seconds.erase(player_id)
 	var avatar: Player = _avatars.get(player_id)

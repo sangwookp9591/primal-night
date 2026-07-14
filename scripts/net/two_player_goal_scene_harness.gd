@@ -18,11 +18,11 @@ extends SceneTree
 ## 입력·물리 기반 이동, 단계별 로그, 성공 시 exit 0 / 실패 시 exit 1.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const WorldItemScene: PackedScene = preload("res://scenes/items/world_item.tscn")
 const RAPTOR_RNG_SEED: int = 3
-const FIRE_POSITION: Vector2 = Vector2(-190.0, 330.0)  # SurvivalDemo/CampfireSite
-const FIRE_RADIUS: float = 220.0  # data/props/campfire_config.tres
 
-var _frames: int = 0
+## 로그 타임스탬프 기준점 — 수동 프레임 부기 대신 엔진 물리 프레임 카운터에서 파생한다.
+var _epoch_physics_frames: int = 0
 var _campfire_lit_count: int = 0
 var _blood_smell_count: int = 0
 
@@ -33,6 +33,7 @@ func _init() -> void:
 
 func _run() -> void:
 	await process_frame
+	_epoch_physics_frames = Engine.get_physics_frames()
 
 	# ── phase 0: 두 '기계'에 main.tscn 로드 + W2 전체 배선 관문 ──
 	_log("--- phase 0: 호스트/클라이언트 기계 로드 + 배선 관문 ---")
@@ -50,8 +51,11 @@ func _run() -> void:
 	var host_player: Player = host_main.get_node("Player")
 	var host_raptor: Raptor = host_main.get_node("Raptor")
 	var client_raptor: Raptor = client_main.get_node("Raptor")
-	var host_grid: SmellGrid = host_main.get_node("SmellGrid")
 	var client_survival: NetSurvival = client_main.get_node("NetSurvival")
+	# 모닥불 자리·반경은 씬과 데이터 리소스에서 읽는다 — 배치·수치가 바뀌어도 하네스가 따라간다.
+	var host_site: CampfireSite = host_main.get_node("SurvivalDemo/CampfireSite")
+	var fire_position: Vector2 = host_site.global_position
+	var fire_radius: float = host_site.config.light_radius
 
 	var event_bus: Node = get_root().get_node("EventBus")
 	event_bus.campfire_lit.connect(
@@ -129,14 +133,14 @@ func _run() -> void:
 
 	# ── phase 5: 동료가 붕대로 치료 — 월드 붕대 획득 → 홀드 → 호스트 확정 → 냄새 정지 ──
 	_log("--- phase 5: 호스트가 월드 붕대 획득 후 치료 ---")
-	host_player.global_position = (host_main.get_node("SurvivalDemo/Bandage") as WorldItem).global_position
-	(host_main.get_node("SurvivalDemo/Bandage") as WorldItem).interact(host_player)
+	var world_bandage: WorldItem = host_main.get_node("SurvivalDemo/Bandage")
+	host_player.global_position = world_bandage.global_position
+	world_bandage.interact(host_player)
 	if host_player.inventory.count_of(&"bandage") < 1:
 		return _fail("호스트가 월드 붕대를 줍지 못했다")
 	host_player.global_position = host_view_client.global_position + Vector2(-40.0, 0.0)
 	await physics_frame
 	await physics_frame
-	_frames += 2
 	host_player.interactor.begin()
 	if host_player.interactor.current_target == null:
 		return _fail("호스트가 출혈 중인 동료의 HealTarget 을 잡지 못했다")
@@ -151,7 +155,6 @@ func _run() -> void:
 	var count_at_heal: int = _blood_smell_count
 	for i: int in range(120):
 		await physics_frame
-		_frames += 1
 	if _blood_smell_count != count_at_heal:
 		return _fail("치료 후에도 blood 냄새가 발신된다 (랩터 추적 근거가 남는다)")
 	_log("치료 확정: 지혈 + 붕대 소비 + 냄새 정지 (붕대 잔여 %d)" % host_player.inventory.count_of(&"bandage"))
@@ -163,7 +166,6 @@ func _run() -> void:
 	_spawn_item_both(host_main, client_main, "GoalWood", &"wood", 2, base + Vector2(-24.0, 24.0))
 	_spawn_item_both(host_main, client_main, "SpareStone", &"stone", 2, base + Vector2(0.0, -24.0))
 	await physics_frame
-	_frames += 1
 	for item_name: String in ["GoalStone", "GoalWood", "SpareStone"]:
 		(client_main.get_node(item_name) as WorldItem).interact(client_avatar)
 	if not await _wait_until(func() -> bool:
@@ -172,9 +174,8 @@ func _run() -> void:
 		return _fail("클라이언트 재료 획득이 확정·복제되지 않았다")
 	_log("재료 확보: 돌 5 (여분 2 포함), 나무 2")
 
-	if not await _walk_until(client_avatar, FIRE_POSITION, 25.0):
+	if not await _walk_until(client_avatar, fire_position, 25.0):
 		return _fail("클라이언트가 모닥불 자리에 도달하지 못했다")
-	var host_site: CampfireSite = host_main.get_node("SurvivalDemo/CampfireSite")
 	var client_site: CampfireSite = client_main.get_node("SurvivalDemo/CampfireSite")
 	client_avatar.interactor.begin()
 	if client_avatar.interactor.current_target != client_site:
@@ -197,16 +198,16 @@ func _run() -> void:
 	# 점화로 랩터가 일단 물러나 이탈 반경(radius*1.3) 밖으로 나간다.
 	if not await _wait_until(func() -> bool:
 			return host_raptor.state != Raptor.State.FLEE \
-				and host_raptor.global_position.distance_to(FIRE_POSITION) > FIRE_RADIUS * 1.3, 30.0, _report_raptor):
+				and host_raptor.global_position.distance_to(fire_position) > fire_radius * 1.3, 30.0, _report_raptor):
 		return _fail("점화 후 랩터가 이탈 반경 밖으로 물러나지 않았다")
 	# 호스트가 불 반경 밖(랩터와 불 사이)에 남는다 — 노출된 동료 상황.
 	var exposed_position: Vector2 = host_raptor.global_position \
-		+ (FIRE_POSITION - host_raptor.global_position).normalized() * 60.0
-	if exposed_position.distance_to(FIRE_POSITION) <= FIRE_RADIUS:
+		+ (fire_position - host_raptor.global_position).normalized() * 60.0
+	if exposed_position.distance_to(fire_position) <= fire_radius:
 		return _fail("검증 전제 붕괴: 노출 위치가 불 반경 안이다")
 	host_player.global_position = exposed_position
 	_log("호스트 노출 배치: %s (불에서 %.0fpx, 랩터에서 %.0fpx)" % [
-		exposed_position.snapped(Vector2.ONE), exposed_position.distance_to(FIRE_POSITION),
+		exposed_position.snapped(Vector2.ONE), exposed_position.distance_to(fire_position),
 		exposed_position.distance_to(host_raptor.global_position)])
 	# ★ 클라이언트만 보호된 상태 — 랩터는 물러나지 않고 노출된 호스트를 추격해야 한다.
 	if not await _wait_until(func() -> bool:
@@ -218,15 +219,14 @@ func _run() -> void:
 	_log("★ 한 명만 보호 → 랩터가 노출된 호스트를 추격 (물러나지 않음) 확인")
 
 	# 호스트도 불 반경 안으로 — 이제 전원 보호, 랩터가 비로소 물러난다.
-	host_player.global_position = FIRE_POSITION + Vector2(30.0, 0.0)
+	host_player.global_position = fire_position + Vector2(30.0, 0.0)
 	if not await _wait_until(func() -> bool:
 			return host_raptor.state == Raptor.State.FLEE, 10.0, _report_raptor):
 		return _fail("두 명 다 불 반경 안인데 랩터가 물러나지 않았다")
-	var flee_start: float = host_raptor.global_position.distance_to(FIRE_POSITION)
+	var flee_start: float = host_raptor.global_position.distance_to(fire_position)
 	for i: int in range(180):
 		await physics_frame
-		_frames += 1
-	var flee_end: float = host_raptor.global_position.distance_to(FIRE_POSITION)
+	var flee_end: float = host_raptor.global_position.distance_to(fire_position)
 	if flee_end <= flee_start:
 		return _fail("랩터가 불에서 멀어지지 않았다 (%.0f → %.0f)" % [flee_start, flee_end])
 	if not await _wait_until(func() -> bool: return client_raptor.state == host_raptor.state, 5.0):
@@ -260,7 +260,6 @@ func _run() -> void:
 	_spawn_item_both(host_main, client_main, "EpilogueStone", &"stone", 1,
 		host_view_client.global_position + Vector2(24.0, 0.0))
 	await physics_frame
-	_frames += 1
 	(client_main.get_node("EpilogueStone") as WorldItem).interact(restored_avatar)
 	if not await _wait_until(func() -> bool:
 			return host_view_client.inventory.count_of(&"stone") == stone_before + 1, 5.0):
@@ -292,7 +291,7 @@ func _make_machine(machine_name: String) -> Node:
 func _spawn_item_both(host_main: Node2D, client_main: Node2D, item_name: String,
 		item_id: StringName, count: int, item_position: Vector2) -> void:
 	for main: Node2D in [host_main, client_main]:
-		var item: WorldItem = (load("res://scenes/items/world_item.tscn") as PackedScene).instantiate()
+		var item: WorldItem = WorldItemScene.instantiate()
 		item.name = item_name
 		item.item_id = item_id
 		item.count = count
@@ -315,10 +314,8 @@ func _walk_until(mover: Player, target: Vector2, timeout_seconds: float) -> bool
 		_set_move(&"move_down", &"move_up", raw.y)
 		await physics_frame
 		elapsed += 1
-		_frames += 1
 	_release_moves()
 	await physics_frame
-	_frames += 1
 	return true
 
 
@@ -341,7 +338,7 @@ func _release_moves() -> void:
 
 func _report_raptor() -> void:
 	var host_raptor: Raptor = get_root().get_node("HostMachine/Main/Raptor")
-	print("[t=%5.1fs] raptor=%s state=%s target=%s" % [float(_frames) / 60.0,
+	_log("raptor=%s state=%s target=%s" % [
 		host_raptor.global_position.snapped(Vector2.ONE), host_raptor.get_state_name(),
 		host_raptor.move_target.snapped(Vector2.ONE)])
 
@@ -355,12 +352,12 @@ func _wait_until(condition: Callable, timeout_seconds: float, report: Callable =
 		if report.is_valid() and frame_index % 60 == 0:
 			report.call()
 		await physics_frame
-		_frames += 1
 	return condition.call()
 
 
 func _log(message: String) -> void:
-	print("[t=%5.1fs] %s" % [float(_frames) / 60.0, message])
+	print("[t=%5.1fs] %s" % [
+		float(Engine.get_physics_frames() - _epoch_physics_frames) / 60.0, message])
 
 
 func _fail(reason: String) -> void:

@@ -43,11 +43,8 @@ func _ready() -> void:
 	_guard.register_rule(&"request_pickup", false, REQUEST_MAX_PER_SECOND, ITEM_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"confirm_pickup", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
-	_session.player_joined.connect(_on_player_joined)
-	# 재접속 피어는 새 peer id 를 받는다 — 재등록하지 않으면 unknown_sender 로
-	# 거부되어 재접속 후 줍기가 죽는다 (tests/net/test_net_resync.gd, W2-T5).
-	_session.player_reconnected.connect(_on_player_joined)
-	_session.player_left.connect(_on_player_left)
+	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
+	_guard.watch_session(_session)
 
 
 func _physics_process(delta: float) -> void:
@@ -79,9 +76,7 @@ func request_pickup(item_path: String) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if not _guard.check(&"request_pickup", sender, item_path.length(), _now_seconds):
 		return
-	# 명시적 스키마: 비어 있지 않고, 길이 상한 안이며, 월드 밖으로 탈출하지 않는 상대 경로.
-	if item_path.is_empty() or item_path.length() > ITEM_PATH_MAX_LENGTH \
-			or item_path.begins_with("/") or item_path.contains(".."):
+	if not RpcGuard.is_safe_relative_path(item_path, ITEM_PATH_MAX_LENGTH):
 		push_warning("NetPickup: request_pickup 스키마 위반 — 폐기 sender=%d" % sender)
 		return
 	var avatar: Player = _avatar_of(_session.get_player_id_for_peer(sender))
@@ -120,7 +115,7 @@ func confirm_pickup(item_path: String, player_id: String, item_id: String, added
 	if not _guard.check(&"confirm_pickup", multiplayer.get_remote_sender_id(),
 			item_path.length() + player_id.length() + item_id.length() + 16, _now_seconds):
 		return
-	if item_path.is_empty() or item_path.begins_with("/") or item_path.contains("..") \
+	if not RpcGuard.is_safe_relative_path(item_path, ITEM_PATH_MAX_LENGTH) \
 			or added <= 0 or remaining < 0 or player_id.is_empty():
 		push_warning("NetPickup: confirm_pickup 스키마 위반 — 폐기")
 		return
@@ -137,14 +132,6 @@ func confirm_pickup(item_path: String, player_id: String, item_id: String, added
 	avatar.inventory.add_item(StringName(item_id), added)
 	if _event_bus != null:
 		_event_bus.item_picked_up.emit(StringName(item_id), avatar)
-
-
-func _on_player_joined(player_id: StringName) -> void:
-	_guard.add_peer(_session.get_peer_for_player(player_id))
-
-
-func _on_player_left(player_id: StringName) -> void:
-	_guard.remove_peer(_session.get_peer_for_player(player_id))
 
 
 func _host_id() -> StringName:

@@ -164,38 +164,42 @@ func _move_along_path() -> void:
 func _ai_tick() -> void:
 	match state:
 		State.WANDER, State.INVESTIGATE:
-			var target: Node2D = _nearest_visible_player(data.sight_radius, true)
 			if _fire_index_containing(global_position, data.fire_exit_ratio) >= 0:
 				# 불이 막 켜져 반경 안에 갇혔다 — 즉시 물러난다.
 				_start_flee()
-			elif target != null:
-				move_target = target.global_position
-				_change_state(State.CHASE)
-			elif _heard_news:
-				move_target = _clamp_outside_fires(_last_heard_position)
-				_change_state(State.INVESTIGATE)
-			elif _smells_blood():
-				move_target = _clamp_outside_fires(_smell_step_target())
-				_change_state(State.INVESTIGATE)
-			elif state == State.INVESTIGATE and _arrived_at(move_target):
-				# 도착했는데 아무것도 없다 — 대상 상실, 배회 복귀 (설계서 14.1).
-				_change_state(State.WANDER)
-			elif state == State.WANDER and _arrived_at(move_target):
-				_pick_wander_target()
+			else:
+				var seen: Dictionary = _perceive_players(data.sight_radius)
+				var target: Node2D = seen.nearest_unprotected
+				if target != null:
+					move_target = target.global_position
+					_change_state(State.CHASE)
+				elif _heard_news:
+					move_target = _clamp_outside_fires(_last_heard_position)
+					_change_state(State.INVESTIGATE)
+				elif _smells_blood():
+					move_target = _clamp_outside_fires(_smell_step_target())
+					_change_state(State.INVESTIGATE)
+				elif state == State.INVESTIGATE and _arrived_at(move_target):
+					# 도착했는데 아무것도 없다 — 대상 상실, 배회 복귀 (설계서 14.1).
+					_change_state(State.WANDER)
+				elif state == State.WANDER and _arrived_at(move_target):
+					_pick_wander_target()
 		State.CHASE:
-			var target: Node2D = _nearest_visible_player(data.lose_sight_radius, true)
 			if _fire_index_containing(global_position, 1.0) >= 0:
 				_start_flee()
-			elif target != null:
-				# 가장 가까운 비보호 플레이어를 추격한다 — 대상이 불 곁에 숨으면
-				# 노출된 동료로 전환한다 (한 명만 보호될 때 물러나지 않는다).
-				move_target = target.global_position
-			elif _nearest_visible_player(data.lose_sight_radius, false) != null:
-				# 보이는 플레이어 전원이 불 곁이다 — 추격 포기 (목표 장면의 결말).
-				_start_flee()
 			else:
-				# 시야 상실: 마지막 목격 위치(move_target)를 조사한다.
-				_change_state(State.INVESTIGATE)
+				var seen: Dictionary = _perceive_players(data.lose_sight_radius)
+				var target: Node2D = seen.nearest_unprotected
+				if target != null:
+					# 가장 가까운 비보호 플레이어를 추격한다 — 대상이 불 곁에 숨으면
+					# 노출된 동료로 전환한다 (한 명만 보호될 때 물러나지 않는다).
+					move_target = target.global_position
+				elif seen.any_visible:
+					# 보이는 플레이어 전원이 불 곁이다 — 추격 포기 (목표 장면의 결말).
+					_start_flee()
+				else:
+					# 시야 상실: 마지막 목격 위치(move_target)를 조사한다.
+					_change_state(State.INVESTIGATE)
 		State.FLEE:
 			var fire_index: int = _fire_index_containing(global_position, data.fire_exit_ratio)
 			if fire_index < 0:
@@ -205,26 +209,32 @@ func _ai_tick() -> void:
 				move_target = _flee_target_from(_campfires[fire_index])
 	_heard_news = false
 
-## 반경 안에서 가장 가까운 플레이어. require_unprotected 면 불 반경 안 플레이어는 제외.
+## 반경 안 플레이어 지각 한 번에: { nearest_unprotected: Node2D(불 밖 최근접), any_visible: bool }.
 ## 그룹 조회는 ai_tick_interval 주기로만 일어난다 — 매 프레임 노드 탐색이 아니다 (성능문서 6.3).
-func _nearest_visible_player(radius: float, require_unprotected: bool) -> Node2D:
-	var best: Node2D = null
-	var best_distance: float = INF
+func _perceive_players(radius: float) -> Dictionary:
+	var nearest_unprotected: Node2D = null
+	var best_distance_squared: float = INF
+	var any_visible: bool = false
+	var radius_squared: float = radius * radius
+	var local_api: MultiplayerAPI = multiplayer
 	for node: Node in get_tree().get_nodes_in_group(&"player"):
 		var player: Node2D = node as Node2D
-		if player == null or not is_instance_valid(player):
+		if player == null:
 			continue
 		# 같은 기계(멀티플레이 브랜치)의 플레이어만 지각한다 — 헤드리스 2인 하네스에선
 		# 한 트리에 기계가 2개다 (Interactor.find_target 관례).
-		if player.multiplayer != multiplayer:
+		if player.multiplayer != local_api:
 			continue
-		if require_unprotected and _is_protected_by_fire(player):
+		var distance_squared: float = global_position.distance_squared_to(player.global_position)
+		if distance_squared > radius_squared:
 			continue
-		var distance: float = global_position.distance_to(player.global_position)
-		if distance <= radius and distance < best_distance:
-			best_distance = distance
-			best = player
-	return best
+		any_visible = true
+		if _is_protected_by_fire(player):
+			continue
+		if distance_squared < best_distance_squared:
+			best_distance_squared = distance_squared
+			nearest_unprotected = player
+	return { nearest_unprotected = nearest_unprotected, any_visible = any_visible }
 
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):

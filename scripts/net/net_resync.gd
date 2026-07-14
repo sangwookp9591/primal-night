@@ -28,7 +28,6 @@ var _container: Node2D
 var _net_movement: NetMovement
 var _guard: RpcGuard
 var _now_seconds: float = 0.0
-var _ticks: int = 0
 ## 이탈 시점 보관 상태: player_id -> { items, health, bleeding, position, avatar_id }
 var _saved_states: Dictionary = {}
 
@@ -49,10 +48,9 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_ticks += 1
 	_now_seconds += delta
-	if multiplayer.is_server() and not _saved_states.is_empty() \
-			and _ticks % SWEEP_INTERVAL_TICKS == 0:
+	if Engine.get_physics_frames() % SWEEP_INTERVAL_TICKS == 0 \
+			and not _saved_states.is_empty() and multiplayer.is_server():
 		_sweep_expired()
 
 
@@ -109,7 +107,7 @@ func _restore_into(avatar: Player, saved: Dictionary) -> void:
 
 func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 	var peer: int = _session.get_peer_for_player(player_id)
-	if peer <= 0 or multiplayer.get_peers().is_empty():
+	if peer <= 0:
 		return
 	var ids: PackedStringArray = PackedStringArray()
 	var counts: PackedInt32Array = PackedInt32Array()

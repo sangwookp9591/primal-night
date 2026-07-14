@@ -11,8 +11,6 @@ const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config
 
 var campfire: Campfire = null
 var _game_data: Node = null
-var _net_campfire: NetCampfire = null
-var _net_campfire_cached: bool = false
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -76,13 +74,9 @@ func build_and_light() -> void:
 	campfire.light()
 
 ## 같은 기계(멀티플레이 브랜치)의 NetCampfire 만 잡는다 — 헤드리스 하네스에선
-## 한 트리에 기계가 2개다. 상호작용 시점에만 1회 조회하고 캐시한다 (성능문서 6.1).
+## 한 트리에 기계가 2개다. 설치 홀드 완료 시점에만 불리는 저빈도 조회라 캐시하지 않는다.
 func _find_net_campfire() -> NetCampfire:
-	if _net_campfire_cached:
-		return _net_campfire
-	_net_campfire_cached = true
 	for node: Node in get_tree().get_nodes_in_group(&"net_campfire"):
 		if (node as NetCampfire).owns(self):
-			_net_campfire = node as NetCampfire
-			break
-	return _net_campfire
+			return node as NetCampfire
+	return null

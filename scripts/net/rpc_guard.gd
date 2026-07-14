@@ -17,6 +17,23 @@ var _known_peers: Dictionary = {}
 var _violation_counts: Dictionary = {}
 
 
+## 세션의 참가·재접속·이탈에 맞춰 허용 발신자 명부를 자동 유지한다.
+## 재접속 피어는 새 peer id 를 받으므로 재등록이 필수다 — 노드마다 구독을 복제하다
+## reconnected 를 빠뜨리면 재접속 피어의 모든 의도 RPC 가 unknown_sender 로 죽는다
+## (tests/net/test_net_resync.gd 가 잡았던 버그 계급을 여기서 원천 차단한다).
+func watch_session(session: SessionService) -> void:
+	session.player_joined.connect(_on_watched_player_active.bind(session))
+	session.player_reconnected.connect(_on_watched_player_active.bind(session))
+	session.player_left.connect(_on_watched_player_left.bind(session))
+
+
+## 상대 경로 페이로드의 명시적 스키마 (설계서 7.4): 비어 있지 않고, 길이 상한 안이며,
+## 절대 경로(/)나 상위 탈출(..)로 월드 밖을 가리키지 않는다.
+static func is_safe_relative_path(path: String, max_length: int) -> bool:
+	return not path.is_empty() and path.length() <= max_length \
+		and not path.begins_with("/") and not path.contains("..")
+
+
 func register_rule(rpc_name: StringName, host_only: bool, max_calls_per_second: int, max_payload_bytes: int) -> void:
 	_rules[rpc_name] = {
 		host_only = host_only,
@@ -63,6 +80,14 @@ func check(rpc_name: StringName, sender_id: int, payload_bytes: int, now_seconds
 
 func get_violation_count(sender_id: int) -> int:
 	return _violation_counts.get(sender_id, 0)
+
+
+func _on_watched_player_active(player_id: StringName, session: SessionService) -> void:
+	add_peer(session.get_peer_for_player(player_id))
+
+
+func _on_watched_player_left(player_id: StringName, session: SessionService) -> void:
+	remove_peer(session.get_peer_for_player(player_id))
 
 
 func _reject(sender_id: int, rpc_name: StringName, reason: StringName) -> bool:
