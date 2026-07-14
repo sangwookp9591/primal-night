@@ -39,8 +39,6 @@ var _ai_elapsed: float = 0.0
 var _snapshot_elapsed: float = 0.0
 var _replicated_position: Vector2 = Vector2.ZERO
 var _perf: Node = null
-## 매 틱 그룹 재검색을 피하기 위한 캐시 (성능문서 6.1).
-var _player: Node2D = null
 var _smell_grid: SmellGrid = null
 var _nav_agent: NavigationAgent2D = null
 var _alert_label: Label = null
@@ -161,16 +159,17 @@ func _move_along_path() -> void:
 
 ## 지각과 상태 결정 한 틱. physics 프레임 안에서 호출된다.
 ## 지각 우선순위: 시야(직접 지각) > 소리 > 냄새.
+## 2인 협동: 플레이어 전원을 지각한다 — 가장 가까운 비보호 플레이어를 추격하고,
+## 보이는 전원이 불 곁일 때만 물러난다 (W2-T5, tests/creature/test_raptor_two_players.gd).
 func _ai_tick() -> void:
-	var player: Node2D = _find_player()
-
 	match state:
 		State.WANDER, State.INVESTIGATE:
+			var target: Node2D = _nearest_visible_player(data.sight_radius, true)
 			if _fire_index_containing(global_position, data.fire_exit_ratio) >= 0:
 				# 불이 막 켜져 반경 안에 갇혔다 — 즉시 물러난다.
 				_start_flee()
-			elif _can_see_player(player, data.sight_radius) and not _is_protected_by_fire(player):
-				move_target = player.global_position
+			elif target != null:
+				move_target = target.global_position
 				_change_state(State.CHASE)
 			elif _heard_news:
 				move_target = _clamp_outside_fires(_last_heard_position)
@@ -184,11 +183,16 @@ func _ai_tick() -> void:
 			elif state == State.WANDER and _arrived_at(move_target):
 				_pick_wander_target()
 		State.CHASE:
-			if _is_protected_by_fire(player) or _fire_index_containing(global_position, 1.0) >= 0:
-				# 플레이어가 불 곁에 도달했다 — 추격 포기 (목표 장면의 결말).
+			var target: Node2D = _nearest_visible_player(data.lose_sight_radius, true)
+			if _fire_index_containing(global_position, 1.0) >= 0:
 				_start_flee()
-			elif _can_see_player(player, data.lose_sight_radius):
-				move_target = player.global_position
+			elif target != null:
+				# 가장 가까운 비보호 플레이어를 추격한다 — 대상이 불 곁에 숨으면
+				# 노출된 동료로 전환한다 (한 명만 보호될 때 물러나지 않는다).
+				move_target = target.global_position
+			elif _nearest_visible_player(data.lose_sight_radius, false) != null:
+				# 보이는 플레이어 전원이 불 곁이다 — 추격 포기 (목표 장면의 결말).
+				_start_flee()
 			else:
 				# 시야 상실: 마지막 목격 위치(move_target)를 조사한다.
 				_change_state(State.INVESTIGATE)
@@ -201,13 +205,26 @@ func _ai_tick() -> void:
 				move_target = _flee_target_from(_campfires[fire_index])
 	_heard_news = false
 
-func _find_player() -> Node2D:
-	if _player == null or not is_instance_valid(_player):
-		_player = get_tree().get_first_node_in_group(&"player") as Node2D
-	return _player
-
-func _can_see_player(player: Node2D, radius: float) -> bool:
-	return player != null and global_position.distance_to(player.global_position) <= radius
+## 반경 안에서 가장 가까운 플레이어. require_unprotected 면 불 반경 안 플레이어는 제외.
+## 그룹 조회는 ai_tick_interval 주기로만 일어난다 — 매 프레임 노드 탐색이 아니다 (성능문서 6.3).
+func _nearest_visible_player(radius: float, require_unprotected: bool) -> Node2D:
+	var best: Node2D = null
+	var best_distance: float = INF
+	for node: Node in get_tree().get_nodes_in_group(&"player"):
+		var player: Node2D = node as Node2D
+		if player == null or not is_instance_valid(player):
+			continue
+		# 같은 기계(멀티플레이 브랜치)의 플레이어만 지각한다 — 헤드리스 2인 하네스에선
+		# 한 트리에 기계가 2개다 (Interactor.find_target 관례).
+		if player.multiplayer != multiplayer:
+			continue
+		if require_unprotected and _is_protected_by_fire(player):
+			continue
+		var distance: float = global_position.distance_to(player.global_position)
+		if distance <= radius and distance < best_distance:
+			best_distance = distance
+			best = player
+	return best
 
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):
