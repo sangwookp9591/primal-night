@@ -43,10 +43,11 @@ func _process(delta: float) -> void:
 		hold_changed.emit(_hold_elapsed / _hold_required, _hold_prompt)
 		return
 
-	# 완료. _end_hold 가 current_target 을 지우므로 먼저 붙잡아 둔다.
+	# 완료. interact 를 먼저 실행하고 홀드를 정리한다 — 네트워크 치료 확정(커밋)이
+	# 홀드 종료 통지(취소)보다 먼저 호스트에 도착해야 한다 (NetSurvival 세션).
 	var target: Node = current_target
-	_end_hold()
 	target.interact(_player)
+	_end_hold()
 
 ## 상호작용 시작. 즉시형이면 그 자리에서 끝나고, 길게 누르는 형이면 홀드에 들어간다.
 func begin() -> void:
@@ -84,6 +85,10 @@ func find_target() -> Node:
 	var best_distance: float = INF
 
 	for area: Area2D in get_overlapping_areas():
+		# 헤드리스 2인 하네스에선 한 물리 공간에 기계(멀티플레이 브랜치)가 2개 겹친다.
+		# 다른 기계의 대상은 잡지 않는다 — 프로덕션(기계 1개)에선 항상 참이다.
+		if area.multiplayer != multiplayer:
+			continue
 		if not area.has_method("interact") or not area.has_method("can_interact"):
 			continue
 		if not area.can_interact(_player):
