@@ -7,6 +7,7 @@ extends GutTest
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const PORT: int = 8912
+const STEAM_PLAYER_ID: StringName = &"76561198000000001"
 
 var host: Dictionary
 var client: Dictionary
@@ -56,9 +57,17 @@ func _make_side(side_name: String) -> Dictionary:
 	return {root = root, session = session, host_player = host_player, container = container, net = net}
 
 
-func _join_and_spawn() -> StringName:
+func _join_and_spawn(player_id: StringName = &"") -> StringName:
 	assert_eq(host.session.host_session(), OK)
-	assert_eq(client.session.join_session("127.0.0.1:%d" % PORT), OK)
+	var invite: Variant = "127.0.0.1:%d" % PORT
+	if not String(player_id).is_empty():
+		invite = {
+			address = "127.0.0.1",
+			port = PORT,
+			player_id = player_id,
+			host_build_number = "dev",
+		}
+	assert_eq(client.session.join_session(invite), OK)
 	await wait_for_signal(host.session.player_joined, 5.0, "호스트가 참가를 관측해야 한다")
 	var client_id: StringName = client.session.get_local_player_id()
 	assert_true(await wait_until(func() -> bool:
@@ -134,12 +143,45 @@ func test_host_player_position_replicates_to_client() -> void:
 	assert_almost_eq(client.host_player.global_position, Vector2(300.0, 150.0), Vector2(1.0, 1.0))
 
 
-func test_leave_despawns_avatar_on_both_sides() -> void:
+func test_leave_keeps_avatar_in_place_then_removes_after_30_seconds() -> void:
 	var client_id: StringName = await _join_and_spawn()
+	var host_side_avatar: Player = host.container.get_node(String(client_id))
+	var left_position: Vector2 = host_side_avatar.global_position
+
 	client.session.leave_session()
+	await wait_for_signal(host.session.player_left, 5.0, "호스트가 이탈을 관측해야 한다")
+	await wait_physics_frames(29 * 60)
+	assert_true(host.container.has_node(NodePath(String(client_id))))
+	assert_almost_eq(host_side_avatar.global_position, left_position, Vector2(0.1, 0.1))
+
 	assert_true(await wait_until(func() -> bool:
 		return not host.container.has_node(NodePath(String(client_id))) \
 			and not client.container.has_node(NodePath(String(client_id))), 5.0),
-		"이탈 시 양쪽에서 아바타가 정리되어야 한다")
+		"30초 이탈 유예 뒤 양쪽에서 아바타가 정리되어야 한다")
 	assert_false(host.container.has_node(NodePath(String(client_id))))
 	assert_false(client.container.has_node(NodePath(String(client_id))))
+
+
+func test_reconnect_restores_existing_avatar_state_by_player_id() -> void:
+	var client_id: StringName = await _join_and_spawn(STEAM_PLAYER_ID)
+	var host_side_avatar: Player = host.container.get_node(String(client_id))
+	host_side_avatar.global_position = Vector2(180.0, 44.0)
+	client.session.leave_session()
+	await wait_for_signal(host.session.player_left, 5.0, "호스트가 이탈을 관측해야 한다")
+
+	client = _make_side("ReconnectClientSide")
+	assert_eq(client.session.join_session({
+		address = "127.0.0.1",
+		port = PORT,
+		player_id = STEAM_PLAYER_ID,
+		host_build_number = "dev",
+	}), OK)
+	await wait_for_signal(host.session.player_reconnected, 5.0, "동일 PlayerId 재접속이어야 한다")
+
+	assert_true(host.container.has_node(NodePath(String(STEAM_PLAYER_ID))))
+	assert_almost_eq(host_side_avatar.global_position, Vector2(180.0, 44.0), Vector2(0.1, 0.1))
+	assert_true(await wait_until(func() -> bool:
+		return client.container.has_node(NodePath(String(STEAM_PLAYER_ID))), 5.0),
+		"재접속 클라이언트가 기존 아바타를 다시 받아야 한다")
+	var client_side_avatar: Player = client.container.get_node(String(STEAM_PLAYER_ID))
+	assert_almost_eq(client_side_avatar.global_position, Vector2(180.0, 44.0), Vector2(1.0, 1.0))

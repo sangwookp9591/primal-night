@@ -12,6 +12,7 @@ extends Node
 ## 로컬 구현은 peer id 문자열, Steam 구현은 SteamID64 문자열을 쓴다.
 
 signal player_joined(player_id: StringName)
+signal player_reconnected(player_id: StringName)
 signal player_left(player_id: StringName)
 ## 세션이 끝났다 (자발적 이탈 또는 호스트 이탈, 설계서 7.3).
 signal session_ended
@@ -32,3 +33,11 @@ signal session_ended
 @abstract func get_player_id_for_peer(peer_id: int) -> StringName
 
 @abstract func get_peer_for_player(player_id: StringName) -> int
+
+@abstract func has_reconnect_slot(player_id: StringName) -> bool
+
+@abstract func get_reconnect_slot_remaining(player_id: StringName) -> float
+
+@abstract func tick_reconnect_slots(delta_seconds: float) -> void
+
+@abstract func get_last_connection_failure() -> Dictionary

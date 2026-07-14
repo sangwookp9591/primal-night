@@ -18,6 +18,7 @@ const SPAWN_ID_MAX_LENGTH: int = 32
 const SNAPSHOT_MAX_ENTRIES: int = 8
 ## 스폰·스냅샷 같은 저빈도 호스트 RPC 의 초당 상한 (프로토콜 내부 값).
 const CONTROL_RPC_MAX_PER_SECOND: int = 30
+const DISCONNECT_DESPAWN_SECONDS: float = 30.0
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -39,6 +40,7 @@ var _now_seconds: float = 0.0
 var _tick_delta: float = 1.0 / 60.0
 var _snapshot_ids: PackedStringArray = PackedStringArray()
 var _snapshot_positions: PackedVector2Array = PackedVector2Array()
+var _pending_despawn_seconds: Dictionary = {}
 
 
 func _ready() -> void:
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_avatars[_session.get_player_id_for_peer(RpcGuard.HOST_PEER_ID)] = _host_player
 	_session.player_joined.connect(_on_player_joined)
+	_session.player_reconnected.connect(_on_player_reconnected)
 	_session.player_left.connect(_on_player_left)
 	_session.session_ended.connect(_on_session_ended)
 
@@ -66,7 +69,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_ticks += 1
 	_now_seconds += delta
+	_session.tick_reconnect_slots(delta)
 	if multiplayer.is_server():
+		_tick_pending_despawns(delta)
 		if _ticks % config.snapshot_interval_ticks == 0 and multiplayer.get_peers().size() > 0:
 			_broadcast_snapshot()
 	elif _local_avatar != null:
@@ -165,13 +170,26 @@ func _on_player_joined(player_id: StringName) -> void:
 func _on_player_left(player_id: StringName) -> void:
 	if not multiplayer.is_server():
 		return
-	# ponytail: 설계서 7.3 의 '30초 제자리 잔류'와 120초 재접속 슬롯은 다음 태스크 —
-	# 그때 이 즉시 제거를 유예 제거로 바꾼다. 슬롯 식별자는 이미 PlayerId 다.
 	var peer: int = _session.get_peer_for_player(player_id)
 	_guard.remove_peer(peer)
 	_last_intent_ticks.erase(peer)
-	_despawn(player_id)
-	despawn_avatar.rpc(String(player_id))
+	if _avatars.has(player_id):
+		_pending_despawn_seconds[player_id] = DISCONNECT_DESPAWN_SECONDS
+
+
+func _on_player_reconnected(player_id: StringName) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer: int = _session.get_peer_for_player(player_id)
+	_guard.add_peer(peer)
+	_last_intent_ticks[peer] = _ticks
+	_pending_despawn_seconds.erase(player_id)
+	var avatar: Player = _avatars.get(player_id)
+	if avatar == null:
+		_on_player_joined(player_id)
+		return
+	avatar.controller_peer_id = peer
+	spawn_avatar.rpc_id(peer, String(player_id), peer, avatar.global_position)
 
 
 func _on_session_ended() -> void:
@@ -201,6 +219,7 @@ func _despawn(player_id: StringName) -> void:
 	var avatar: Player = _avatars.get(player_id)
 	if avatar == null or avatar == _host_player:
 		return
+	_pending_despawn_seconds.erase(player_id)
 	_avatars.erase(player_id)
 	_authority.unregister_player(player_id)
 	if avatar == _local_avatar:
@@ -219,3 +238,13 @@ func _broadcast_snapshot() -> void:
 		_snapshot_positions[index] = (_avatars[player_id] as Player).global_position
 		index += 1
 	apply_snapshot.rpc(_snapshot_ids, _snapshot_positions)
+
+
+func _tick_pending_despawns(delta: float) -> void:
+	for player_id: StringName in _pending_despawn_seconds.keys():
+		var remaining: float = float(_pending_despawn_seconds[player_id]) - delta
+		if remaining > 0.0:
+			_pending_despawn_seconds[player_id] = remaining
+			continue
+		_despawn(player_id)
+		despawn_avatar.rpc(String(player_id))
