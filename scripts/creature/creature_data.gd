@@ -17,6 +17,13 @@ extends Resource
 ## 조사 목표에 이만큼 접근하면 도착으로 판정한다.
 @export var investigate_arrive_distance: float = 24.0
 
+## 조사 지점에 도착한 뒤 주변을 훑어보는 횟수. 0 이면 도착 즉시 대상 상실이다.
+## 짐승은 단서가 있던 자리를 한 번 보고 바로 포기하지 않는다 (설계서 14.1).
+@export var search_sweeps: int = 2
+
+## 훑기 목표를 고르는 반경 — 조사 원점 주변 이 안에서만 고른다.
+@export var search_radius: float = 96.0
+
 ## 지각·상태 결정 주기(초). 매 프레임 재계산 금지 (성능문서 6.3).
 @export var ai_tick_interval: float = 0.2
 
