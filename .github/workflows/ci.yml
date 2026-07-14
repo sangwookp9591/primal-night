@@ -55,6 +55,13 @@ jobs:
             "$GODOT_BIN" --headless --path . -s scripts/creature/goal_scene_replay.gd | tee "artifacts/goal_scene_replay_$i.log"
           done
 
+      # 2주 차 관문 (W2-T1): 헤드리스 2인 하네스 — 실제 main.tscn 2개를 한 프로세스의
+      # MultiplayerAPI 브랜치 2개에 올리고 실제 ENet 루프백으로
+      # 접속 → 스폰 → 이동 동기화 → 텔레포트 변조 거부 → 이탈 정리를 자동 판정한다.
+      - name: Two-player headless harness (E2E)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/net/two_player_harness.gd | tee artifacts/two_player_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped

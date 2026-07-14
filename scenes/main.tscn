@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=12 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -8,6 +8,9 @@
 [ext_resource type="Script" path="res://scripts/senses/smell_grid.gd" id="6_smellgrid"]
 [ext_resource type="PackedScene" path="res://scenes/creature/raptor.tscn" id="7_raptor"]
 [ext_resource type="Script" path="res://scripts/senses/noise_debug.gd" id="8_noisedebug"]
+[ext_resource type="Script" path="res://scripts/net/local_session_service.gd" id="9_netsession"]
+[ext_resource type="Script" path="res://scripts/net/net_movement.gd" id="10_netmovement"]
+[ext_resource type="Resource" path="res://resources/net/net_config.tres" id="11_netconfig"]
 
 [node name="Main" type="Node2D"]
 
@@ -36,3 +39,19 @@ script = ExtResource("8_noisedebug")
 [node name="Hud" parent="." instance=ExtResource("4_hud")]
 
 [node name="PerformanceOverlay" parent="." instance=ExtResource("5_perfoverlay")]
+
+; 세션 어댑터 경계 (설계서 9.1). 게임 코드는 SessionService 인터페이스만 본다.
+; 로컬 2인 개발은 LocalSessionService, Steam 출시는 SteamSessionService 로 이 노드만 교체.
+[node name="NetSession" type="Node" parent="."]
+script = ExtResource("9_netsession")
+config = ExtResource("11_netconfig")
+
+; 호스트가 권위적으로 스폰하는 원격 아바타 컨테이너.
+[node name="Players" type="Node2D" parent="."]
+
+; 2인 이동 동기화 + 호스트 권한 검증 (설계서 7.2/7.4).
+; 싱글플레이는 peer 없는 동일 흐름이라 이 노드들이 있어도 네트워크 활동이 없다 (설계서 9.3).
+[node name="NetMovement" type="Node" parent="."]
+script = ExtResource("10_netmovement")
+avatar_scene = ExtResource("2_player")
+config = ExtResource("11_netconfig")
