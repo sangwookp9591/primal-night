@@ -143,12 +143,22 @@ func _run() -> void:
 	_log("--- phase 6: 클라이언트 이탈 ---")
 	client_session.leave_session()
 	if not await _wait_until(func() -> bool:
-			return not host_main.has_node(avatar_path) and not client_main.has_node(avatar_path) \
-				and _host_left_observed.has(client_id), 10.0):
-		return _fail("이탈 후 정리가 완료되지 않았다 (host_left=%s)" % str(_host_left_observed))
+			return _host_left_observed.has(client_id), 10.0):
+		return _fail("호스트가 클라이언트 이탈을 관측하지 못했다 (host_left=%s)" % str(_host_left_observed))
+	if not host_main.has_node(avatar_path):
+		return _fail("이탈 직후 호스트 아바타가 사라졌다 — 30초 제자리 잔류 위반")
+	_log("이탈 관측 완료. 호스트 아바타는 제자리 잔류, 30초 제거 타이머 시작")
+	for i: int in range(29 * 60):
+		await physics_frame
+		_frames += 1
+	if not host_main.has_node(avatar_path):
+		return _fail("30초 전 호스트 아바타가 제거되었다")
+	if not await _wait_until(func() -> bool:
+			return not host_main.has_node(avatar_path) and not client_main.has_node(avatar_path), 5.0):
+		return _fail("30초 유예 뒤 이탈 정리가 완료되지 않았다")
 	if host_session.get_players() != ([&"1"] as Array[StringName]):
 		return _fail("이탈 후 호스트 참가자 목록이 [1] 이 아니다: %s" % str(host_session.get_players()))
-	_log("이탈 정리 완료. host players=%s" % [host_session.get_players()])
+	_log("30초 제거 완료. host players=%s" % [host_session.get_players()])
 
 	_log("=== 2인 하네스 성공: 접속·스폰·이동 동기화·변조 거부·이탈 정리 ===")
 	quit(0)
