@@ -37,6 +37,7 @@ var _snapshot_indices: PackedInt32Array = PackedInt32Array()
 var _snapshot_values: PackedFloat32Array = PackedFloat32Array()
 var _replication_indices: PackedInt32Array = PackedInt32Array()
 var _replication_values: PackedFloat32Array = PackedFloat32Array()
+var _dead_smell_sources: Array[Object] = []
 
 ## 디버그 시각화 (설계서 5.4 / 13장). 출시 빌드에서는 켤 수 없다.
 var debug_enabled: bool = false
@@ -219,9 +220,10 @@ func _broadcast_smell_snapshot() -> void:
 func _emit_registered_smell_sources(delta: float) -> void:
 	if _event_bus == null:
 		return
-	for owner: Object in _smell_sources.keys():
+	_dead_smell_sources.clear()
+	for owner: Object in _smell_sources:
 		if owner == null or not is_instance_valid(owner):
-			_smell_sources.erase(owner)
+			_dead_smell_sources.append(owner)
 			continue
 		var source: Dictionary = _smell_sources[owner]
 		source.elapsed = float(source.elapsed) + delta
@@ -233,6 +235,8 @@ func _emit_registered_smell_sources(delta: float) -> void:
 		var position: Variant = (source.provider as Callable).call()
 		if position is Vector2:
 			_event_bus.smell_emitted.emit(position, float(source.strength), source.kind)
+	for owner: Object in _dead_smell_sources:
+		_smell_sources.erase(owner)
 
 func _emit_remote_player_noise() -> void:
 	if _event_bus == null:

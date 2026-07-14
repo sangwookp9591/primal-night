@@ -14,10 +14,6 @@ extends Node
 ## HUD 는 이 신호로만 갱신한다. 매 프레임 폴링하지 않는다 (성능문서 6.2).
 signal changed()
 
-const RAW_MEAT_ID: StringName = &"raw_meat"
-const RAW_MEAT_SMELL_STRENGTH: float = 45.0
-const RAW_MEAT_SMELL_INTERVAL: float = 0.5
-
 @export var slot_count: int = 8
 
 ## 슬롯은 _ready 에서 한 번만 할당하고 이후에는 제자리에서 수정한다.
@@ -129,16 +125,27 @@ func total_weight() -> float:
 	return total
 
 func _update_carried_smell_source(id: StringName) -> void:
-	if id != RAW_MEAT_ID:
+	var changed_item: ItemData = _game_data.get_item(id)
+	if changed_item == null or not changed_item.is_smell_source():
 		return
 	var grid: SmellGrid = _find_smell_grid()
 	if grid == null:
 		return
-	if count_of(RAW_MEAT_ID) > 0:
+	var carried: ItemData = _first_carried_smell_item()
+	if carried != null:
 		grid.register_smell_source(self, Callable(self, "_carried_smell_position"),
-			RAW_MEAT_SMELL_STRENGTH, RAW_MEAT_SMELL_INTERVAL, RAW_MEAT_ID)
+			carried.smell_strength, carried.smell_interval_seconds, carried.get_smell_kind())
 	else:
 		grid.unregister_smell_source(self)
+
+func _first_carried_smell_item() -> ItemData:
+	for slot: Dictionary in _slots:
+		if slot.is_empty():
+			continue
+		var item: ItemData = _game_data.get_item(slot["id"])
+		if item != null and item.is_smell_source():
+			return item
+	return null
 
 func _find_smell_grid() -> SmellGrid:
 	if _carried_smell_grid != null and is_instance_valid(_carried_smell_grid):

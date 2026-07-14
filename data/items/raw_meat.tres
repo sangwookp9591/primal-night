@@ -9,3 +9,7 @@ display_name = "날고기"
 stackable = true
 max_stack = 5
 weight = 1.0
+emits_smell = true
+smell_strength = 45.0
+smell_interval_seconds = 0.5
+smell_kind = &"raw_meat"

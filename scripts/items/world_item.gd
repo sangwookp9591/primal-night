@@ -6,7 +6,6 @@ extends Area2D
 
 const PICKUP_NOISE: NoiseProfile = preload("res://data/senses/noise_harvest.tres")
 const THROW_NOISE: NoiseProfile = preload("res://data/senses/noise_throw.tres")
-const RAW_MEAT_ID: StringName = &"raw_meat"
 
 @export var item_id: StringName = &"stone"
 @export var count: int = 1
@@ -20,8 +19,12 @@ var _floor_smell_source: SmellSource = null
 func _ready() -> void:
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
-	if item_id == RAW_MEAT_ID:
+	var item: ItemData = get_node("/root/GameData").get_item(item_id)
+	if item != null and item.is_smell_source():
 		_floor_smell_source = SmellSource.new()
+		_floor_smell_source.kind = item.get_smell_kind()
+		_floor_smell_source.strength = item.smell_strength
+		_floor_smell_source.interval_seconds = item.smell_interval_seconds
 		add_child(_floor_smell_source)
 
 func can_interact(who: Node) -> bool:
