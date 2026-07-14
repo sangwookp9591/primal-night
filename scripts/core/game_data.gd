@@ -6,6 +6,8 @@ const ITEM_PATHS: Array[String] = [
 	"res://data/items/stone.tres",
 	"res://data/items/wood.tres",
 	"res://data/items/bandage.tres",
+	"res://data/items/raw_meat.tres",
+	"res://data/items/bait.tres",
 ]
 
 var _items: Dictionary = {}

@@ -139,19 +139,31 @@ func test_smell_below_threshold_is_ignored() -> void:
 
 	assert_eq(raptor.state, Raptor.State.WANDER, "약한 냄새는 무시한다")
 
-func test_arriving_at_investigation_spot_with_nothing_returns_to_wander() -> void:
-	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2.ZERO)
+## 도착 즉시 배회가 아니다 — 주변을 훑어본 뒤에야 대상을 상실한다 (W3-T6).
+## 훑기 자체의 계약은 tests/creature/test_raptor_search.gd 가 자세히 지킨다.
+func test_arriving_at_investigation_spot_searches_then_returns_to_wander() -> void:
+	var data: CreatureData = _make_data()
+	data.search_sweeps = 2
+	var raptor: Raptor = _spawn_raptor(data, Vector2.ZERO)
+	raptor.rng.seed = 4242
 	var noise_position: Vector2 = Vector2(300.0, 0.0)
 	_event_bus.noise_emitted.emit(noise_position, 500.0, null)
 	await wait_physics_frames(2)
 	raptor._ai_tick()
 	assert_eq(raptor.state, Raptor.State.INVESTIGATE, "전제: 조사 상태여야 한다")
 
-	# 조사 지점에 도착했지만 아무것도 없다.
+	# 조사 지점에 도착했지만 아무것도 없다 — 아직 배회로 돌아가지 않는다.
 	raptor.global_position = noise_position + Vector2(10.0, 0.0)
 	raptor._ai_tick()
+	assert_eq(raptor.state, Raptor.State.INVESTIGATE,
+		"도착했다고 즉시 포기하지 않는다 — 주변을 훑는다 (설계서 14.1)")
 
-	assert_eq(raptor.state, Raptor.State.WANDER, "조사 지점에 아무것도 없으면 배회로 복귀한다 (대상 상실)")
+	# 훑기를 모두 소진하면 대상 상실.
+	for _sweep: int in range(data.search_sweeps):
+		raptor.global_position = raptor.move_target
+		raptor._ai_tick()
+
+	assert_eq(raptor.state, Raptor.State.WANDER, "다 훑어도 아무것도 없으면 배회로 복귀한다 (대상 상실)")
 
 func test_seeing_player_triggers_chase_with_perceivable_alert() -> void:
 	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2.ZERO)

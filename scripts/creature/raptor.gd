@@ -26,6 +26,19 @@ var move_target: Vector2 = Vector2.ZERO
 ## 마지막으로 들린 위치 — 좌표만 저장한다. 발신자 노드 저장 금지.
 var _last_heard_position: Vector2 = Vector2.ZERO
 var _heard_news: bool = false
+## 이번에 들린 소리의 세기 = 차폐를 반영한 유효 반경 (px). 관심도 비교용.
+var _heard_interest: float = 0.0
+
+## 관심도 (설계서 14.1): 지금 쫓는 단서의 세기와 감각 종류.
+## 같은 감각의 더 강한 단서만 목표를 갈아탄다 — 작은 소리가 큰 소리를 흔들지 못한다.
+## 감각끼리는 세기를 비교하지 않는다 (반경 px 와 냄새 농도는 단위가 다르다).
+## 감각 사이 우선순위는 _ai_tick 의 분기 순서(시야 > 소리 > 냄새)가 이미 정한다.
+var _interest: float = 0.0
+var _interest_kind: StringName = &""
+## 조사 원점과 남은 훑기 횟수. 훑기 목표는 이 원점 + rng 에서만 나온다 —
+## 플레이어 좌표는 절대 섞이지 않는다 (공정성 규칙, W1 뮤테이션 M3).
+var _search_origin: Vector2 = Vector2.ZERO
+var _sweeps_left: int = 0
 
 ## 차폐 검사는 physics 프레임 안에서만 가능하므로 이벤트를 보류해 두고 처리한다.
 var _pending_noise_position: Vector2 = Vector2.ZERO
@@ -51,6 +64,7 @@ var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var debug_enabled: bool = false
 
 func _ready() -> void:
+	add_to_group(&"raptor")
 	move_target = global_position
 	_replicated_position = global_position
 	rng.randomize()
@@ -173,17 +187,17 @@ func _ai_tick() -> void:
 				if target != null:
 					move_target = target.global_position
 					_change_state(State.CHASE)
-				elif _heard_news:
-					move_target = _clamp_outside_fires(_last_heard_position)
-					_change_state(State.INVESTIGATE)
-				elif _smells_blood():
-					move_target = _clamp_outside_fires(_smell_step_target())
-					_change_state(State.INVESTIGATE)
-				elif state == State.INVESTIGATE and _arrived_at(move_target):
-					# 도착했는데 아무것도 없다 — 대상 상실, 배회 복귀 (설계서 14.1).
-					_change_state(State.WANDER)
-				elif state == State.WANDER and _arrived_at(move_target):
-					_pick_wander_target()
+				elif _heard_news and _is_more_interesting(&"noise", _heard_interest):
+					_adopt_cue(&"noise", _heard_interest, _last_heard_position)
+				else:
+					var smell: float = _smell_strength()
+					if smell >= data.smell_threshold and _is_more_interesting(&"smell", smell):
+						_adopt_cue(&"smell", smell, _smell_step_target())
+					elif state == State.INVESTIGATE and _arrived_at(move_target):
+						# 도착했는데 아무것도 없다 — 즉시 포기하지 않고 주변을 훑는다 (설계서 14.1).
+						_continue_search()
+					elif state == State.WANDER and _arrived_at(move_target):
+						_pick_wander_target()
 		State.CHASE:
 			if _fire_index_containing(global_position, 1.0) >= 0:
 				_start_flee()
@@ -198,8 +212,9 @@ func _ai_tick() -> void:
 					# 보이는 플레이어 전원이 불 곁이다 — 추격 포기 (목표 장면의 결말).
 					_start_flee()
 				else:
-					# 시야 상실: 마지막 목격 위치(move_target)를 조사한다.
-					_change_state(State.INVESTIGATE)
+					# 시야 상실: 마지막 목격 위치(move_target)를 조사하고 그 주변을 훑는다.
+					# 세기 0 으로 둔다 — 어떤 소리·냄새든 이 조사를 갈아탈 수 있다.
+					_adopt_cue(&"sight", 0.0, move_target)
 		State.FLEE:
 			var fire_index: int = _fire_index_containing(global_position, data.fire_exit_ratio)
 			if fire_index < 0:
@@ -236,14 +251,53 @@ func _perceive_players(radius: float) -> Dictionary:
 			nearest_unprotected = player
 	return { nearest_unprotected = nearest_unprotected, any_visible = any_visible }
 
+## 새 단서가 지금 쫓는 단서를 갈아탈 만한가 (관심도, 설계서 14.1).
+## 조사 중이 아니거나 다른 감각의 단서면 무조건 받는다 — 감각 사이 우선순위는
+## _ai_tick 의 분기 순서가 이미 정했고, 단위가 다른 세기를 비교하는 것은 무의미하다.
+## 같은 감각이면:
+##   소리 — 같은 세기여도 받는다. 발소리가 이어지면 가장 최근에 들린 자리가 옳다.
+##   냄새 — 더 진할 때만 받는다. 같은 농도로 계속 받으면 경사 정점에서 훑기가 시작되지 않는다.
+func _is_more_interesting(kind: StringName, strength: float) -> bool:
+	if state != State.INVESTIGATE or kind != _interest_kind:
+		return true
+	if kind == &"noise":
+		return strength >= _interest
+	return strength > _interest
+
+
+## 단서를 채택한다: 목표를 옮기고 훑기 횟수를 처음부터 다시 센다 (재탐색).
+func _adopt_cue(kind: StringName, strength: float, target: Vector2) -> void:
+	_interest_kind = kind
+	_interest = strength
+	_search_origin = _clamp_outside_fires(target)
+	_sweeps_left = data.search_sweeps
+	move_target = _search_origin
+	_change_state(State.INVESTIGATE)
+
+
+## 조사 지점에 도착했지만 아무것도 없다. 남은 횟수만큼 원점 주변을 훑고,
+## 다 훑으면 대상을 상실한다 (배회 복귀).
+## ★ 훑기 목표는 _search_origin 과 rng 에서만 나온다. 플레이어 좌표를 보지 않는다.
+func _continue_search() -> void:
+	if _sweeps_left <= 0:
+		_change_state(State.WANDER)
+		return
+	_sweeps_left -= 1
+	var angle: float = rng.randf_range(0.0, TAU)
+	var distance: float = rng.randf_range(data.search_radius * 0.4, data.search_radius)
+	move_target = _clamp_outside_fires(_search_origin + Vector2.from_angle(angle) * distance)
+
+
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):
-		_smell_grid = get_tree().get_first_node_in_group(&"smell_grid") as SmellGrid
+		_smell_grid = SmellGrid.find_in(get_tree())
 	return _smell_grid
 
-func _smells_blood() -> bool:
+
+## 자기 위치의 냄새 농도 = 냄새 단서의 세기 (관심도 비교용).
+func _smell_strength() -> float:
 	var grid: SmellGrid = _find_smell_grid()
-	return grid != null and grid.get_smell_at(global_position) >= data.smell_threshold
+	return grid.get_smell_at(global_position) if grid != null else 0.0
 
 ## 냄새 농도가 진해지는 방향으로 한 셀만큼 전진할 지점.
 ## 발생 좌표를 받지 않는다 — 경사를 거슬러 올라간다 (설계서 5.4).
@@ -342,6 +396,12 @@ func _change_state(new_state: int) -> void:
 		return
 	var previous_state: int = state
 	state = new_state
+	if new_state != State.INVESTIGATE:
+		# 조사를 떠나면 관심도도 사라진다 — 안 그러면 다음 판의 작은 소리가
+		# 지난 판의 큰 소리에 눌려 영영 조사를 촉발하지 못한다.
+		_interest = 0.0
+		_interest_kind = &""
+		_sweeps_left = 0
 	state_changed.emit(previous_state, new_state)
 	if new_state == State.CHASE:
 		chase_started.emit()
@@ -374,4 +434,6 @@ func _resolve_pending_noise() -> void:
 	if global_position.distance_to(_pending_noise_position) > effective_radius:
 		return
 	_last_heard_position = _pending_noise_position
+	# 소리의 세기 = 차폐를 반영한 유효 반경. 벽 너머의 큰 소리는 그만큼 덜 끌린다.
+	_heard_interest = effective_radius
 	_heard_news = true

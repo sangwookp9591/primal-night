@@ -66,7 +66,7 @@ func test_exhausted_player_emits_walk_noise_not_run_noise() -> void:
 	Input.action_press("run")
 	await wait_physics_frames(1)
 
-	assert_eq(player.get_noise_radius(), player.config.base_walk_noise,
+	assert_eq(player.get_noise_radius(), player.config.walk_noise_profile.radius,
 		"달리지 못하면 달리기 소음이 아니라 걷기 소음이 나야 한다")
 
 ## 치료 중에는 이동이 제한된다 (설계서 5.2).

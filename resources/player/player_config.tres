@@ -6,6 +6,4 @@
 script = ExtResource("1_playerconfig")
 walk_speed = 150.0
 run_speed = 240.0
-base_walk_noise = 80.0
-base_run_noise = 160.0
 noise_emit_interval = 0.25

@@ -11,8 +11,8 @@ extends Node
 
 const DEFAULT_CONFIG: NetConfig = preload("res://resources/net/net_config.tres")
 
-## 고정 스키마 의도(Vector2)의 페이로드 추정치 — 상한 검사용 (설계서 7.4).
-const INTENT_PAYLOAD_BYTES: int = 16
+## 고정 스키마 의도(Vector2 + 자세 int)의 페이로드 추정치 — 상한 검사용 (설계서 7.4).
+const INTENT_PAYLOAD_BYTES: int = 20
 const SNAPSHOT_ENTRY_BYTES: int = 32
 const SPAWN_ID_MAX_LENGTH: int = 32
 const SNAPSHOT_MAX_ENTRIES: int = 8
@@ -79,10 +79,12 @@ func _physics_process(delta: float) -> void:
 			_broadcast_snapshot()
 	elif _local_avatar != null:
 		# 이동·방향은 비신뢰 최신값 전송 (설계서 7.2). 멈춰 있으면 보내지 않는다.
+		# 자세(웅크림/걷기/달리기)도 함께 보낸다 — 호스트가 실측 속도로 교차검증한다
+		# (설계서 7.4, 은신 소음이 원격 아바타에도 적용되려면 필수).
 		var position: Vector2 = _local_avatar.global_position
 		if position.distance_squared_to(_last_sent_position) > 0.01:
 			_last_sent_position = position
-			submit_move_intent.rpc_id(RpcGuard.HOST_PEER_ID, position)
+			submit_move_intent.rpc_id(RpcGuard.HOST_PEER_ID, position, _local_avatar.stance)
 
 
 func get_move_violation_count(player_id: StringName) -> int:
@@ -102,10 +104,12 @@ func teleport_avatar(player_id: StringName, position: Vector2) -> void:
 	_authority.register_player(player_id, position)
 
 
-## 클라이언트 → 호스트: 이동 의도. 대상 아바타는 페이로드가 아니라
+## 클라이언트 → 호스트: 이동 의도 + 주장 자세. 대상 아바타는 페이로드가 아니라
 ## 발신자에서 유도한다 — 남의 아바타는 절대 움직일 수 없다 (설계서 7.4).
+## 자세는 그대로 믿지 않는다: 실측 속도가 주장 자세의 허용 속도를 넘으면
+## 실제 속도가 설명되는 가장 조용한 자세로 강등한다 (교차검증, MovementAuthority 관례).
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func submit_move_intent(claimed_position: Vector2) -> void:
+func submit_move_intent(claimed_position: Vector2, claimed_stance: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
@@ -115,11 +119,33 @@ func submit_move_intent(claimed_position: Vector2) -> void:
 	var avatar: Player = _avatars.get(player_id)
 	if avatar == null:
 		return
+	if claimed_stance < 0 or claimed_stance >= Player.Stance.size():
+		# 스키마 위반 — 조용한 쪽으로 위조할 수 없게 가장 시끄러운 자세로 취급한다.
+		claimed_stance = Player.Stance.RUN
 	var elapsed_ticks: int = _ticks - int(_last_intent_ticks.get(sender, _ticks))
 	var elapsed: float = minf(float(elapsed_ticks) * _tick_delta, config.intent_elapsed_cap_seconds)
 	_last_intent_ticks[sender] = _ticks
+	var previous_position: Vector2 = _authority.get_position(player_id)
 	avatar.global_position = _authority.submit(
 		player_id, claimed_position, elapsed, avatar.config.run_speed)
+	var actual_speed: float = 0.0
+	if elapsed > 0.0:
+		actual_speed = previous_position.distance_to(avatar.global_position) / elapsed
+	avatar.last_validated_stance = _validate_stance(claimed_stance, actual_speed, avatar)
+
+
+## 주장한 자세가 실측 속도로 정당화되는지 본다. 조용한 자세(웅크림)를 주장하며
+## 실제로는 더 빨리 움직였으면, 그 속도를 설명하는 다음 단계 자세로 강등한다
+## (웅크림→걷기→달리기 순 — 달리기보다 시끄러운 자세는 없어 더 강등할 곳이 없다).
+func _validate_stance(claimed_stance: int, actual_speed: float, avatar: Player) -> int:
+	var stance: int = claimed_stance
+	if stance == Player.Stance.CROUCH \
+			and actual_speed > avatar.max_speed_for_stance(Player.Stance.CROUCH) * config.move_tolerance:
+		stance = Player.Stance.WALK
+	if stance == Player.Stance.WALK \
+			and actual_speed > avatar.max_speed_for_stance(Player.Stance.WALK) * config.move_tolerance:
+		stance = Player.Stance.RUN
+	return stance
 
 
 ## 호스트 → 클라이언트: 권위 스폰. 발신자·스키마 검사 후 수용 (설계서 7.4).

@@ -89,6 +89,14 @@ jobs:
             "$GODOT_BIN" --headless --path . -s scripts/net/two_player_goal_scene_harness.gd | tee "artifacts/two_player_goal_scene_$i.log"
           done
 
+      # W4-T4: 회색 상자 감지 루프 하네스 — 고정 시드 10개를 한 번의 실행 안에서 돈다
+      # (시드별 반복은 하네스 내부가 이미 한다). 사람 감상이 아니라 자동 판정으로
+      # 시드마다 소리 조사·냄새 조사·랩터 상실(훑기 소진)·회피 성공(모닥불로 CHASE
+      # 이탈)을 전부 관측했는지 본다. 하나라도 실패하면 exit 1 + 단계별 로그.
+      - name: Sense loop detection harness (10 seeds)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/senses/sense_loop_harness.gd | tee artifacts/sense_loop_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped

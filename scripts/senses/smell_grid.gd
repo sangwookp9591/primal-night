@@ -9,7 +9,6 @@ extends Node2D
 
 const DEFAULT_CONFIG: SmellGridConfig = preload("res://data/creatures/smell_grid_config.tres")
 const SNAPSHOT_INTERVAL_SECONDS: float = 0.25
-const REMOTE_PLAYER_NOISE_RADIUS: float = 120.0
 const REMOTE_PLAYER_NOISE_MIN_DISTANCE: float = 12.0
 
 @export var config: SmellGridConfig = DEFAULT_CONFIG
@@ -30,12 +29,14 @@ var _snapshot_elapsed: float = 0.0
 var _perf: Node = null
 var _event_bus: Node = null
 var _remote_player_positions: Dictionary = {}
+var _smell_sources: Dictionary = {}
 
 ## 틱 중 재사용하는 스냅샷 버퍼 (매 틱 신규 배열 할당 금지, 성능문서 6.1).
 var _snapshot_indices: PackedInt32Array = PackedInt32Array()
 var _snapshot_values: PackedFloat32Array = PackedFloat32Array()
 var _replication_indices: PackedInt32Array = PackedInt32Array()
 var _replication_values: PackedFloat32Array = PackedFloat32Array()
+var _dead_smell_sources: Array[Object] = []
 
 ## 디버그 시각화 (설계서 5.4 / 13장). 출시 빌드에서는 켤 수 없다.
 var debug_enabled: bool = false
@@ -61,6 +62,7 @@ func _process(delta: float) -> void:
 		_tick_elapsed -= config.tick_interval
 		if _perf != null:
 			_perf.begin_sample(&"scent")
+		_emit_registered_smell_sources(config.tick_interval)
 		_tick()
 		_emit_remote_player_noise()
 		if _perf != null:
@@ -120,6 +122,10 @@ func _draw() -> void:
 		draw_line(anchor, tip, Color.CYAN, 2.0)
 		draw_circle(tip, 4.0, Color.CYAN)
 
+## 그룹 관례의 단일 소유자. 소비자(랩터/HUD/인벤토리)는 이걸로 찾고 캐시만 각자 든다.
+static func find_in(tree: SceneTree) -> SmellGrid:
+	return tree.get_first_node_in_group(&"smell_grid") as SmellGrid
+
 func get_smell_at(global_pos: Vector2) -> float:
 	var index: int = _cell_index(global_pos)
 	if index < 0:
@@ -159,6 +165,24 @@ func get_active_cell_count() -> int:
 func get_cell_index_for_debug(global_pos: Vector2) -> int:
 	return _cell_index(global_pos)
 
+func register_smell_source(owner: Object, position_provider: Callable, strength: float,
+		interval_seconds: float, kind: StringName) -> void:
+	if owner == null or not position_provider.is_valid() or strength <= 0.0 or interval_seconds <= 0.0:
+		return
+	_smell_sources[owner] = {
+		provider = position_provider,
+		strength = strength,
+		interval = interval_seconds,
+		elapsed = 0.0,
+		kind = kind,
+	}
+
+func unregister_smell_source(owner: Object) -> void:
+	_smell_sources.erase(owner)
+
+func get_registered_smell_source_count() -> int:
+	return _smell_sources.size()
+
 @rpc("authority", "call_remote", "unreliable")
 func apply_smell_snapshot(indices: PackedInt32Array, values: PackedFloat32Array) -> void:
 	if is_multiplayer_authority() or indices.size() != values.size():
@@ -196,20 +220,47 @@ func _broadcast_smell_snapshot() -> void:
 		array_index += 1
 	apply_smell_snapshot.rpc(_replication_indices, _replication_values)
 
+func _emit_registered_smell_sources(delta: float) -> void:
+	if _event_bus == null:
+		return
+	_dead_smell_sources.clear()
+	for owner: Object in _smell_sources:
+		if owner == null or not is_instance_valid(owner):
+			_dead_smell_sources.append(owner)
+			continue
+		# Dictionary 는 참조 타입 — source 를 고치면 저장본이 바로 고쳐진다.
+		var source: Dictionary = _smell_sources[owner]
+		source.elapsed = float(source.elapsed) + delta
+		if float(source.elapsed) < float(source.interval):
+			continue
+		source.elapsed = 0.0
+		var position: Variant = (source.provider as Callable).call()
+		if position is Vector2:
+			_event_bus.smell_emitted.emit(position, float(source.strength), source.kind)
+	for owner: Object in _dead_smell_sources:
+		_smell_sources.erase(owner)
+
+## 원격 아바타의 실제 이동을 소리로 낸다. 반경은 고정값이 아니라 호스트가 검증한
+## 자세(NetMovement.submit_move_intent 교차검증 → Player.last_validated_stance)의
+## NoiseProfile 에서 온다 — 웅크린 원격 아바타도 실제로 조용해야 한다 (설계서 5.6/7.4).
+## 수풀 여부는 클라이언트 주장이 아니라 호스트 트리의 아바타 위치(in_bush)로 판정한다.
 func _emit_remote_player_noise() -> void:
 	if _event_bus == null:
 		return
 	var live_ids: Dictionary = {}
 	for node: Node in get_tree().get_nodes_in_group(&"player"):
 		var player: Player = node as Player
-		if player == null or player.controller_peer_id == multiplayer.get_unique_id():
+		if player == null or player.controller_peer_id == multiplayer.get_unique_id() \
+				or player.multiplayer != multiplayer:
 			continue
 		var id: int = player.get_instance_id()
 		live_ids[id] = true
 		var previous: Variant = _remote_player_positions.get(id)
 		_remote_player_positions[id] = player.global_position
 		if previous is Vector2 and (previous as Vector2).distance_to(player.global_position) >= REMOTE_PLAYER_NOISE_MIN_DISTANCE:
-			_event_bus.noise_emitted.emit(player.global_position, REMOTE_PLAYER_NOISE_RADIUS, player)
+			var profile: NoiseProfile = player.get_noise_profile_for_stance(
+				player.last_validated_stance)
+			_event_bus.noise_emitted.emit(player.global_position, profile.radius, player)
 	for id: int in _remote_player_positions.keys():
 		if not live_ids.has(id):
 			_remote_player_positions.erase(id)

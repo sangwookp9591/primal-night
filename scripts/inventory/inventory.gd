@@ -20,6 +20,7 @@ signal changed()
 ## 획득/소비마다 새 Dictionary 를 만들지 않는다 (성능문서 6.1).
 var _slots: Array[Dictionary] = []
 var _game_data: Node = null
+var _carried_smell_grid: SmellGrid = null
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -65,6 +66,7 @@ func add_item(id: StringName, count: int) -> int:
 
 	var added: int = count - remaining
 	if added > 0:
+		_update_carried_smell_source(id)
 		changed.emit()
 	return added
 
@@ -86,6 +88,7 @@ func remove_item(id: StringName, count: int) -> bool:
 			slot.clear()
 
 	changed.emit()
+	_update_carried_smell_source(id)
 	return true
 
 func count_of(id: StringName) -> int:
@@ -120,3 +123,37 @@ func total_weight() -> float:
 		if item != null:
 			total += item.weight * float(slot["count"])
 	return total
+
+func _update_carried_smell_source(id: StringName) -> void:
+	var changed_item: ItemData = _game_data.get_item(id)
+	if changed_item == null or not changed_item.is_smell_source():
+		return
+	var grid: SmellGrid = _find_smell_grid()
+	if grid == null:
+		return
+	var carried: ItemData = _first_carried_smell_item()
+	if carried != null:
+		grid.register_smell_source(self, Callable(self, "_carried_smell_position"),
+			carried.smell_strength, carried.smell_interval_seconds, carried.get_smell_kind())
+	else:
+		grid.unregister_smell_source(self)
+
+func _first_carried_smell_item() -> ItemData:
+	for slot: Dictionary in _slots:
+		if slot.is_empty():
+			continue
+		var item: ItemData = _game_data.get_item(slot["id"])
+		if item != null and item.is_smell_source():
+			return item
+	return null
+
+func _find_smell_grid() -> SmellGrid:
+	if _carried_smell_grid == null or not is_instance_valid(_carried_smell_grid):
+		_carried_smell_grid = SmellGrid.find_in(get_tree())
+	return _carried_smell_grid
+
+func _carried_smell_position() -> Vector2:
+	var body: Node2D = get_parent() as Node2D
+	if body == null:
+		return Vector2.INF
+	return body.global_position

@@ -14,6 +14,8 @@ const SNAPSHOT_MAX_PER_SECOND: int = 30
 const SNAPSHOT_MAX_ENTRIES: int = 8
 const SNAPSHOT_ENTRY_BYTES: int = 48
 const HURT_PAYLOAD_BYTES: int = 8
+## 스냅샷 한 명분 생존 수치 개수: [체온, 수분, 포만, 피로] (설계서 5.1).
+const STATS_PER_ENTRY: int = 4
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -31,6 +33,7 @@ var _ticks: int = 0
 var _snapshot_ids: PackedStringArray = PackedStringArray()
 var _snapshot_healths: PackedFloat32Array = PackedFloat32Array()
 var _snapshot_bleedings: PackedByteArray = PackedByteArray()
+var _snapshot_stats: PackedFloat32Array = PackedFloat32Array()
 
 
 func _ready() -> void:
@@ -102,13 +105,17 @@ func _host_hurt(player: Player, claimed_damage: float) -> void:
 	player.health.start_bleeding()
 
 
-## 호스트 → 클라이언트: 체력·출혈 스냅샷 (비신뢰 최신값, 설계서 7.2).
+## 호스트 → 클라이언트: 체력·출혈·생존 수치 스냅샷 (비신뢰 최신값, 설계서 7.2).
+## stats 는 플레이어당 STATS_PER_ENTRY 개가 이어 붙은 평면 배열이다 —
+## [체온, 수분, 포만, 피로] × 인원. 배열을 4개로 늘리는 대신 하나로 묶는다.
 @rpc("authority", "call_remote", "unreliable_ordered")
-func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array, bleedings: PackedByteArray) -> void:
+func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array,
+		bleedings: PackedByteArray, stats: PackedFloat32Array) -> void:
 	if not _guard.check(&"apply_survival_snapshot", multiplayer.get_remote_sender_id(),
 			ids.size() * SNAPSHOT_ENTRY_BYTES, _now_seconds):
 		return
 	if ids.size() != healths.size() or ids.size() != bleedings.size() \
+			or stats.size() != ids.size() * STATS_PER_ENTRY \
 			or ids.size() > SNAPSHOT_MAX_ENTRIES:
 		push_warning("NetSurvival: apply_survival_snapshot 스키마 위반 — 폐기")
 		return
@@ -120,6 +127,7 @@ func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array
 		if avatar == null:
 			continue
 		avatar.health.apply_replicated(health_value, bleedings[index] != 0)
+		avatar.stats.apply_from(stats, index * STATS_PER_ENTRY)
 
 
 ## --- 붕대 치료 세션 (설계서 5.2): 호스트가 세션·홀드 시간·붕대·거리를 검증한다 ---
@@ -297,9 +305,7 @@ func _apply_heal_lock_local(healer_id: StringName, patient_id: StringName, locke
 func _broadcast_snapshot() -> void:
 	var count: int = 1 + _container.get_child_count()
 	if _snapshot_ids.size() != count:
-		_snapshot_ids.resize(count)
-		_snapshot_healths.resize(count)
-		_snapshot_bleedings.resize(count)
+		_resize_snapshot(count)
 	_fill_snapshot_entry(0, _host_id(), _host_player)
 	var index: int = 1
 	for child: Node in _container.get_children():
@@ -309,16 +315,22 @@ func _broadcast_snapshot() -> void:
 		_fill_snapshot_entry(index, StringName(avatar.name), avatar)
 		index += 1
 	if index != count:
-		_snapshot_ids.resize(index)
-		_snapshot_healths.resize(index)
-		_snapshot_bleedings.resize(index)
-	apply_survival_snapshot.rpc(_snapshot_ids, _snapshot_healths, _snapshot_bleedings)
+		_resize_snapshot(index)
+	apply_survival_snapshot.rpc(_snapshot_ids, _snapshot_healths, _snapshot_bleedings, _snapshot_stats)
+
+
+func _resize_snapshot(count: int) -> void:
+	_snapshot_ids.resize(count)
+	_snapshot_healths.resize(count)
+	_snapshot_bleedings.resize(count)
+	_snapshot_stats.resize(count * STATS_PER_ENTRY)
 
 
 func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> void:
 	_snapshot_ids[index] = String(player_id)
 	_snapshot_healths[index] = avatar.health.current_health
 	_snapshot_bleedings[index] = 1 if avatar.health.is_bleeding else 0
+	avatar.stats.fill_into(_snapshot_stats, index * STATS_PER_ENTRY)
 
 
 func _on_player_left(player_id: StringName) -> void:

@@ -47,7 +47,8 @@ func summarize(frame_ms: PackedFloat64Array) -> Dictionary:
 		},
 	}
 
-func _percentile(sorted_ms: PackedFloat64Array, percentile: float) -> float:
+## p95 정의의 단일 소유자 — PerfMonitor 도 이걸 쓴다. 두 곳의 정의가 갈리면 안 된다.
+static func _percentile(sorted_ms: PackedFloat64Array, percentile: float) -> float:
 	var count: int = sorted_ms.size()
 	var index: int = int(ceil(float(count) * percentile)) - 1
 	return sorted_ms[clampi(index, 0, count - 1)]
