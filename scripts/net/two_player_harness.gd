@@ -4,7 +4,7 @@ extends SceneTree
 ## 실행: /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s scripts/net/two_player_harness.gd
 ##
 ## 한 프로세스에서 SceneTree.set_multiplayer 브랜치 2개(호스트 기계/클라이언트 기계)에
-## 실제 main.tscn 을 각각 올리고 실제 ENet 루프백으로 검증한다:
+## 실제 main.tscn 을 각각 올리고 실제 루프백 소켓으로 검증한다:
 ##   2인 접속 → 아바타 스폰 → 각자 이동 → 서로의 위치 동기화 →
 ##   텔레포트 변조 거부(설계서 7.4) → 이탈 → 정리. 전 구간 자동 판정, 실패 시 종료 코드 1.
 ##

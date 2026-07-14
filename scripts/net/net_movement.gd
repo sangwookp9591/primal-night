@@ -7,7 +7,7 @@ extends Node
 ## 싱글플레이 = 로컬 호스트 한 명인 동일 흐름 (peer 없음 → 네트워크 활동 0).
 ##
 ## 이후 태스크(공룡 AI·아이템·피해 복제)는 이 검증 골격(RpcGuard + 권위 확정
-## → 복제) 위에 얹는다. 백엔드는 SessionService 뒤에 있어 여기엔 ENet 이 없다.
+## → 복제) 위에 얹는다. 전송 백엔드는 SessionService 뒤에 캡슐화되어 있다.
 
 const DEFAULT_CONFIG: NetConfig = preload("res://resources/net/net_config.tres")
 
