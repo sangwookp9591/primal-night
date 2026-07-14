@@ -21,7 +21,9 @@ var controller_peer_id: int = 1
 
 var _noise_radius: float = 0.0
 var _noise_emit_elapsed: float = 0.0
+var _noise_seconds: float = 0.0
 var _event_bus: Node = null
+var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
 	add_to_group("player")
@@ -29,6 +31,7 @@ func _ready() -> void:
 		_event_bus = get_node("/root/EventBus")
 
 func _physics_process(delta: float) -> void:
+	_noise_seconds += delta
 	if controller_peer_id != multiplayer.get_unique_id():
 		return
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
@@ -47,12 +50,13 @@ func _physics_process(delta: float) -> void:
 		_noise_emit_elapsed = 0.0
 		return
 
+	var profile: NoiseProfile = config.run_noise_profile if running else config.walk_noise_profile
 	_noise_radius = config.base_run_noise if running else config.base_walk_noise
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
 		if _event_bus != null:
-			_event_bus.emit_signal("noise_emitted", global_position, _noise_radius, self)
+			_noise_emitter.emit_profile(_event_bus, profile, global_position, self, _noise_seconds)
 
 func get_noise_radius() -> float:
 	return _noise_radius

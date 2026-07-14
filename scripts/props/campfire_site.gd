@@ -6,14 +6,19 @@ extends Area2D
 
 const CampfireScene: PackedScene = preload("res://scenes/props/campfire.tscn")
 const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config.tres")
+const BUILD_NOISE: NoiseProfile = preload("res://data/senses/noise_campfire_build.tres")
 
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
 var campfire: Campfire = null
 var _game_data: Node = null
+var _event_bus: Node = null
+var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
+	if has_node("/root/EventBus"):
+		_event_bus = get_node("/root/EventBus")
 
 func can_interact(who: Node) -> bool:
 	if campfire != null:
@@ -71,6 +76,8 @@ func build_and_light() -> void:
 	# 자유 건축 금지: 플레이어 위치가 아니라 이 자리에 스냅한다.
 	campfire.global_position = global_position
 	get_parent().add_child(campfire)
+	_noise_emitter.emit_profile(_event_bus, BUILD_NOISE, global_position, self,
+		float(Time.get_ticks_msec()) / 1000.0)
 	campfire.light()
 
 ## 같은 기계(멀티플레이 브랜치)의 NetCampfire 만 잡는다 — 헤드리스 하네스에선
