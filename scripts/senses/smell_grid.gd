@@ -9,6 +9,8 @@ extends Node2D
 
 const DEFAULT_CONFIG: SmellGridConfig = preload("res://data/creatures/smell_grid_config.tres")
 const SNAPSHOT_INTERVAL_SECONDS: float = 0.25
+const REMOTE_PLAYER_NOISE_RADIUS: float = 120.0
+const REMOTE_PLAYER_NOISE_MIN_DISTANCE: float = 12.0
 
 @export var config: SmellGridConfig = DEFAULT_CONFIG
 ## 격자가 덮는 월드 영역. 맵 배치 값이므로 씬에서 지정한다 (기본값은 test_world 의 nav 영역).
@@ -26,6 +28,8 @@ var _active: Dictionary = {}
 var _tick_elapsed: float = 0.0
 var _snapshot_elapsed: float = 0.0
 var _perf: Node = null
+var _event_bus: Node = null
+var _remote_player_positions: Dictionary = {}
 
 ## 틱 중 재사용하는 스냅샷 버퍼 (매 틱 신규 배열 할당 금지, 성능문서 6.1).
 var _snapshot_indices: PackedInt32Array = PackedInt32Array()
@@ -43,8 +47,10 @@ func _ready() -> void:
 	_values.resize(_cols * _rows)
 	if has_node("/root/PerfMonitor"):
 		_perf = get_node("/root/PerfMonitor")
-	if is_multiplayer_authority() and has_node("/root/EventBus"):
-		get_node("/root/EventBus").smell_emitted.connect(_on_smell_emitted)
+	if has_node("/root/EventBus"):
+		_event_bus = get_node("/root/EventBus")
+	if is_multiplayer_authority() and _event_bus != null:
+		_event_bus.smell_emitted.connect(_on_smell_emitted)
 
 func _process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -56,6 +62,7 @@ func _process(delta: float) -> void:
 		if _perf != null:
 			_perf.begin_sample(&"scent")
 		_tick()
+		_emit_remote_player_noise()
 		if _perf != null:
 			_perf.end_sample(&"scent")
 		if debug_enabled:
@@ -188,6 +195,24 @@ func _broadcast_smell_snapshot() -> void:
 		_replication_values[array_index] = _values[cell_index]
 		array_index += 1
 	apply_smell_snapshot.rpc(_replication_indices, _replication_values)
+
+func _emit_remote_player_noise() -> void:
+	if _event_bus == null:
+		return
+	var live_ids: Dictionary = {}
+	for node: Node in get_tree().get_nodes_in_group(&"player"):
+		var player: Player = node as Player
+		if player == null or player.controller_peer_id == multiplayer.get_unique_id():
+			continue
+		var id: int = player.get_instance_id()
+		live_ids[id] = true
+		var previous: Variant = _remote_player_positions.get(id)
+		_remote_player_positions[id] = player.global_position
+		if previous is Vector2 and (previous as Vector2).distance_to(player.global_position) >= REMOTE_PLAYER_NOISE_MIN_DISTANCE:
+			_event_bus.noise_emitted.emit(player.global_position, REMOTE_PLAYER_NOISE_RADIUS, player)
+	for id: int in _remote_player_positions.keys():
+		if not live_ids.has(id):
+			_remote_player_positions.erase(id)
 
 func _cell_index(global_pos: Vector2) -> int:
 	var local: Vector2 = global_pos - area_origin

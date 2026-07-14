@@ -7,6 +7,7 @@ extends GutTest
 
 const SmellGridScript = preload("res://scripts/senses/smell_grid.gd")
 const SmellGridConfigScript = preload("res://scripts/senses/smell_grid_config.gd")
+const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 
 var _event_bus: Node = null
 
@@ -75,6 +76,27 @@ func test_client_smell_grid_applies_authority_debug_snapshot() -> void:
 
 	assert_eq(grid.get_smell_at(spot), 42.0, "클라이언트 디버그 격자는 호스트 스냅샷 값만 그린다")
 	assert_eq(grid.get_active_cell_count(), 1, "복제된 활성 셀만 디버그 대상으로 남는다")
+
+func test_host_emits_noise_from_remote_avatar_movement() -> void:
+	var grid: SmellGrid = _make_grid(_make_config())
+	var remote_player: Player = PlayerScene.instantiate()
+	remote_player.controller_peer_id = 2
+	remote_player.position = Vector2(100.0, 100.0)
+	add_child_autofree(remote_player)
+	watch_signals(_event_bus)
+	await wait_physics_frames(1)
+	grid._process(grid.config.tick_interval)
+
+	remote_player.position = Vector2(180.0, 100.0)
+	grid._process(grid.config.tick_interval)
+
+	assert_signal_emitted(_event_bus, "noise_emitted",
+		"호스트는 원격 아바타의 실제 이동을 보고 소리 이벤트를 만든다")
+	if get_signal_emit_count(_event_bus, "noise_emitted") == 0:
+		return
+	var params: Array = get_signal_parameters(_event_bus, "noise_emitted", 0)
+	assert_eq(params[0], remote_player.global_position, "소리 위치는 호스트가 본 원격 아바타 위치다")
+	assert_eq(params[2], remote_player, "소리 source 는 원격 아바타 노드다")
 
 func test_repeated_smell_accumulates_in_the_same_cell() -> void:
 	var grid: SmellGrid = _make_grid(_make_config())
