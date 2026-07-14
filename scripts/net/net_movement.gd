@@ -86,6 +86,19 @@ func get_move_violation_count(player_id: StringName) -> int:
 	return _authority.get_violation_count(player_id)
 
 
+## 호스트 권위 순간이동 (재접속 상태 복원 등, W2-T5). 아바타 위치와 함께
+## 이동 검증 기준(MovementAuthority)도 옮긴다 — 기준을 같이 옮기지 않으면
+## 복원 직후의 정직한 이동 의도가 텔레포트로 오판·거부되어 위치가 되돌아간다.
+func teleport_avatar(player_id: StringName, position: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	var avatar: Player = _avatars.get(player_id)
+	if avatar == null:
+		return
+	avatar.global_position = position
+	_authority.register_player(player_id, position)
+
+
 ## 클라이언트 → 호스트: 이동 의도. 대상 아바타는 페이로드가 아니라
 ## 발신자에서 유도한다 — 남의 아바타는 절대 움직일 수 없다 (설계서 7.4).
 @rpc("any_peer", "call_remote", "unreliable_ordered")

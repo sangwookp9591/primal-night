@@ -44,6 +44,9 @@ func _ready() -> void:
 	_guard.register_rule(&"confirm_pickup", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_session.player_joined.connect(_on_player_joined)
+	# 재접속 피어는 새 peer id 를 받는다 — 재등록하지 않으면 unknown_sender 로
+	# 거부되어 재접속 후 줍기가 죽는다 (tests/net/test_net_resync.gd, W2-T5).
+	_session.player_reconnected.connect(_on_player_joined)
 	_session.player_left.connect(_on_player_left)
 
 
