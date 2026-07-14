@@ -27,6 +27,11 @@ func _process(delta: float) -> void:
 	if not is_bleeding:
 		return
 
+	# 출혈 시뮬(지속 피해·피 냄새)은 권위에서만 돈다 (설계서 7.2: 피해·냄새는 호스트 권한).
+	# 클라이언트 복제본이 함께 발신하면 냄새가 2배로 쌓인다 — test_net_survival 이 잡는다.
+	if not multiplayer.is_server():
+		return
+
 	take_damage(config.bleed_damage_per_second * delta, &"bleed")
 
 	_smell_elapsed += delta
@@ -74,3 +79,12 @@ func stop_bleeding() -> void:
 
 func is_alive() -> bool:
 	return current_health > 0.0
+
+## 호스트 확정 상태를 복제본에 적용한다 (클라이언트, NetSurvival 스냅샷 경로).
+## 시뮬 부작용 없이 상태만 맞춘다 — HUD 신호(bleeding_*)는 전이 시에만 나간다.
+func apply_replicated(health_value: float, bleeding: bool) -> void:
+	current_health = clampf(health_value, 0.0, config.max_health)
+	if bleeding and is_alive():
+		start_bleeding()
+	elif not bleeding:
+		stop_bleeding()

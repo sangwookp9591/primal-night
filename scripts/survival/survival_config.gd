@@ -34,3 +34,8 @@ extends Resource
 @export_group("Healing")
 ## 동료가 상호작용을 길게 눌러 지혈하는 데 걸리는 시간 (설계서 5.2).
 @export var bandage_hold_seconds: float = 2.0
+
+@export_group("Network")
+## 클라이언트 부상 의도가 주장할 수 있는 피해 상한 (설계서 7.4: 피해량 불신).
+## 호스트는 주장값을 이 값으로 잘라서만 적용한다.
+@export var remote_hurt_max_damage: float = 25.0

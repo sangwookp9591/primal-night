@@ -1,0 +1,140 @@
+extends GutTest
+
+## NetSurvival — 피해·출혈 호스트 권위 + 생존 상태 복제 (설계서 7.2/7.4, 5.2).
+## 실제 ENet 루프백 브랜치 2개(호스트 기계/클라이언트 기계)로 검증한다.
+## 핵심: 클라이언트가 보낸 피해량을 그대로 믿지 않고, 피 냄새는 권위(호스트)만 발신한다.
+
+const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
+const PORT: int = 8917
+
+var host: Dictionary
+var client: Dictionary
+var _event_bus: Node = null
+
+
+func before_each() -> void:
+	_event_bus = get_node("/root/EventBus")
+	host = _make_side("HostSide")
+	client = _make_side("ClientSide")
+
+
+func after_each() -> void:
+	client.session.leave_session()
+	host.session.leave_session()
+	get_tree().set_multiplayer(null, host.root.get_path())
+	get_tree().set_multiplayer(null, client.root.get_path())
+
+
+## 한쪽 '기계': 세션 + 호스트 아바타 + 스폰 컨테이너 + NetMovement + NetSurvival.
+func _make_side(side_name: String) -> Dictionary:
+	var root: Node = add_child_autofree(Node.new())
+	root.name = side_name
+	get_tree().set_multiplayer(SceneMultiplayer.new(), root.get_path())
+
+	var session: LocalSessionService = LocalSessionService.new()
+	session.name = "NetSession"
+	session.config = NetConfig.new()
+	session.config.port = PORT
+	root.add_child(session)
+
+	var host_player: Player = PlayerScene.instantiate()
+	host_player.name = "Player"
+	root.add_child(host_player)
+
+	var container: Node2D = Node2D.new()
+	container.name = "Players"
+	root.add_child(container)
+
+	var net_move: NetMovement = NetMovement.new()
+	net_move.name = "NetMovement"
+	net_move.session_path = ^"../NetSession"
+	net_move.host_player_path = ^"../Player"
+	net_move.players_container_path = ^"../Players"
+	net_move.avatar_scene = PlayerScene
+	net_move.config = session.config
+	root.add_child(net_move)
+
+	var survival: NetSurvival = NetSurvival.new()
+	survival.name = "NetSurvival"
+	survival.session_path = ^"../NetSession"
+	survival.host_player_path = ^"../Player"
+	survival.players_container_path = ^"../Players"
+	root.add_child(survival)
+
+	return {
+		root = root, session = session, host_player = host_player,
+		container = container, net_move = net_move, survival = survival,
+	}
+
+
+func _join_and_spawn() -> StringName:
+	assert_eq(host.session.host_session(), OK)
+	assert_eq(client.session.join_session("127.0.0.1:%d" % PORT), OK)
+	await wait_for_signal(host.session.player_joined, 5.0, "호스트가 참가를 관측해야 한다")
+	var client_id: StringName = client.session.get_local_player_id()
+	assert_true(await wait_until(func() -> bool:
+		return host.container.has_node(NodePath(String(client_id))) \
+			and client.container.has_node(NodePath(String(client_id))), 5.0),
+		"양쪽에 클라이언트 아바타가 스폰되어야 한다")
+	return client_id
+
+
+## ★ 클라이언트가 주장한 피해량(10000)을 그대로 믿지 않는다 (설계서 7.4).
+## 호스트는 자기 규칙(remote_hurt_max_damage)으로 잘라서만 적용한다.
+## (뮤테이션 자가검증 3번: 주장값을 그대로 신뢰하게 바꾸면 이 테스트가 잡는다.)
+func test_client_claimed_damage_is_clamped_to_host_rule() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+	var max_health: float = host_view.health.config.max_health
+	var max_damage: float = host_view.health.config.remote_hurt_max_damage
+
+	(client.survival as NetSurvival).request_hurt_for(client_avatar, 10000.0)
+
+	assert_true(await wait_until(func() -> bool:
+		return host_view.health.is_bleeding, 5.0),
+		"호스트가 부상 의도를 확정하고 출혈을 시작해야 한다")
+	assert_true(host_view.health.is_alive(), "변조된 10000 피해가 적용됐다면 죽었을 것이다")
+	# 확정 직후 출혈 지속 피해가 조금 이어질 수 있다 — 상한만 정확히 본다.
+	assert_lte(host_view.health.current_health, max_health - max_damage,
+		"호스트 규칙만큼은 피해를 입어야 한다")
+	assert_gt(host_view.health.current_health, max_health - max_damage - 3.0,
+		"호스트 규칙(%.0f)을 넘는 피해가 적용되면 안 된다" % max_damage)
+
+
+## ★ 피 냄새는 권위(호스트)만 발신한다 (설계서 7.2: 냄새 이벤트는 호스트 권한).
+## 클라이언트 복제본이 함께 발신하면 냄새가 2배로 쌓인다.
+## (뮤테이션 자가검증 2번: 게이트를 제거하면 이 테스트가 잡는다.)
+func test_bleed_smell_is_emitted_only_by_the_authority() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+	var interval: float = host_view.health.config.bleed_smell_interval
+
+	# 양쪽 다 출혈 상태로 만든다 (복제와 무관하게 발신 게이트만 본다).
+	host_view.health.start_bleeding()
+	client_avatar.health.start_bleeding()
+	watch_signals(_event_bus)
+
+	host_view.health._process(interval)
+	assert_signal_emit_count(_event_bus, "smell_emitted", 1, "권위(호스트 기계)는 발신한다")
+
+	client_avatar.health._process(interval)
+	assert_signal_emit_count(_event_bus, "smell_emitted", 1,
+		"클라이언트 기계는 발신하지 않는다 — 발신하면 냄새가 2배로 쌓인다")
+
+
+## 호스트가 확정한 체력·출혈 상태가 클라이언트 복제본으로 전파된다 (HUD·치료 판정용).
+func test_survival_state_replicates_to_client() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+
+	(client.survival as NetSurvival).request_hurt_for(client_avatar, 25.0)
+
+	assert_true(await wait_until(func() -> bool:
+		return client_avatar.health.is_bleeding \
+			and absf(client_avatar.health.current_health - host_view.health.current_health) < 2.0 \
+			and client_avatar.health.current_health < client_avatar.health.config.max_health, 5.0),
+		"클라이언트 복제본이 호스트 확정 체력·출혈 상태로 수렴해야 한다")
+	assert_true(client_avatar.health.is_bleeding, "출혈 상태가 복제되어야 한다")
