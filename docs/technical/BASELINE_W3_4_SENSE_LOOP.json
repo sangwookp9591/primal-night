@@ -1,0 +1,50 @@
+{
+	"build": "d78f4d9-dirty",
+	"custom": {
+		"ai_samples": 60,
+		"ai_update_ms_max": 0.112,
+		"ai_update_ms_p95": 0.07,
+		"noise_events_total": 45,
+		"raptor_chase_entries": 1,
+		"raptor_investigate_entries": 1,
+		"scent_samples": 56,
+		"scent_update_ms_max": 0.061,
+		"scent_update_ms_p95": 0.053,
+		"smell_active_cells_max": 13
+	},
+	"duration_sec": 14.0236600000005,
+	"engine": "4.7-stable (official)",
+	"environment": {
+		"cpu": "Apple M5",
+		"display_server": "headless",
+		"gpu": "",
+		"os": "macOS",
+		"resolution": "headless"
+	},
+	"fps": {
+		"average": 142.616121611614,
+		"low_0_1_percent": 9.9416260855013,
+		"low_1_percent": 48.7280116516854
+	},
+	"frame_ms": {
+		"max": 150.0,
+		"p50": 6.896,
+		"p95": 6.94444444444444,
+		"p99": 7.40740740740741
+	},
+	"hardware_id": "macos-dev-headless-not-minspec",
+	"measurement_note": "macOS 개발기 headless 감지 루프 기준선이며 Windows 최소사양 예산 또는 출시 판정 수치가 아님 (성능문서 10장). 로컬 회귀 게이트 전용.",
+	"memory_mb": {
+		"end": 91.8134431838989,
+		"peak": 91.8100557327271,
+		"start": 26.028302192688
+	},
+	"scenario": "W3_4_SENSE_LOOP",
+	"scenario_note": "main.tscn 실주행: 출혈→피 냄새→바람 이류→랩터 조사/훑기→세션 시계→생존 수치. 랩터 rng seed=4001 고정.",
+	"schema_version": 1,
+	"stalls": {
+		"over_100ms": 1,
+		"over_33ms": 3,
+		"over_50ms": 2
+	}
+}
