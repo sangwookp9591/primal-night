@@ -57,3 +57,26 @@ theme_override_constants/h_separation = 4
 
 [node name="Prompt" type="Label" parent="Root/Column"]
 text = ""
+
+; 감각 피드백 (설계서 5.4/12장): 바람 화살표 / 최근 큰 소리 방향 / 랩터 추격 경보.
+; 회전으로 방향을 표시하는 회색 상자 수준 — 렌더 픽셀 검증은 하지 않는다 (W3-T5).
+[node name="SenseRow" type="HBoxContainer" parent="Root/Column"]
+theme_override_constants/separation = 12
+
+[node name="WindArrow" type="Label" parent="Root/Column/SenseRow"]
+visible = false
+theme_override_colors/font_color = Color(0.3, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 20
+text = "➤"
+
+[node name="SoundArrow" type="Label" parent="Root/Column/SenseRow"]
+visible = false
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+theme_override_font_sizes/font_size = 20
+text = "➤"
+
+[node name="RaptorAlert" type="Label" parent="Root/Column/SenseRow"]
+visible = false
+theme_override_colors/font_color = Color(0.9, 0.15, 0.15, 1)
+theme_override_font_sizes/font_size = 20
+text = "⚠ 추격!"
