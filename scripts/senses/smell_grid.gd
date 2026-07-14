@@ -9,7 +9,6 @@ extends Node2D
 
 const DEFAULT_CONFIG: SmellGridConfig = preload("res://data/creatures/smell_grid_config.tres")
 const SNAPSHOT_INTERVAL_SECONDS: float = 0.25
-const REMOTE_PLAYER_NOISE_RADIUS: float = 120.0
 const REMOTE_PLAYER_NOISE_MIN_DISTANCE: float = 12.0
 
 @export var config: SmellGridConfig = DEFAULT_CONFIG
@@ -238,20 +237,27 @@ func _emit_registered_smell_sources(delta: float) -> void:
 	for owner: Object in _dead_smell_sources:
 		_smell_sources.erase(owner)
 
+## 원격 아바타의 실제 이동을 소리로 낸다. 반경은 고정값이 아니라 호스트가 검증한
+## 자세(NetMovement.submit_move_intent 교차검증 → Player.last_validated_stance)의
+## NoiseProfile 에서 온다 — 웅크린 원격 아바타도 실제로 조용해야 한다 (설계서 5.6/7.4).
+## 수풀 여부는 클라이언트 주장이 아니라 호스트 트리의 아바타 위치(in_bush)로 판정한다.
 func _emit_remote_player_noise() -> void:
 	if _event_bus == null:
 		return
 	var live_ids: Dictionary = {}
 	for node: Node in get_tree().get_nodes_in_group(&"player"):
 		var player: Player = node as Player
-		if player == null or player.controller_peer_id == multiplayer.get_unique_id():
+		if player == null or player.controller_peer_id == multiplayer.get_unique_id() \
+				or player.multiplayer != multiplayer:
 			continue
 		var id: int = player.get_instance_id()
 		live_ids[id] = true
 		var previous: Variant = _remote_player_positions.get(id)
 		_remote_player_positions[id] = player.global_position
 		if previous is Vector2 and (previous as Vector2).distance_to(player.global_position) >= REMOTE_PLAYER_NOISE_MIN_DISTANCE:
-			_event_bus.noise_emitted.emit(player.global_position, REMOTE_PLAYER_NOISE_RADIUS, player)
+			var profile: NoiseProfile = player.get_noise_profile_for_stance(
+				player.last_validated_stance, player.in_bush)
+			_event_bus.noise_emitted.emit(player.global_position, profile.radius, player)
 	for id: int in _remote_player_positions.keys():
 		if not live_ids.has(id):
 			_remote_player_positions.erase(id)
