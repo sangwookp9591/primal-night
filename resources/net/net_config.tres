@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="NetConfig" load_steps=2 format=3 uid="uid://netconfig"]
+
+[ext_resource type="Script" path="res://scripts/net/net_config.gd" id="1_netconfig"]
+
+[resource]
+script = ExtResource("1_netconfig")
+port = 8910
+max_clients = 1
