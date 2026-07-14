@@ -66,6 +66,7 @@ func _on_player_left(player_id: StringName) -> void:
 		items = _collect_items(avatar),
 		health = avatar.health.current_health,
 		bleeding = avatar.health.is_bleeding,
+		stats = _collect_stats(avatar),
 		position = avatar.global_position,
 		avatar_id = avatar.get_instance_id(),
 	}
@@ -99,10 +100,12 @@ func _restore_into(avatar: Player, saved: Dictionary) -> void:
 	for item_id: StringName in items:
 		avatar.inventory.add_item(item_id, int(items[item_id]))
 	avatar.health.apply_replicated(float(saved.health), bool(saved.bleeding))
+	_restore_stats(avatar, saved.get("stats", {}))
 	# 위치는 이동 검증 기준과 함께 옮긴다 — 아니면 복원 직후 클라이언트의 이동
 	# 의도가 텔레포트로 오판되어 스폰 위치로 되돌아간다 (NetMovement.teleport_avatar).
 	var player_id: StringName = StringName(avatar.name)
 	_net_movement.teleport_avatar(player_id, saved.position)
+	avatar.stats.reset_motion_baseline()
 
 
 func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
@@ -115,21 +118,26 @@ func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 	for item_id: StringName in items:
 		ids.append(String(item_id))
 		counts.append(int(items[item_id]))
+	var stats: Dictionary = _collect_stats(avatar)
 	apply_player_snapshot.rpc_id(peer, String(player_id), ids, counts,
-		avatar.health.current_health, avatar.health.is_bleeding, avatar.global_position)
+		avatar.health.current_health, avatar.health.is_bleeding, avatar.global_position,
+		float(stats.temperature), float(stats.water), float(stats.food), float(stats.fatigue))
 
 
 ## 호스트 → 재접속 피어: 전체 상태 스냅샷. 복제본을 비우고 권위 상태로 다시 채운다
 ## (부분 병합 금지 — 병합하면 이탈 전 잔존 상태와 겹쳐 아이템이 복제된다).
 @rpc("authority", "call_remote", "reliable")
 func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
-		item_counts: PackedInt32Array, health: float, bleeding: bool, position: Vector2) -> void:
-	var payload: int = player_id.length() + item_ids.size() * 24 + 32
+		item_counts: PackedInt32Array, health: float, bleeding: bool, position: Vector2,
+		temperature: float, water: float, food: float, fatigue: float) -> void:
+	var payload: int = player_id.length() + item_ids.size() * 24 + 64
 	if not _guard.check(&"apply_player_snapshot", multiplayer.get_remote_sender_id(), payload, _now_seconds):
 		return
 	if player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
 			or item_ids.size() != item_counts.size() or item_ids.size() > SNAPSHOT_MAX_ITEMS \
-			or not is_finite(health) or not position.is_finite():
+			or not is_finite(health) or not position.is_finite() \
+			or not is_finite(temperature) or not is_finite(water) \
+			or not is_finite(food) or not is_finite(fatigue):
 		push_warning("NetResync: apply_player_snapshot 스키마 위반 — 폐기")
 		return
 	var avatar: Player = _avatar_of(StringName(player_id))
@@ -140,7 +148,9 @@ func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
 		if item_counts[index] > 0:
 			avatar.inventory.add_item(StringName(item_ids[index]), item_counts[index])
 	avatar.health.apply_replicated(health, bleeding)
+	avatar.stats.apply_replicated(temperature, water, food, fatigue)
 	avatar.global_position = position
+	avatar.stats.reset_motion_baseline()
 
 
 ## 슬롯이 만료된 보관 상태를 폐기한다 (설계서 6.3: 미복귀 연결 종료).
@@ -159,6 +169,22 @@ func _collect_items(avatar: Player) -> Dictionary:
 		var item_id: StringName = slot["id"]
 		items[item_id] = int(items.get(item_id, 0)) + int(slot["count"])
 	return items
+
+
+func _collect_stats(avatar: Player) -> Dictionary:
+	return {
+		temperature = avatar.stats.temperature,
+		water = avatar.stats.water,
+		food = avatar.stats.food,
+		fatigue = avatar.stats.fatigue,
+	}
+
+
+func _restore_stats(avatar: Player, stats: Dictionary) -> void:
+	if stats.is_empty():
+		return
+	avatar.stats.apply_replicated(float(stats.temperature), float(stats.water),
+		float(stats.food), float(stats.fatigue))
 
 
 func _clear_inventory(avatar: Player) -> void:

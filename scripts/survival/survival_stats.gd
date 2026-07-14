@@ -117,6 +117,11 @@ func apply_replicated(temperature_value: float, water_value: float,
 	fatigue = clampf(fatigue_value, 0.0, STAT_MAX)
 
 
+func reset_motion_baseline() -> void:
+	if _body != null:
+		_last_position = _body.global_position
+
+
 func _near_fire() -> bool:
 	if _body == null:
 		return false

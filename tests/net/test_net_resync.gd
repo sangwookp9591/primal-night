@@ -158,6 +158,7 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 	authority_avatar.inventory.add_item(&"stone", 5)
 	authority_avatar.health.take_damage(30.0, &"debug")
 	authority_avatar.health.start_bleeding()
+	authority_avatar.stats.apply_replicated(72.0, 61.0, 53.0, 44.0)
 	var saved_health: float = authority_avatar.health.current_health
 	authority_avatar.global_position = Vector2(400.0, 300.0)
 
@@ -182,6 +183,10 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 		"보관된 인벤토리가 새 아바타에 복원되어야 한다")
 	assert_true(fresh_avatar.health.is_bleeding, "출혈 상태가 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.health.current_health, saved_health, 3.0, "체력이 복원되어야 한다")
+	assert_almost_eq(fresh_avatar.stats.temperature, 72.0, 0.01, "체온이 복원되어야 한다")
+	assert_almost_eq(fresh_avatar.stats.water, 61.0, 0.01, "수분이 복원되어야 한다")
+	assert_almost_eq(fresh_avatar.stats.food, 53.0, 0.01, "포만이 복원되어야 한다")
+	assert_almost_eq(fresh_avatar.stats.fatigue, 44.0, 2.0, "피로가 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.global_position.x, 400.0, 8.0, "위치가 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.global_position.y, 300.0, 8.0, "위치가 복원되어야 한다")
 
@@ -190,6 +195,11 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 		var replica: Player = _avatar_on(client, client_id)
 		return replica != null and replica.inventory.count_of(&"stone") == 5, 5.0),
 		"복원된 인벤토리가 클라이언트로 복제되어야 한다")
+	var replica: Player = _avatar_on(client, client_id)
+	assert_almost_eq(replica.stats.temperature, 72.0, 0.01, "체온이 클라이언트로 복제되어야 한다")
+	assert_almost_eq(replica.stats.water, 61.0, 0.01, "수분이 클라이언트로 복제되어야 한다")
+	assert_almost_eq(replica.stats.food, 53.0, 0.01, "포만이 클라이언트로 복제되어야 한다")
+	assert_almost_eq(replica.stats.fatigue, 44.0, 2.0, "피로가 클라이언트로 복제되어야 한다")
 
 
 ## 슬롯 만료(120초) 뒤 복귀는 새 플레이어다 — 보관 상태를 복원하지 않는다 (설계서 6.3).
