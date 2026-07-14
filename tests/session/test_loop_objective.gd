@@ -117,6 +117,26 @@ func test_bleeding_marks_risk_exposure() -> void:
 		"출혈은 위험 노출로 기록된다")
 
 
+func test_smelly_item_pickup_marks_risk_exposure() -> void:
+	var side: Dictionary = _make_side("Solo")
+
+	get_node("/root/EventBus").item_picked_up.emit(&"raw_meat", side.host_player)
+	await wait_physics_frames(1)
+
+	assert_true((side.objective as LoopObjective).risk_exposed,
+		"냄새 원천 아이템 보유는 위험 노출로 기록된다")
+
+
+func test_bait_smell_marks_risk_exposure() -> void:
+	var side: Dictionary = _make_side("Solo")
+
+	get_node("/root/EventBus").smell_emitted.emit(Vector2(100.0, 100.0), 55.0, &"bait")
+	await wait_physics_frames(1)
+
+	assert_true((side.objective as LoopObjective).risk_exposed,
+		"미끼가 만든 냄새는 위험 노출로 기록된다")
+
+
 ## 참가·재접속한 클라이언트는 호스트의 세션 시간·노출·판정을 스냅샷으로 되찾는다.
 ## 클라이언트 시계는 혼자 900초에서 흐르므로, 호스트 값과 맞다는 것은 스냅샷이
 ## 도착했다는 뜻이다 (뮤테이션 자가검증: 스냅샷을 빼면 이 검증이 잡는다).

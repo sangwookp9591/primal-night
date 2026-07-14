@@ -46,7 +46,10 @@ func _ready() -> void:
 	_container = get_node(players_container_path)
 	_clock.phase_expired.connect(_on_phase_expired)
 	if has_node("/root/EventBus"):
-		get_node("/root/EventBus").bleeding_started.connect(_on_bleeding_started)
+		var event_bus: Node = get_node("/root/EventBus")
+		event_bus.bleeding_started.connect(_on_bleeding_started)
+		event_bus.item_picked_up.connect(_on_item_picked_up)
+		event_bus.smell_emitted.connect(_on_smell_emitted)
 	_guard = RpcGuard.new()
 	_guard.register_rule(&"apply_session_snapshot", true, SNAPSHOT_MAX_PER_SECOND, SNAPSHOT_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
@@ -75,6 +78,19 @@ func mark_risk_exposed() -> void:
 
 func _on_bleeding_started(target: Node) -> void:
 	if target is Player:
+		mark_risk_exposed()
+
+
+func _on_item_picked_up(item_id: StringName, by: Node) -> void:
+	if not by is Player:
+		return
+	var item: ItemData = get_node("/root/GameData").get_item(item_id)
+	if item != null and item.is_smell_source():
+		mark_risk_exposed()
+
+
+func _on_smell_emitted(_position: Vector2, strength: float, kind: StringName) -> void:
+	if strength > 0.0 and kind != &"blood":
 		mark_risk_exposed()
 
 
