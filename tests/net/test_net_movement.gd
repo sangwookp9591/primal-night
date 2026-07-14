@@ -107,8 +107,11 @@ func test_teleport_claim_is_rejected_and_client_is_corrected() -> void:
 	var host_side_avatar: Player = host.container.get_node(String(client_id))
 	var before: Vector2 = host_side_avatar.global_position
 
-	# 변조된 클라이언트: 5000px 순간이동을 주장한다.
-	client_side_avatar.global_position = before + Vector2(5000.0, 0.0)
+	# 변조된 클라이언트: 5000px 순간이동을 여러 프레임 연속 강제한다.
+	# (1회 주입은 보정 스냅샷이 의도 전송보다 먼저 도착하면 되돌려져 비결정적이다.)
+	for i: int in range(10):
+		client_side_avatar.global_position = before + Vector2(5000.0, 0.0)
+		await wait_physics_frames(1)
 	await wait_physics_frames(20)
 
 	# 호스트는 주장을 거부하고 직전 권위 위치를 유지한다 (설계서 7.4).

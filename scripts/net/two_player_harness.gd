@@ -117,7 +117,12 @@ func _run() -> void:
 	# 5) 텔레포트 변조 거부 (설계서 7.4: 좌표를 그대로 신뢰하지 않음).
 	_log("--- phase 5: 텔레포트 변조 주장 → 호스트 거부 + 보정 ---")
 	var before_cheat: Vector2 = host_view_of_client.global_position
-	client_avatar.global_position = before_cheat + Vector2(5000.0, 0.0)
+	# 변조 위치를 여러 프레임 연속 강제한다 — 1회 주입은 보정 스냅샷이 의도 전송보다
+	# 먼저 도착해 되돌려 버릴 수 있어(위반 기록이 안 남음) 판정이 비결정적이 된다.
+	for i: int in range(10):
+		client_avatar.global_position = before_cheat + Vector2(5000.0, 0.0)
+		await physics_frame
+		_frames += 1
 	for i: int in range(30):
 		await physics_frame
 		_frames += 1
