@@ -8,13 +8,19 @@ extends Node
 ## 같은 프레임에 두 명이 같은 아이템을 요청해도 호스트가 직렬로 처리하므로
 ## 정확히 한 명만 획득한다 (복제 0, 소실 0) — tests/inventory/test_net_pickup.gd.
 
+const ThrowableBaitScript = preload("res://scripts/items/throwable_bait.gd")
+
 ## 줍기 검증 거리 (px): 상호작용 손 반경 48 + 아이템 겹침 여유 + 10Hz 위치 스냅샷
 ## 지연 여유. 게임 규칙이 아니라 변조 방지 슬랙이라 프로토콜 상수다 (NetMovement 관례).
 const PICKUP_MAX_DISTANCE_PX: float = 128.0
+const THROW_MAX_DISTANCE_PX: float = 360.0
 const ITEM_PATH_MAX_LENGTH: int = 128
 const REQUEST_MAX_PER_SECOND: int = 10
 const CONFIRM_MAX_PER_SECOND: int = 30
 const CONFIRM_PAYLOAD_BYTES: int = 512
+const THROW_PAYLOAD_BYTES: int = 32
+const BAIT_ID: StringName = &"bait"
+const THROWN_BAITS_CONTAINER: StringName = &"ThrownBaits"
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -42,6 +48,8 @@ func _ready() -> void:
 	_guard = RpcGuard.new()
 	_guard.register_rule(&"request_pickup", false, REQUEST_MAX_PER_SECOND, ITEM_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"confirm_pickup", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
+	_guard.register_rule(&"request_throw_bait", false, REQUEST_MAX_PER_SECOND, THROW_PAYLOAD_BYTES)
+	_guard.register_rule(&"confirm_throw_bait", true, CONFIRM_MAX_PER_SECOND, THROW_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
 	_guard.watch_session(_session)
@@ -68,6 +76,15 @@ func request(item: WorldItem, who: Player) -> void:
 	request_pickup.rpc_id(RpcGuard.HOST_PEER_ID, String(_world_root.get_path_to(item)))
 
 
+## 플레이어가 미끼 1개 투척을 요청한다. 클라이언트는 목표 좌표만 보내며,
+## 소비 수량·효과 수치는 전부 호스트 코드와 데이터가 결정한다.
+func request_throw_bait_for(who: Player, target_position: Vector2) -> void:
+	if multiplayer.is_server():
+		_host_throw_bait(who, target_position)
+		return
+	request_throw_bait.rpc_id(RpcGuard.HOST_PEER_ID, target_position)
+
+
 ## 클라이언트 → 호스트: 줍기 의도. 경로만 받고 모든 사실은 호스트 월드에서 조회한다.
 @rpc("any_peer", "call_remote", "reliable")
 func request_pickup(item_path: String) -> void:
@@ -86,6 +103,22 @@ func request_pickup(item_path: String) -> void:
 	if item == null:
 		return  # 이미 사라진 아이템 — 동시 획득 경합에서 진 정상 경로.
 	_host_pickup(avatar, item)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_throw_bait(target_position: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_throw_bait", sender, THROW_PAYLOAD_BYTES, _now_seconds):
+		return
+	if not target_position.is_finite():
+		push_warning("NetPickup: request_throw_bait 스키마 위반 — 폐기 sender=%d" % sender)
+		return
+	var avatar: Player = _avatar_of(_session.get_player_id_for_peer(sender))
+	if avatar == null:
+		return
+	_host_throw_bait(avatar, target_position)
 
 
 ## 호스트 권위 판정: 존재·수량·거리를 검증하고 적용한 뒤 결과를 복제한다.
@@ -107,6 +140,21 @@ func _host_pickup(who: Player, item: WorldItem) -> void:
 		return  # 인벤토리가 꽉 참 — 월드 상태 불변, 복제할 것 없음.
 	if multiplayer.get_peers().size() > 0:
 		confirm_pickup.rpc(item_path, String(_player_id_of(who)), String(item_id), added, item.count)
+
+
+func _host_throw_bait(who: Player, target_position: Vector2) -> void:
+	if who == null or not is_instance_valid(who) or not target_position.is_finite():
+		return
+	var distance: float = who.global_position.distance_to(target_position)
+	if distance > THROW_MAX_DISTANCE_PX:
+		push_warning("NetPickup: 사거리 밖 미끼 투척 주장 거부 dist=%.0f" % distance)
+		return
+	if not who.inventory.remove_item(BAIT_ID, 1):
+		return
+
+	_spawn_landed_bait(target_position, who)
+	if multiplayer.get_peers().size() > 0:
+		confirm_throw_bait.rpc(target_position)
 
 
 ## 호스트 → 클라이언트: 획득 확정 복제. 월드 잔량과 인벤토리 복제본을 맞춘다.
@@ -132,6 +180,31 @@ func confirm_pickup(item_path: String, player_id: String, item_id: String, added
 	avatar.inventory.add_item(StringName(item_id), added)
 	if _event_bus != null:
 		_event_bus.item_picked_up.emit(StringName(item_id), avatar)
+
+
+@rpc("authority", "call_remote", "reliable")
+func confirm_throw_bait(target_position: Vector2) -> void:
+	if not _guard.check(&"confirm_throw_bait", multiplayer.get_remote_sender_id(),
+			THROW_PAYLOAD_BYTES, _now_seconds):
+		return
+	if not target_position.is_finite():
+		push_warning("NetPickup: confirm_throw_bait 스키마 위반 — 폐기")
+		return
+	_spawn_landed_bait(target_position, null)
+
+
+func _spawn_landed_bait(target_position: Vector2, source: Node) -> Node2D:
+	var container: Node2D = _world_root.get_node_or_null(NodePath(String(THROWN_BAITS_CONTAINER))) as Node2D
+	if container == null:
+		container = Node2D.new()
+		container.name = String(THROWN_BAITS_CONTAINER)
+		_world_root.add_child(container)
+
+	var bait: Node2D = ThrowableBaitScript.new()
+	bait.name = "Bait"
+	container.add_child(bait)
+	bait.land_at(target_position, source)
+	return bait
 
 
 func _host_id() -> StringName:
