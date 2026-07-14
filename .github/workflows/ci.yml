@@ -62,6 +62,14 @@ jobs:
         run: |
           "$GODOT_BIN" --headless --path . -s scripts/net/two_player_harness.gd | tee artifacts/two_player_harness.log
 
+      # W2-T4: ENetMultiplayerPeer has no deterministic RTT/loss injection knob.
+      # This short CI scenario keeps the artificial delay/loss queue inside scripts/net
+      # and reduces the 2h remote-test target to deterministic RTT 100ms/250ms + loss 1%/5%
+      # movement sync and reconnect assertions.
+      - name: Network conditions harness (RTT/loss)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/net/network_conditions_harness.gd | tee artifacts/network_conditions_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
