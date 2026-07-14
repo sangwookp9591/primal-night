@@ -132,10 +132,8 @@ func _run_seed(seed_value: int) -> Dictionary:
 		seed_value, raptor.global_position.snapped(Vector2.ONE)])
 
 	# ── 4) 회피 성공 — 모닥불 보호로 CHASE 이탈 ──
-	var evasion_reason: Array = [""]
-	result.evasion = await _run_evasion(seed_value, player, raptor, campfire_site, evasion_reason)
+	result.evasion = await _run_evasion(seed_value, player, raptor, campfire_site, result)
 	if not result.evasion:
-		result.reason = evasion_reason[0]
 		await _teardown(main)
 		return result
 
@@ -149,16 +147,16 @@ func _run_seed(seed_value: int) -> Dictionary:
 ## ★ 순서가 중요하다: 모닥불은 CHASE 진입 *뒤에* 짓는다. WANDER/INVESTIGATE 상태의
 ## 이탈 판정(반경*1.3)과 lose_sight_radius(280)가 값이 가까워, 미리 지어두면 추격
 ## 자체가 성립하기 전에 배회 분기의 자동 도주 판정과 충돌한다.
-## 실패 사유는 reason_out[0] 에 담아 반환한다 (Dictionary 가 아니라 함수 시그니처 단순화용).
+## 실패 사유는 result.reason 에 직접 적는다 (Dictionary 는 참조 전달).
 func _run_evasion(seed_value: int, player: Player, raptor: Raptor,
-		campfire_site: CampfireSite, reason_out: Array) -> bool:
+		campfire_site: CampfireSite, result: Dictionary) -> bool:
 	var raptor_now: Vector2 = raptor.global_position
 	# 시야 반경(180) 안 — 직접 지각으로 CHASE 를 유발한다. 아직 모닥불이 없다.
 	var sight_spot: Vector2 = raptor_now + Vector2(100.0, 0.0)
 
 	player.global_position = sight_spot
 	if not await _wait_until(func() -> bool: return raptor.state == Raptor.State.CHASE, 5.0):
-		reason_out[0] = "직접 지각으로도 추격에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
+		result.reason = "직접 지각으로도 추격에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
 		return false
 	_log("  [seed %d] 추격 진입 확인" % seed_value)
 
@@ -172,11 +170,11 @@ func _run_evasion(seed_value: int, player: Player, raptor: Raptor,
 	await physics_frame
 	player.interactor.begin()
 	if player.interactor.current_target != campfire_site:
-		reason_out[0] = "회피 무대: 모닥불 자리를 잡지 못했다"
+		result.reason = "회피 무대: 모닥불 자리를 잡지 못했다"
 		return false
 	player.interactor._process(campfire_site.config.build_seconds + 0.01)
 	if campfire_site.campfire == null or not campfire_site.campfire.is_lit:
-		reason_out[0] = "회피 무대: 모닥불이 점화되지 않았다"
+		result.reason = "회피 무대: 모닥불이 점화되지 않았다"
 		return false
 	_log("  [seed %d] 회피 무대: 모닥불 점화 완료 (추격 지점으로부터 %.0fpx)" % [
 		seed_value, sight_spot.distance_to(fire_spot)])
@@ -189,7 +187,7 @@ func _run_evasion(seed_value: int, player: Player, raptor: Raptor,
 	# ★ 걷는 동안 매 프레임 FLEE 여부를 본다: 보호 반경이 넓으면 도착 전에 이미 도주하고
 	# 곧장 이탈 반경 밖으로 나가 WANDER 로 돌아갈 수 있다 — 그 순간을 놓치면 안 된다.
 	if not await _walk_until_fleeing(player, fire_spot, raptor, 12.0):
-		reason_out[0] = "불 보호에도 추격에서 벗어나지 않았다 (state=%s)" % raptor.get_state_name()
+		result.reason = "불 보호에도 추격에서 벗어나지 않았다 (state=%s)" % raptor.get_state_name()
 		return false
 	_log("  [seed %d] 회피 성공 확인 — 랩터가 추격에서 벗어나 후퇴함" % seed_value)
 	return true

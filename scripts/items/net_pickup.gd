@@ -193,7 +193,7 @@ func confirm_throw_bait(target_position: Vector2) -> void:
 	_spawn_landed_bait(target_position, null)
 
 
-func _spawn_landed_bait(target_position: Vector2, source: Node) -> Node2D:
+func _spawn_landed_bait(target_position: Vector2, source: Node) -> void:
 	var container: Node2D = _world_root.get_node_or_null(NodePath(String(THROWN_BAITS_CONTAINER))) as Node2D
 	if container == null:
 		container = Node2D.new()
@@ -204,7 +204,6 @@ func _spawn_landed_bait(target_position: Vector2, source: Node) -> Node2D:
 	bait.name = "Bait"
 	container.add_child(bait)
 	bait.land_at(target_position, source)
-	return bait
 
 
 func _host_id() -> StringName:

@@ -148,9 +148,8 @@ func _first_carried_smell_item() -> ItemData:
 	return null
 
 func _find_smell_grid() -> SmellGrid:
-	if _carried_smell_grid != null and is_instance_valid(_carried_smell_grid):
-		return _carried_smell_grid
-	_carried_smell_grid = get_tree().get_first_node_in_group(&"smell_grid") as SmellGrid
+	if _carried_smell_grid == null or not is_instance_valid(_carried_smell_grid):
+		_carried_smell_grid = SmellGrid.find_in(get_tree())
 	return _carried_smell_grid
 
 func _carried_smell_position() -> Vector2:

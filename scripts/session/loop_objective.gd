@@ -16,6 +16,10 @@ signal outcome_changed(outcome: Outcome)
 
 const SNAPSHOT_MAX_PER_SECOND: int = 10
 const SNAPSHOT_PAYLOAD_BYTES: int = 64
+## 랩터를 부르는 냄새 종류 (양성 지정). 새 냄새 kind 는 여기 넣어야만 노출로 친다 —
+## "blood 가 아니면 전부 위험" 식 부정 필터는 연기·조리 냄새가 생기는 순간 어긋난다.
+## (blood 는 bleeding_started 전용 경로가 따로 있다.)
+const LURE_SMELL_KINDS: Array[StringName] = [&"raw_meat", &"bait"]
 ## 도달 판정 주기 (틱). 10Hz 면 도달 판정에 충분하다 — 매 프레임 전체 아바타
 ## 순회는 금지다 (성능문서 6.1).
 const CHECK_INTERVAL_TICKS: int = 6
@@ -90,7 +94,7 @@ func _on_item_picked_up(item_id: StringName, by: Node) -> void:
 
 
 func _on_smell_emitted(_position: Vector2, strength: float, kind: StringName) -> void:
-	if strength > 0.0 and kind != &"blood":
+	if strength > 0.0 and kind in LURE_SMELL_KINDS:
 		mark_risk_exposed()
 
 
@@ -100,11 +104,14 @@ func _on_phase_expired() -> void:
 	_settle(Outcome.FAILED)
 
 
+## 10Hz 판정 — get_children() 배열 할당 없이 인덱스로 돌고, sqrt 없이 제곱 비교한다.
 func _anyone_at_extraction() -> bool:
-	if _host_player.global_position.distance_to(global_position) <= extraction_radius:
+	var radius_squared: float = extraction_radius * extraction_radius
+	if _host_player.global_position.distance_squared_to(global_position) <= radius_squared:
 		return true
-	for avatar: Node in _container.get_children():
-		if avatar is Player and (avatar as Player).global_position.distance_to(global_position) <= extraction_radius:
+	for index: int in range(_container.get_child_count()):
+		var avatar: Player = _container.get_child(index) as Player
+		if avatar != null and avatar.global_position.distance_squared_to(global_position) <= radius_squared:
 			return true
 	return false
 

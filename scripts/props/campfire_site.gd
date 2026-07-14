@@ -76,8 +76,7 @@ func build_and_light() -> void:
 	# 자유 건축 금지: 플레이어 위치가 아니라 이 자리에 스냅한다.
 	campfire.global_position = global_position
 	get_parent().add_child(campfire)
-	_noise_emitter.emit_profile(_event_bus, BUILD_NOISE, global_position, self,
-		float(Time.get_ticks_msec()) / 1000.0)
+	_noise_emitter.emit_profile(_event_bus, BUILD_NOISE, global_position, self)
 	campfire.light()
 
 ## 같은 기계(멀티플레이 브랜치)의 NetCampfire 만 잡는다 — 헤드리스 하네스에선

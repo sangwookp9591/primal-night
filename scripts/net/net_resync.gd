@@ -100,7 +100,7 @@ func _restore_into(avatar: Player, saved: Dictionary) -> void:
 	for item_id: StringName in items:
 		avatar.inventory.add_item(item_id, int(items[item_id]))
 	avatar.health.apply_replicated(float(saved.health), bool(saved.bleeding))
-	_restore_stats(avatar, saved.get("stats", {}))
+	_restore_stats(avatar, saved.stats)
 	# 위치는 이동 검증 기준과 함께 옮긴다 — 아니면 복원 직후 클라이언트의 이동
 	# 의도가 텔레포트로 오판되어 스폰 위치로 되돌아간다 (NetMovement.teleport_avatar).
 	var player_id: StringName = StringName(avatar.name)
@@ -181,8 +181,6 @@ func _collect_stats(avatar: Player) -> Dictionary:
 
 
 func _restore_stats(avatar: Player, stats: Dictionary) -> void:
-	if stats.is_empty():
-		return
 	avatar.stats.apply_replicated(float(stats.temperature), float(stats.water),
 		float(stats.food), float(stats.fatigue))
 

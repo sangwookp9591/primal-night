@@ -51,9 +51,13 @@ var _last_stage: String = ""
 var _indicator_model: SenseIndicatorModel = SenseIndicatorModel.new()
 var _smell_grid: SmellGrid = null
 var _raptors_connected: bool = false
-## 랩터가 아직 없는(또는 늦게 생기는) 화면에서 매 프레임 재귀 트리 스캔을 반복하지
+## 화살표 회전은 방향이 실제로 바뀐 프레임에만 만진다 (set_rotation 은 같은 값에도
+## transform 을 더럽힌다). 문자열 단계 라벨의 _last_stage 와 같은 규칙.
+var _last_wind_direction: Vector2 = Vector2.INF
+var _last_sound_direction: Vector2 = Vector2.INF
+## 랩터가 아직 없는(또는 늦게 생기는) 화면에서 매 프레임 그룹 조회를 반복하지
 ## 않는다 — 이미 만료된 값으로 시작해 첫 프레임엔 즉시 시도하고, 실패하면 주기마다만
-## 재시도한다 (성능문서 6.1: 전체 노드 트리 검색·반복 Array 할당 금지).
+## 재시도한다 (성능문서 6.1).
 const RAPTOR_SCAN_INTERVAL_SECONDS: float = 2.0
 var _raptor_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
 
@@ -187,12 +191,11 @@ func _on_noise_emitted(position: Vector2, _radius: float, source: Node) -> void:
 
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):
-		_smell_grid = get_tree().get_first_node_in_group(&"smell_grid") as SmellGrid
+		_smell_grid = SmellGrid.find_in(get_tree())
 	return _smell_grid
 
-## 랩터는 그룹에 속하지 않으므로 트리를 훑어 찾는다. 한 번 다 찾으면 다시 훑지 않는다.
-## 못 찾았을 때는 매 프레임이 아니라 RAPTOR_SCAN_INTERVAL_SECONDS 주기로만 재시도한다 —
-## 랩터가 없거나 늦게 생기는 화면에서 매 프레임 재귀 스캔·Array 재할당이 반복되면 안 된다.
+## 랩터는 &"raptor" 그룹으로 찾는다 (player/smell_grid 와 같은 관례). 한 번 다 찾으면
+## 다시 찾지 않고, 못 찾았을 때는 RAPTOR_SCAN_INTERVAL_SECONDS 주기로만 재시도한다.
 func _ensure_raptors_connected(delta: float) -> void:
 	if _raptors_connected:
 		return
@@ -200,32 +203,29 @@ func _ensure_raptors_connected(delta: float) -> void:
 	if _raptor_scan_elapsed < RAPTOR_SCAN_INTERVAL_SECONDS:
 		return
 	_raptor_scan_elapsed = 0.0
-	var found: Array = _collect_raptors(get_tree().root)
+	var found: Array = get_tree().get_nodes_in_group(&"raptor")
 	if found.is_empty():
 		return
 	for raptor: Raptor in found:
 		raptor.state_changed.connect(_on_raptor_state_changed)
 	_raptors_connected = true
 
-func _collect_raptors(node: Node) -> Array:
-	var result: Array = []
-	if node is Raptor:
-		result.append(node)
-	for child: Node in node.get_children():
-		result.append_array(_collect_raptors(child))
-	return result
-
 func _on_raptor_state_changed(_previous_state: int, new_state: int) -> void:
 	_indicator_model.set_raptor_chasing(new_state == Raptor.State.CHASE)
 
-## 감각 표시 3종을 모델 상태로 갱신한다. 문자열은 만들지 않는다 (회전·가시성만 갱신).
+## 감각 표시 3종을 모델 상태로 갱신한다. 문자열은 만들지 않고, 회전은 방향이
+## 바뀐 프레임에만 계산·할당한다.
 func _refresh_sense_indicators() -> void:
 	_wind_arrow.visible = _indicator_model.has_wind()
-	if _wind_arrow.visible:
-		_wind_arrow.rotation = _indicator_model.wind_direction.angle()
+	if _wind_arrow.visible and _indicator_model.wind_direction != _last_wind_direction:
+		_last_wind_direction = _indicator_model.wind_direction
+		_wind_arrow.rotation = _last_wind_direction.angle()
 
 	_sound_arrow.visible = _indicator_model.has_recent_sound()
 	if _sound_arrow.visible:
-		_sound_arrow.rotation = _indicator_model.sound_direction().angle()
+		var sound_direction: Vector2 = _indicator_model.sound_direction()
+		if sound_direction != _last_sound_direction:
+			_last_sound_direction = sound_direction
+			_sound_arrow.rotation = sound_direction.angle()
 
 	_raptor_alert.visible = _indicator_model.raptor_alert

@@ -127,8 +127,7 @@ func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array
 		if avatar == null:
 			continue
 		avatar.health.apply_replicated(health_value, bleedings[index] != 0)
-		var base: int = index * STATS_PER_ENTRY
-		avatar.stats.apply_replicated(stats[base], stats[base + 1], stats[base + 2], stats[base + 3])
+		avatar.stats.apply_from(stats, index * STATS_PER_ENTRY)
 
 
 ## --- 붕대 치료 세션 (설계서 5.2): 호스트가 세션·홀드 시간·붕대·거리를 검증한다 ---
@@ -331,11 +330,7 @@ func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> 
 	_snapshot_ids[index] = String(player_id)
 	_snapshot_healths[index] = avatar.health.current_health
 	_snapshot_bleedings[index] = 1 if avatar.health.is_bleeding else 0
-	var base: int = index * STATS_PER_ENTRY
-	_snapshot_stats[base] = avatar.stats.temperature
-	_snapshot_stats[base + 1] = avatar.stats.water
-	_snapshot_stats[base + 2] = avatar.stats.food
-	_snapshot_stats[base + 3] = avatar.stats.fatigue
+	avatar.stats.fill_into(_snapshot_stats, index * STATS_PER_ENTRY)
 
 
 func _on_player_left(player_id: StringName) -> void:

@@ -64,6 +64,7 @@ var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var debug_enabled: bool = false
 
 func _ready() -> void:
+	add_to_group(&"raptor")
 	move_target = global_position
 	_replicated_position = global_position
 	rng.randomize()
@@ -188,13 +189,15 @@ func _ai_tick() -> void:
 					_change_state(State.CHASE)
 				elif _heard_news and _is_more_interesting(&"noise", _heard_interest):
 					_adopt_cue(&"noise", _heard_interest, _last_heard_position)
-				elif _smells_blood() and _is_more_interesting(&"smell", _smell_strength()):
-					_adopt_cue(&"smell", _smell_strength(), _smell_step_target())
-				elif state == State.INVESTIGATE and _arrived_at(move_target):
-					# 도착했는데 아무것도 없다 — 즉시 포기하지 않고 주변을 훑는다 (설계서 14.1).
-					_continue_search()
-				elif state == State.WANDER and _arrived_at(move_target):
-					_pick_wander_target()
+				else:
+					var smell: float = _smell_strength()
+					if smell >= data.smell_threshold and _is_more_interesting(&"smell", smell):
+						_adopt_cue(&"smell", smell, _smell_step_target())
+					elif state == State.INVESTIGATE and _arrived_at(move_target):
+						# 도착했는데 아무것도 없다 — 즉시 포기하지 않고 주변을 훑는다 (설계서 14.1).
+						_continue_search()
+					elif state == State.WANDER and _arrived_at(move_target):
+						_pick_wander_target()
 		State.CHASE:
 			if _fire_index_containing(global_position, 1.0) >= 0:
 				_start_flee()
@@ -287,11 +290,8 @@ func _continue_search() -> void:
 
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):
-		_smell_grid = get_tree().get_first_node_in_group(&"smell_grid") as SmellGrid
+		_smell_grid = SmellGrid.find_in(get_tree())
 	return _smell_grid
-
-func _smells_blood() -> bool:
-	return _smell_strength() >= data.smell_threshold
 
 
 ## 자기 위치의 냄새 농도 = 냄새 단서의 세기 (관심도 비교용).

@@ -5,7 +5,6 @@ extends Area2D
 ## 자리가 부족하면 들어간 만큼만 줄이고 나머지는 월드에 남긴다 (복제·소실 금지).
 
 const PICKUP_NOISE: NoiseProfile = preload("res://data/senses/noise_harvest.tres")
-const THROW_NOISE: NoiseProfile = preload("res://data/senses/noise_throw.tres")
 
 @export var item_id: StringName = &"stone"
 @export var count: int = 1
@@ -62,17 +61,12 @@ func apply_pickup(player: Player) -> int:
 	_clear_floor_smell_source()
 	count -= added
 	if _event_bus != null:
-		_noise_emitter.emit_profile(_event_bus, PICKUP_NOISE, global_position, player,
-			float(Time.get_ticks_msec()) / 1000.0)
+		_noise_emitter.emit_profile(_event_bus, PICKUP_NOISE, global_position, player)
 		_event_bus.item_picked_up.emit(item_id, player)
 
 	if count <= 0:
 		queue_free()
 	return added
-
-func emit_throw_noise(position: Vector2, source: Node) -> bool:
-	return _noise_emitter.emit_profile(_event_bus, THROW_NOISE, position, source,
-		float(Time.get_ticks_msec()) / 1000.0)
 
 func _clear_floor_smell_source() -> void:
 	if _floor_smell_source == null:

@@ -10,7 +10,7 @@ extends Node2D
 var _grid: SmellGrid = null
 
 func _ready() -> void:
-	_grid = get_tree().get_first_node_in_group(&"smell_grid") as SmellGrid
+	_grid = SmellGrid.find_in(get_tree())
 	if _grid != null:
 		_grid.register_smell_source(self, Callable(self, "get_smell_position"),
 			strength, interval_seconds, kind)

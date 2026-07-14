@@ -40,7 +40,6 @@ var controller_peer_id: int = 1
 
 var _noise_radius: float = 0.0
 var _noise_emit_elapsed: float = 0.0
-var _noise_seconds: float = 0.0
 var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
@@ -53,7 +52,6 @@ func _ready() -> void:
 		_event_bus = get_node("/root/EventBus")
 
 func _physics_process(delta: float) -> void:
-	_noise_seconds += delta
 	if controller_peer_id != multiplayer.get_unique_id():
 		return
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
@@ -74,13 +72,13 @@ func _physics_process(delta: float) -> void:
 		_noise_emit_elapsed = 0.0
 		return
 
-	var profile: NoiseProfile = get_noise_profile_for_stance(stance, in_bush)
+	var profile: NoiseProfile = get_noise_profile_for_stance(stance)
 	_noise_radius = profile.radius
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
 		if _event_bus != null:
-			_noise_emitter.emit_profile(_event_bus, profile, global_position, self, _noise_seconds)
+			_noise_emitter.emit_profile(_event_bus, profile, global_position, self)
 
 func get_noise_radius() -> float:
 	return _noise_radius
@@ -88,8 +86,9 @@ func get_noise_radius() -> float:
 ## 자세별 소음 프로필. 로컬(자기 입력 기준)과 원격(호스트 검증 자세 기준,
 ## SmellGrid._emit_remote_player_noise) 이 이 표를 공유해 판정이 갈라지지 않는다.
 ## 수풀에서 달리면 헤치는 소리가 우선한다. 그다음은 웅크림(항상 조용), 그다음 걷기/달리기.
-func get_noise_profile_for_stance(for_stance: int, bush: bool) -> NoiseProfile:
-	if bush and for_stance == Stance.RUN:
+## 수풀 여부는 자기 상태(in_bush — StealthZone 이 겹침으로 설정)에서 직접 읽는다.
+func get_noise_profile_for_stance(for_stance: int) -> NoiseProfile:
+	if in_bush and for_stance == Stance.RUN:
 		return config.bush_run_noise_profile
 	if for_stance == Stance.CROUCH:
 		return config.crouch_noise_profile

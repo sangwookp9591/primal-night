@@ -122,6 +122,10 @@ func _draw() -> void:
 		draw_line(anchor, tip, Color.CYAN, 2.0)
 		draw_circle(tip, 4.0, Color.CYAN)
 
+## 그룹 관례의 단일 소유자. 소비자(랩터/HUD/인벤토리)는 이걸로 찾고 캐시만 각자 든다.
+static func find_in(tree: SceneTree) -> SmellGrid:
+	return tree.get_first_node_in_group(&"smell_grid") as SmellGrid
+
 func get_smell_at(global_pos: Vector2) -> float:
 	var index: int = _cell_index(global_pos)
 	if index < 0:
@@ -224,13 +228,12 @@ func _emit_registered_smell_sources(delta: float) -> void:
 		if owner == null or not is_instance_valid(owner):
 			_dead_smell_sources.append(owner)
 			continue
+		# Dictionary 는 참조 타입 — source 를 고치면 저장본이 바로 고쳐진다.
 		var source: Dictionary = _smell_sources[owner]
 		source.elapsed = float(source.elapsed) + delta
 		if float(source.elapsed) < float(source.interval):
-			_smell_sources[owner] = source
 			continue
 		source.elapsed = 0.0
-		_smell_sources[owner] = source
 		var position: Variant = (source.provider as Callable).call()
 		if position is Vector2:
 			_event_bus.smell_emitted.emit(position, float(source.strength), source.kind)
@@ -256,7 +259,7 @@ func _emit_remote_player_noise() -> void:
 		_remote_player_positions[id] = player.global_position
 		if previous is Vector2 and (previous as Vector2).distance_to(player.global_position) >= REMOTE_PLAYER_NOISE_MIN_DISTANCE:
 			var profile: NoiseProfile = player.get_noise_profile_for_stance(
-				player.last_validated_stance, player.in_bush)
+				player.last_validated_stance)
 			_event_bus.noise_emitted.emit(player.global_position, profile.radius, player)
 	for id: int in _remote_player_positions.keys():
 		if not live_ids.has(id):

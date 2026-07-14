@@ -9,3 +9,6 @@ display_name = "미끼"
 stackable = true
 max_stack = 5
 weight = 0.5
+smell_strength = 55.0
+smell_interval_seconds = 0.5
+smell_kind = &"bait"

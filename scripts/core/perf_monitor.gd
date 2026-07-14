@@ -1,6 +1,7 @@
 extends Node
 
 const SAMPLE_COUNT: int = 60
+const FrameMetricsScript: Script = preload("res://scripts/debug/frame_metrics.gd")
 
 var _keys: Array[StringName] = []
 var _samples_by_key: Dictionary = {}
@@ -90,9 +91,8 @@ func _percentile_ms(key: StringName, percentile: float) -> float:
 	var window: PackedFloat64Array = _window(key)
 	if window.is_empty():
 		return 0.0
-	# FrameMetrics._percentile 과 같은 규칙 — 두 곳의 p95 정의가 갈리면 안 된다.
-	var index: int = int(ceil(float(window.size()) * percentile)) - 1
-	return window[clampi(index, 0, window.size() - 1)]
+	# p95 정의는 FrameMetrics 가 소유한다 — 기준선 비교 가능성이 여기 걸려 있다.
+	return FrameMetricsScript._percentile(window, percentile)
 
 
 func _ensure_key(key: StringName) -> void:

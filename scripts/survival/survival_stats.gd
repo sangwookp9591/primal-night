@@ -117,6 +117,19 @@ func apply_replicated(temperature_value: float, water_value: float,
 	fatigue = clampf(fatigue_value, 0.0, STAT_MAX)
 
 
+## 평면 배열 직렬화의 순서는 이 두 함수만 안다 (STATS 순서). NetSurvival 스냅샷이
+## 쓴다 — 수치가 늘면 여기와 STATS 만 고치면 배열 경로는 따라온다.
+func fill_into(target: PackedFloat32Array, base: int) -> void:
+	target[base] = temperature
+	target[base + 1] = water
+	target[base + 2] = food
+	target[base + 3] = fatigue
+
+
+func apply_from(source: PackedFloat32Array, base: int) -> void:
+	apply_replicated(source[base], source[base + 1], source[base + 2], source[base + 3])
+
+
 func reset_motion_baseline() -> void:
 	if _body != null:
 		_last_position = _body.global_position
@@ -125,8 +138,10 @@ func reset_motion_baseline() -> void:
 func _near_fire() -> bool:
 	if _body == null:
 		return false
+	# 60Hz 경로 — sqrt 대신 제곱 비교.
 	for fire: Dictionary in _campfires:
-		if _body.global_position.distance_to(fire.position) <= fire.radius:
+		var radius: float = fire.radius
+		if _body.global_position.distance_squared_to(fire.position) <= radius * radius:
 			return true
 	return false
 
