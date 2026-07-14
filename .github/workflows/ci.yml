@@ -78,6 +78,17 @@ jobs:
         run: |
           "$GODOT_BIN" --headless --path . -s scripts/survival/two_player_coop_harness.gd | tee artifacts/two_player_coop_harness.log
 
+      # ★ W2-T5: 2주 목표 장면 전 구간 통합 하네스 — 방 생성 → 2인 탐색 → 부상
+      # → 랩터 냄새 추적 → 붕대 치료 → 모닥불 탈출(전원 보호 시에만 후퇴)
+      # → 재접속 복원까지 하나의 실행으로 잇는다 (설계서 6.x 2주 성공 기준).
+      # 고정 seed 로 결정적이다 (B-01). 5회 돌려 비결정 회귀를 함께 막는다.
+      - name: Two-player goal scene harness (full E2E x5)
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "--- goal scene harness $i/5 ---"
+            "$GODOT_BIN" --headless --path . -s scripts/net/two_player_goal_scene_harness.gd | tee "artifacts/two_player_goal_scene_$i.log"
+          done
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
