@@ -24,6 +24,33 @@ extends Resource
 ## 0 보다 크기만 하면 달릴 수 있게 하면 매 프레임 달리기/걷기가 깜빡인다.
 @export var stamina_recover_threshold: float = 20.0
 
+@export_group("Survival Stats")
+## 생존 수치 4종 (설계서 5.1). 10~15분 한 판에서 눈에 띄게 움직이되 바닥나지는 않는
+## 회색 상자 값이다 — 실제 밸런스는 플레이 하네스(W4-T4) 이후에 조정한다.
+## 초당 감소량 0.06 이면 12분(720초) 뒤 100 → 57 이다.
+@export var water_drain_per_second: float = 0.06
+@export var food_drain_per_second: float = 0.05
+@export var temperature_drain_per_second: float = 0.04
+## 모닥불 반경 안에서 초당 회복량 — 떨어지는 속도보다 훨씬 빨라야 불이 의미가 있다.
+@export var temperature_regen_near_fire: float = 3.0
+## 움직이는 동안 초당 피로.
+@export var fatigue_gain_per_second: float = 0.03
+## 이동 거리(px)당 피로. 입력이 아니라 실제 이동량을 본다 — 달리면 그만큼 더 지친다.
+## 호스트는 남의 입력을 모르지만 남의 좌표는 알기 때문에, 원격 아바타에도 그대로 적용된다.
+@export var fatigue_gain_per_pixel: float = 0.002
+## 제자리에서 쉴 때 초당 회복량. 쉬는 것이 곧 회복이다.
+@export var fatigue_recover_per_second: float = 0.5
+
+## HUD 단계 경계 (설계서 10.1). wellness(0..1) 가 이 아래면 주의 / 위험.
+@export var stat_warn_ratio: float = 0.5
+@export var stat_danger_ratio: float = 0.25
+
+## 피로의 행동 연결 (계획서 W4-T3: 3~4주차에는 피로·체온만 약하게 붙인다).
+## 탈진(피로 100%) 시 달리기 소모가 이 배율만큼 늘어난다 — 1.0 이면 2배.
+@export var fatigue_run_drain_bonus: float = 0.6
+## 탈진 시 스태미나 회복이 이 비율만큼 깎인다 — 0.6 이면 40% 속도.
+@export var fatigue_regen_penalty: float = 0.6
+
 @export_group("Bleeding")
 ## 출혈 중 초당 피해.
 @export var bleed_damage_per_second: float = 2.0

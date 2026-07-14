@@ -51,6 +51,23 @@ max_value = 100.0
 value = 100.0
 show_percentage = false
 
+; 생존 수치 4종의 단계 표시 (설계서 5.1/10.1, W4-T3).
+; 숫자 게이지가 아니라 양호/주의/위험 세 단계 텍스트다 — 회색 상자에는 이걸로 충분하다.
+[node name="StatsRow" type="HBoxContainer" parent="Root/Column"]
+theme_override_constants/separation = 10
+
+[node name="Temperature" type="Label" parent="Root/Column/StatsRow"]
+text = "체온 양호"
+
+[node name="Water" type="Label" parent="Root/Column/StatsRow"]
+text = "수분 양호"
+
+[node name="Food" type="Label" parent="Root/Column/StatsRow"]
+text = "포만 양호"
+
+[node name="Fatigue" type="Label" parent="Root/Column/StatsRow"]
+text = "피로 양호"
+
 [node name="Slots" type="GridContainer" parent="Root/Column"]
 columns = 8
 theme_override_constants/h_separation = 4

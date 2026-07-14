@@ -21,6 +21,11 @@ const STAGE_HEALTHY: String = "양호"
 const STAGE_HURT: String = "부상"
 const STAGE_CRITICAL: String = "위독"
 
+## 생존 수치 4종의 표시 이름 (설계서 5.1). 단계 문자열은 SurvivalStats 가 소유한다.
+const STAT_NAMES: Dictionary = {
+	&"temperature": "체온", &"water": "수분", &"food": "포만", &"fatigue": "피로",
+}
+
 @onready var _health_stage: Label = $Root/Column/HealthRow/HealthStage
 @onready var _health_bar: ProgressBar = $Root/Column/HealthRow/HealthBar
 @onready var _bleeding: Label = $Root/Column/HealthRow/Bleeding
@@ -30,7 +35,15 @@ const STAGE_CRITICAL: String = "위독"
 @onready var _wind_arrow: Label = $Root/Column/SenseRow/WindArrow
 @onready var _sound_arrow: Label = $Root/Column/SenseRow/SoundArrow
 @onready var _raptor_alert: Label = $Root/Column/SenseRow/RaptorAlert
+@onready var _stat_labels: Dictionary = {
+	&"temperature": $Root/Column/StatsRow/Temperature,
+	&"water": $Root/Column/StatsRow/Water,
+	&"food": $Root/Column/StatsRow/Food,
+	&"fatigue": $Root/Column/StatsRow/Fatigue,
+}
 
+## 마지막으로 그린 단계. 단계가 바뀐 프레임에만 문자열을 만든다 (성능 규칙).
+var _stat_stages: Dictionary = {}
 var _player: Player = null
 var _game_data: Node = null
 var _slot_labels: Array[Label] = []
@@ -73,6 +86,7 @@ func bind(player: Player) -> void:
 
 	_refresh_slots()
 	_refresh_stage()
+	_refresh_stat_stages()
 	set_process(true)
 
 func _process(delta: float) -> void:
@@ -85,6 +99,9 @@ func _process(delta: float) -> void:
 	if stage != _last_stage:
 		_last_stage = stage
 		_health_stage.text = stage
+
+	# 4수치도 단계가 바뀐 프레임에만 문자열을 만진다 (float 비교 4번이 전부다).
+	_refresh_stat_stages()
 
 	_ensure_raptors_connected()
 	var grid: SmellGrid = _find_smell_grid()
@@ -105,6 +122,22 @@ func stage_label_for_health() -> String:
 	if ratio < config.health_hurt_ratio:
 		return STAGE_HURT
 	return STAGE_HEALTHY
+
+## 생존 수치 4종은 숫자가 아니라 단계로만 보여준다 (설계서 5.1/10.1).
+func stat_stage_text(stat: StringName) -> StringName:
+	return _stat_stages.get(stat, &"")
+
+
+func _refresh_stat_stages() -> void:
+	if _player == null:
+		return
+	for stat: StringName in SurvivalStats.STATS:
+		var stage: StringName = _player.stats.stage_of(stat)
+		if _stat_stages.get(stat, &"") == stage:
+			continue
+		_stat_stages[stat] = stage
+		(_stat_labels[stat] as Label).text = "%s %s" % [STAT_NAMES[stat], stage]
+
 
 func slot_text(index: int) -> String:
 	if index < 0 or index >= _slot_labels.size():

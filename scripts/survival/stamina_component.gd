@@ -18,14 +18,20 @@ func _ready() -> void:
 func can_run() -> bool:
 	return not is_exhausted and current_stamina > 0.0
 
-func update(running: bool, moving: bool, delta: float) -> void:
+## fatigue_ratio 는 0(쌩쌩)..1(탈진) 이다 (SurvivalStats.fatigue_ratio).
+## 피로하면 같은 달리기에 스태미나를 더 쓰고 회복도 느리다 (설계서 5.1: 피로는 달리기에 영향).
+## 기본값 0 이라 피로를 넘기지 않는 호출부는 기존 동작 그대로다.
+func update(running: bool, moving: bool, delta: float, fatigue_ratio: float = 0.0) -> void:
+	var fatigue: float = clampf(fatigue_ratio, 0.0, 1.0)
 	if running and can_run():
-		current_stamina = maxf(current_stamina - config.stamina_run_drain * delta, 0.0)
+		var drain: float = config.stamina_run_drain * (1.0 + fatigue * config.fatigue_run_drain_bonus)
+		current_stamina = maxf(current_stamina - drain * delta, 0.0)
 		if current_stamina <= 0.0:
 			is_exhausted = true
 		return
 
 	var regen: float = config.stamina_regen_walk if moving else config.stamina_regen_idle
+	regen *= 1.0 - fatigue * config.fatigue_regen_penalty
 	current_stamina = minf(current_stamina + regen * delta, config.max_stamina)
 	if is_exhausted and current_stamina >= config.stamina_recover_threshold:
 		is_exhausted = false

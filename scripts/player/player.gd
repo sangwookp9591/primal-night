@@ -10,6 +10,9 @@ const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_conf
 @onready var stamina: StaminaComponent = $StaminaComponent
 @onready var inventory: Inventory = $Inventory
 @onready var interactor: Interactor = $Interactor
+## 체온·수분·포만·피로 (설계서 5.1). 코드로 붙인다 — 수치가 하나 늘 때마다
+## player.tscn 을 고치지 않는다. 시뮬은 이 노드가 호스트에서만 스스로 돌린다.
+var stats: SurvivalStats = SurvivalStats.new()
 
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
@@ -30,6 +33,9 @@ var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
 	add_to_group("player")
+	stats.name = "SurvivalStats"
+	stats.config = health.config
+	add_child(stats)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 
@@ -44,7 +50,7 @@ func _physics_process(delta: float) -> void:
 	var running: bool = moving and not crouching and Input.is_action_pressed("run") and stamina.can_run()
 	var speed: float = config.crouch_speed if crouching else (config.run_speed if running else config.walk_speed)
 
-	stamina.update(running, moving, delta)
+	stamina.update(running, moving, delta, stats.fatigue_ratio())
 
 	velocity = input_vector * speed
 	move_and_slide()
