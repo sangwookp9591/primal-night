@@ -30,6 +30,7 @@ var _snapshot_elapsed: float = 0.0
 var _perf: Node = null
 var _event_bus: Node = null
 var _remote_player_positions: Dictionary = {}
+var _smell_sources: Dictionary = {}
 
 ## 틱 중 재사용하는 스냅샷 버퍼 (매 틱 신규 배열 할당 금지, 성능문서 6.1).
 var _snapshot_indices: PackedInt32Array = PackedInt32Array()
@@ -61,6 +62,7 @@ func _process(delta: float) -> void:
 		_tick_elapsed -= config.tick_interval
 		if _perf != null:
 			_perf.begin_sample(&"scent")
+		_emit_registered_smell_sources(config.tick_interval)
 		_tick()
 		_emit_remote_player_noise()
 		if _perf != null:
@@ -159,6 +161,24 @@ func get_active_cell_count() -> int:
 func get_cell_index_for_debug(global_pos: Vector2) -> int:
 	return _cell_index(global_pos)
 
+func register_smell_source(owner: Object, position_provider: Callable, strength: float,
+		interval_seconds: float, kind: StringName) -> void:
+	if owner == null or not position_provider.is_valid() or strength <= 0.0 or interval_seconds <= 0.0:
+		return
+	_smell_sources[owner] = {
+		provider = position_provider,
+		strength = strength,
+		interval = interval_seconds,
+		elapsed = 0.0,
+		kind = kind,
+	}
+
+func unregister_smell_source(owner: Object) -> void:
+	_smell_sources.erase(owner)
+
+func get_registered_smell_source_count() -> int:
+	return _smell_sources.size()
+
 @rpc("authority", "call_remote", "unreliable")
 func apply_smell_snapshot(indices: PackedInt32Array, values: PackedFloat32Array) -> void:
 	if is_multiplayer_authority() or indices.size() != values.size():
@@ -195,6 +215,24 @@ func _broadcast_smell_snapshot() -> void:
 		_replication_values[array_index] = _values[cell_index]
 		array_index += 1
 	apply_smell_snapshot.rpc(_replication_indices, _replication_values)
+
+func _emit_registered_smell_sources(delta: float) -> void:
+	if _event_bus == null:
+		return
+	for owner: Object in _smell_sources.keys():
+		if owner == null or not is_instance_valid(owner):
+			_smell_sources.erase(owner)
+			continue
+		var source: Dictionary = _smell_sources[owner]
+		source.elapsed = float(source.elapsed) + delta
+		if float(source.elapsed) < float(source.interval):
+			_smell_sources[owner] = source
+			continue
+		source.elapsed = 0.0
+		_smell_sources[owner] = source
+		var position: Variant = (source.provider as Callable).call()
+		if position is Vector2:
+			_event_bus.smell_emitted.emit(position, float(source.strength), source.kind)
 
 func _emit_remote_player_noise() -> void:
 	if _event_bus == null:

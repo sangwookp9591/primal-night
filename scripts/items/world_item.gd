@@ -6,6 +6,7 @@ extends Area2D
 
 const PICKUP_NOISE: NoiseProfile = preload("res://data/senses/noise_harvest.tres")
 const THROW_NOISE: NoiseProfile = preload("res://data/senses/noise_throw.tres")
+const RAW_MEAT_ID: StringName = &"raw_meat"
 
 @export var item_id: StringName = &"stone"
 @export var count: int = 1
@@ -14,10 +15,14 @@ var _event_bus: Node = null
 var _net_pickup: NetPickup = null
 var _net_pickup_cached: bool = false
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
+var _floor_smell_source: SmellSource = null
 
 func _ready() -> void:
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
+	if item_id == RAW_MEAT_ID:
+		_floor_smell_source = SmellSource.new()
+		add_child(_floor_smell_source)
 
 func can_interact(who: Node) -> bool:
 	return count > 0 and who is Player
@@ -51,6 +56,7 @@ func apply_pickup(player: Player) -> int:
 	if added <= 0:
 		return 0
 
+	_clear_floor_smell_source()
 	count -= added
 	if _event_bus != null:
 		_noise_emitter.emit_profile(_event_bus, PICKUP_NOISE, global_position, player,
@@ -64,6 +70,13 @@ func apply_pickup(player: Player) -> int:
 func emit_throw_noise(position: Vector2, source: Node) -> bool:
 	return _noise_emitter.emit_profile(_event_bus, THROW_NOISE, position, source,
 		float(Time.get_ticks_msec()) / 1000.0)
+
+func _clear_floor_smell_source() -> void:
+	if _floor_smell_source == null:
+		return
+	_floor_smell_source.deactivate()
+	_floor_smell_source.queue_free()
+	_floor_smell_source = null
 
 ## 같은 기계(멀티플레이 브랜치)의 NetPickup 만 잡는다 — 헤드리스 하네스에선
 ## 한 트리에 기계가 2개다. 상호작용 시점에만 1회 조회하고 캐시한다 (성능문서 6.1).
