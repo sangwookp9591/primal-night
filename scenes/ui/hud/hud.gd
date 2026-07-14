@@ -51,6 +51,11 @@ var _last_stage: String = ""
 var _indicator_model: SenseIndicatorModel = SenseIndicatorModel.new()
 var _smell_grid: SmellGrid = null
 var _raptors_connected: bool = false
+## 랩터가 아직 없는(또는 늦게 생기는) 화면에서 매 프레임 재귀 트리 스캔을 반복하지
+## 않는다 — 이미 만료된 값으로 시작해 첫 프레임엔 즉시 시도하고, 실패하면 주기마다만
+## 재시도한다 (성능문서 6.1: 전체 노드 트리 검색·반복 Array 할당 금지).
+const RAPTOR_SCAN_INTERVAL_SECONDS: float = 2.0
+var _raptor_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -103,7 +108,7 @@ func _process(delta: float) -> void:
 	# 4수치도 단계가 바뀐 프레임에만 문자열을 만진다 (float 비교 4번이 전부다).
 	_refresh_stat_stages()
 
-	_ensure_raptors_connected()
+	_ensure_raptors_connected(delta)
 	var grid: SmellGrid = _find_smell_grid()
 	if grid != null:
 		_indicator_model.set_wind(grid.wind_direction, grid.wind_strength)
@@ -186,9 +191,15 @@ func _find_smell_grid() -> SmellGrid:
 	return _smell_grid
 
 ## 랩터는 그룹에 속하지 않으므로 트리를 훑어 찾는다. 한 번 다 찾으면 다시 훑지 않는다.
-func _ensure_raptors_connected() -> void:
+## 못 찾았을 때는 매 프레임이 아니라 RAPTOR_SCAN_INTERVAL_SECONDS 주기로만 재시도한다 —
+## 랩터가 없거나 늦게 생기는 화면에서 매 프레임 재귀 스캔·Array 재할당이 반복되면 안 된다.
+func _ensure_raptors_connected(delta: float) -> void:
 	if _raptors_connected:
 		return
+	_raptor_scan_elapsed += delta
+	if _raptor_scan_elapsed < RAPTOR_SCAN_INTERVAL_SECONDS:
+		return
+	_raptor_scan_elapsed = 0.0
 	var found: Array = _collect_raptors(get_tree().root)
 	if found.is_empty():
 		return
