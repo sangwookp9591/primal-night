@@ -78,6 +78,32 @@ func test_client_peer_does_not_run_raptor_ai() -> void:
 	assert_eq(raptor.state, Raptor.State.WANDER,
 		"클라이언트는 랩터 AI/상태 전이를 실행하지 않고 호스트 스냅샷만 받는다")
 
+func test_client_applies_authority_raptor_state_transition() -> void:
+	var raptor: Raptor = RaptorScript.new()
+	raptor.set_multiplayer_authority(2)
+	add_child_autofree(raptor)
+	watch_signals(raptor)
+
+	raptor.apply_raptor_state(Raptor.State.CHASE, Vector2(120.0, 30.0))
+
+	assert_eq(raptor.state, Raptor.State.CHASE, "클라이언트는 호스트의 신뢰 상태 전이를 적용한다")
+	assert_eq(raptor.move_target, Vector2(120.0, 30.0), "상태 전이 목표도 호스트 값이다")
+	assert_signal_emitted(raptor, "chase_started", "추격 경고 신호는 복제된 전이에서도 난다")
+
+func test_client_interpolates_toward_authority_raptor_snapshot() -> void:
+	var raptor: Raptor = RaptorScript.new()
+	raptor.set_multiplayer_authority(2)
+	add_child_autofree(raptor)
+	await wait_physics_frames(1)
+	raptor.global_position = Vector2.ZERO
+
+	raptor.apply_raptor_snapshot(Vector2(100.0, 0.0), Raptor.State.INVESTIGATE, Vector2(100.0, 0.0))
+	raptor._physics_process(0.1)
+
+	assert_gt(raptor.global_position.x, 0.0, "클라이언트 랩터는 스냅샷 위치로 보간한다")
+	assert_lt(raptor.global_position.x, 100.0, "낮은 빈도 스냅샷을 순간이동으로 표시하지 않는다")
+	assert_eq(raptor.state, Raptor.State.INVESTIGATE, "낮은 빈도 스냅샷의 상태도 표시 상태에 반영한다")
+
 ## ★ 공정성 규칙 회귀 방어 (T5 뮤테이션 M3): 냄새 조사 목표는 오직 격자 경사에서만
 ## 나와야 한다. 실제 player 그룹 노드가 어디로 움직이든 목표는 변하지 않는다.
 func test_smell_investigation_target_is_independent_of_player_position() -> void:

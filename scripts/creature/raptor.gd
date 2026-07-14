@@ -15,6 +15,8 @@ const DEFAULT_DATA: CreatureData = preload("res://data/creatures/raptor.tres")
 const STATE_NAMES: Array[StringName] = [&"wander", &"investigate", &"chase", &"flee"]
 ## 지형 벽 물리 레이어 (test_world Collision 타일 = layer 1).
 const TERRAIN_MASK: int = 1
+const SNAPSHOT_INTERVAL_SECONDS: float = 0.2
+const CLIENT_INTERPOLATION_SPEED: float = 8.0
 
 @export var data: CreatureData = DEFAULT_DATA
 
@@ -34,6 +36,8 @@ var _has_pending_noise: bool = false
 var _campfires: Array[Dictionary] = []
 
 var _ai_elapsed: float = 0.0
+var _snapshot_elapsed: float = 0.0
+var _replicated_position: Vector2 = Vector2.ZERO
 var _perf: Node = null
 ## 매 틱 그룹 재검색을 피하기 위한 캐시 (성능문서 6.1).
 var _player: Node2D = null
@@ -50,6 +54,7 @@ var debug_enabled: bool = false
 
 func _ready() -> void:
 	move_target = global_position
+	_replicated_position = global_position
 	rng.randomize()
 	_nav_agent = get_node_or_null(^"NavigationAgent2D")
 	_alert_label = get_node_or_null(^"AlertLabel")
@@ -63,7 +68,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
-		_move_along_path()
+		global_position = global_position.lerp(_replicated_position,
+			clampf(delta * CLIENT_INTERPOLATION_SPEED, 0.0, 1.0))
+		_tick_alert(delta)
+		if debug_enabled:
+			queue_redraw()
 		return
 
 	if _has_pending_noise:
@@ -78,15 +87,24 @@ func _physics_process(delta: float) -> void:
 		if _perf != null:
 			_perf.end_sample(&"ai")
 
-	if _alert_remaining > 0.0:
-		_alert_remaining -= delta
-		if _alert_remaining <= 0.0 and _alert_label != null:
-			_alert_label.visible = false
+	_tick_alert(delta)
 
 	_move_along_path()
+	_snapshot_elapsed += delta
+	if _snapshot_elapsed >= SNAPSHOT_INTERVAL_SECONDS:
+		_snapshot_elapsed = 0.0
+		if multiplayer.get_peers().size() > 0:
+			apply_raptor_snapshot.rpc(global_position, state, move_target)
 
 	if debug_enabled:
 		queue_redraw()
+
+func _tick_alert(delta: float) -> void:
+	if _alert_remaining <= 0.0:
+		return
+	_alert_remaining -= delta
+	if _alert_remaining <= 0.0 and _alert_label != null:
+		_alert_label.visible = false
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
@@ -273,6 +291,25 @@ func _clamp_outside_fires(target: Vector2) -> Vector2:
 func get_state_name() -> StringName:
 	return STATE_NAMES[state]
 
+@rpc("authority", "call_remote", "unreliable")
+func apply_raptor_snapshot(position: Vector2, replicated_state: int, target: Vector2) -> void:
+	if is_multiplayer_authority():
+		return
+	if not position.is_finite() or not target.is_finite() or replicated_state < 0 or replicated_state >= State.size():
+		return
+	_replicated_position = position
+	move_target = target
+	_change_state(replicated_state)
+
+@rpc("authority", "call_remote", "reliable")
+func apply_raptor_state(replicated_state: int, target: Vector2) -> void:
+	if is_multiplayer_authority():
+		return
+	if not target.is_finite() or replicated_state < 0 or replicated_state >= State.size():
+		return
+	move_target = target
+	_change_state(replicated_state)
+
 func _change_state(new_state: int) -> void:
 	if state == new_state:
 		return
@@ -284,6 +321,8 @@ func _change_state(new_state: int) -> void:
 		_alert_remaining = data.alert_seconds
 		if _alert_label != null:
 			_alert_label.visible = true
+	if is_multiplayer_authority() and multiplayer.get_peers().size() > 0:
+		apply_raptor_state.rpc(new_state, move_target)
 
 func _on_noise_emitted(position: Vector2, radius: float, source: Node) -> void:
 	if source == self:

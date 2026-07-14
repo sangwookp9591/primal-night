@@ -66,6 +66,16 @@ func test_client_peer_does_not_simulate_smell_grid() -> void:
 		"클라이언트 냄새 격자는 자체 이벤트/감쇠 시뮬레이션을 실행하지 않는다")
 	assert_eq(grid.get_active_cell_count(), 0, "디버그 표시는 호스트 복제 데이터만 그려야 한다")
 
+func test_client_smell_grid_applies_authority_debug_snapshot() -> void:
+	var grid: SmellGrid = _make_client_grid(_make_config())
+	var spot: Vector2 = _cell_center(grid, 2, 2)
+	var index: int = grid.get_cell_index_for_debug(spot)
+
+	grid.apply_smell_snapshot(PackedInt32Array([index]), PackedFloat32Array([42.0]))
+
+	assert_eq(grid.get_smell_at(spot), 42.0, "클라이언트 디버그 격자는 호스트 스냅샷 값만 그린다")
+	assert_eq(grid.get_active_cell_count(), 1, "복제된 활성 셀만 디버그 대상으로 남는다")
+
 func test_repeated_smell_accumulates_in_the_same_cell() -> void:
 	var grid: SmellGrid = _make_grid(_make_config())
 	var spot: Vector2 = _cell_center(grid, 2, 2)

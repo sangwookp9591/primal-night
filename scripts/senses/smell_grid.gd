@@ -8,6 +8,7 @@ extends Node2D
 ## - 활성 셀만 처리한다. 격자 배열은 _ready 에서 1회 할당해 재사용한다.
 
 const DEFAULT_CONFIG: SmellGridConfig = preload("res://data/creatures/smell_grid_config.tres")
+const SNAPSHOT_INTERVAL_SECONDS: float = 0.25
 
 @export var config: SmellGridConfig = DEFAULT_CONFIG
 ## 격자가 덮는 월드 영역. 맵 배치 값이므로 씬에서 지정한다 (기본값은 test_world 의 nav 영역).
@@ -23,11 +24,14 @@ var _rows: int = 0
 var _values: PackedFloat32Array = PackedFloat32Array()
 var _active: Dictionary = {}
 var _tick_elapsed: float = 0.0
+var _snapshot_elapsed: float = 0.0
 var _perf: Node = null
 
 ## 틱 중 재사용하는 스냅샷 버퍼 (매 틱 신규 배열 할당 금지, 성능문서 6.1).
 var _snapshot_indices: PackedInt32Array = PackedInt32Array()
 var _snapshot_values: PackedFloat32Array = PackedFloat32Array()
+var _replication_indices: PackedInt32Array = PackedInt32Array()
+var _replication_values: PackedFloat32Array = PackedFloat32Array()
 
 ## 디버그 시각화 (설계서 5.4 / 13장). 출시 빌드에서는 켤 수 없다.
 var debug_enabled: bool = false
@@ -56,6 +60,11 @@ func _process(delta: float) -> void:
 			_perf.end_sample(&"scent")
 		if debug_enabled:
 			queue_redraw()
+	_snapshot_elapsed += delta
+	if _snapshot_elapsed >= SNAPSHOT_INTERVAL_SECONDS:
+		_snapshot_elapsed = 0.0
+		if multiplayer.get_peers().size() > 0:
+			_broadcast_smell_snapshot()
 
 ## 디버그 조작. 입력 맵(project.godot)은 소유 밖이라 키를 직접 본다.
 ## F4: 시각화 토글, F6: 바람 방향 45도 회전, F7: 바람 세기 순환 (1 → 0 → 0.5).
@@ -140,12 +149,45 @@ func get_gradient_direction(global_pos: Vector2) -> Vector2:
 func get_active_cell_count() -> int:
 	return _active.size()
 
+func get_cell_index_for_debug(global_pos: Vector2) -> int:
+	return _cell_index(global_pos)
+
+@rpc("authority", "call_remote", "unreliable")
+func apply_smell_snapshot(indices: PackedInt32Array, values: PackedFloat32Array) -> void:
+	if is_multiplayer_authority() or indices.size() != values.size():
+		return
+	for cell_index: int in _active:
+		_values[cell_index] = 0.0
+	_active.clear()
+	var max_index: int = _values.size()
+	for array_index: int in range(indices.size()):
+		var cell_index: int = indices[array_index]
+		var value: float = values[array_index]
+		if cell_index < 0 or cell_index >= max_index or value <= 0.0:
+			continue
+		_values[cell_index] = value
+		_active[cell_index] = true
+	if debug_enabled:
+		queue_redraw()
+
 func _on_smell_emitted(position: Vector2, strength: float, _kind: StringName) -> void:
 	var index: int = _cell_index(position)
 	if index < 0 or strength <= 0.0:
 		return
 	_values[index] += strength
 	_active[index] = true
+
+func _broadcast_smell_snapshot() -> void:
+	var count: int = _active.size()
+	if _replication_indices.size() != count:
+		_replication_indices.resize(count)
+		_replication_values.resize(count)
+	var array_index: int = 0
+	for cell_index: int in _active:
+		_replication_indices[array_index] = cell_index
+		_replication_values[array_index] = _values[cell_index]
+		array_index += 1
+	apply_smell_snapshot.rpc(_replication_indices, _replication_values)
 
 func _cell_index(global_pos: Vector2) -> int:
 	var local: Vector2 = global_pos - area_origin
