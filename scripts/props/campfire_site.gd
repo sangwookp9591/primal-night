@@ -11,6 +11,8 @@ const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config
 
 var campfire: Campfire = null
 var _game_data: Node = null
+var _net_campfire: NetCampfire = null
+var _net_campfire_cached: bool = false
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -45,16 +47,42 @@ func interact(who: Node) -> void:
 		return
 
 	var player: Player = who as Player
-	# 재료를 모두 뺄 수 있을 때만 짓는다. 하나만 빠지고 실패하면 재료가 증발한다.
-	if not player.inventory.remove_item(&"stone", config.stone_cost):
+	# 넷 스택이 있으면 설치 판정·복제는 호스트 권위 경로로 간다 (설계서 7.2, W2-T5).
+	var net: NetCampfire = _find_net_campfire()
+	if net != null:
+		net.request(self, player)
 		return
+	if not consume_materials(player):
+		return
+	build_and_light()
+
+## 재료 소비 (전부 아니면 전무). 하나만 빠지고 실패하면 재료가 증발하므로 되돌린다.
+## 넷 스택이 없는 로컬 설치와 호스트 권위 판정·클라이언트 복제 적용이 공유한다.
+func consume_materials(player: Player) -> bool:
+	if not player.inventory.remove_item(&"stone", config.stone_cost):
+		return false
 	if not player.inventory.remove_item(&"wood", config.wood_cost):
 		player.inventory.add_item(&"stone", config.stone_cost)
-		return
+		return false
+	return true
 
+## 설치·점화 실행부. 이벤트 발신 여부는 Campfire 가 권위 기준으로 판단한다.
+func build_and_light() -> void:
 	campfire = CampfireScene.instantiate()
 	campfire.config = config
 	# 자유 건축 금지: 플레이어 위치가 아니라 이 자리에 스냅한다.
 	campfire.global_position = global_position
 	get_parent().add_child(campfire)
 	campfire.light()
+
+## 같은 기계(멀티플레이 브랜치)의 NetCampfire 만 잡는다 — 헤드리스 하네스에선
+## 한 트리에 기계가 2개다. 상호작용 시점에만 1회 조회하고 캐시한다 (성능문서 6.1).
+func _find_net_campfire() -> NetCampfire:
+	if _net_campfire_cached:
+		return _net_campfire
+	_net_campfire_cached = true
+	for node: Node in get_tree().get_nodes_in_group(&"net_campfire"):
+		if (node as NetCampfire).owns(self):
+			_net_campfire = node as NetCampfire
+			break
+	return _net_campfire

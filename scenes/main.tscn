@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=15 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -13,6 +13,7 @@
 [ext_resource type="Resource" path="res://resources/net/net_config.tres" id="11_netconfig"]
 [ext_resource type="Script" path="res://scripts/items/net_pickup.gd" id="12_netpickup"]
 [ext_resource type="Script" path="res://scripts/survival/net_survival.gd" id="13_netsurvival"]
+[ext_resource type="Script" path="res://scripts/props/net_campfire.gd" id="14_netcampfire"]
 
 [node name="Main" type="Node2D"]
 
@@ -66,3 +67,7 @@ script = ExtResource("12_netpickup")
 [node name="NetSurvival" type="Node" parent="."]
 script = ExtResource("13_netsurvival")
 config = ExtResource("11_netconfig")
+
+; 모닥불 설치·점화 호스트 권위 — 재료·거리·자리 검증, 소등 복제 (설계서 5.8/7.2, W2-T5).
+[node name="NetCampfire" type="Node" parent="."]
+script = ExtResource("14_netcampfire")
