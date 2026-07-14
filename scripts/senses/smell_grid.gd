@@ -39,10 +39,13 @@ func _ready() -> void:
 	_values.resize(_cols * _rows)
 	if has_node("/root/PerfMonitor"):
 		_perf = get_node("/root/PerfMonitor")
-	if has_node("/root/EventBus"):
+	if is_multiplayer_authority() and has_node("/root/EventBus"):
 		get_node("/root/EventBus").smell_emitted.connect(_on_smell_emitted)
 
 func _process(delta: float) -> void:
+	if not is_multiplayer_authority():
+		return
+
 	_tick_elapsed += delta
 	while _tick_elapsed >= config.tick_interval:
 		_tick_elapsed -= config.tick_interval

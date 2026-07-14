@@ -62,6 +62,22 @@ func test_smell_above_threshold_triggers_investigation_along_gradient() -> void:
 	assert_gt(raptor.move_target.x, raptor.global_position.x,
 		"정확한 발생 좌표가 아니라 농도가 진해지는 방향으로 이동한다")
 
+func test_client_peer_does_not_run_raptor_ai() -> void:
+	var player: Node2D = Node2D.new()
+	player.add_to_group(&"player")
+	player.position = Vector2(80.0, 0.0)
+	add_child_autofree(player)
+	var raptor: Raptor = RaptorScript.new()
+	raptor.data = _make_data()
+	raptor.set_multiplayer_authority(2)
+	add_child_autofree(raptor)
+	await wait_physics_frames(1)
+
+	raptor._physics_process(raptor.data.ai_tick_interval)
+
+	assert_eq(raptor.state, Raptor.State.WANDER,
+		"클라이언트는 랩터 AI/상태 전이를 실행하지 않고 호스트 스냅샷만 받는다")
+
 ## ★ 공정성 규칙 회귀 방어 (T5 뮤테이션 M3): 냄새 조사 목표는 오직 격자 경사에서만
 ## 나와야 한다. 실제 player 그룹 노드가 어디로 움직이든 목표는 변하지 않는다.
 func test_smell_investigation_target_is_independent_of_player_position() -> void:

@@ -32,6 +32,15 @@ func _make_grid(config: SmellGridConfig) -> SmellGrid:
 	add_child_autofree(grid)
 	return grid
 
+func _make_client_grid(config: SmellGridConfig) -> SmellGrid:
+	var grid: SmellGrid = SmellGridScript.new()
+	grid.config = config
+	grid.area_origin = Vector2(0.0, 0.0)
+	grid.area_size = Vector2(1000.0, 1000.0)
+	grid.set_multiplayer_authority(2)
+	add_child_autofree(grid)
+	return grid
+
 ## 셀 중심 좌표 (셀 인덱스 → 월드 좌표). 경계 반올림 문제를 피한다.
 func _cell_center(grid: SmellGrid, cell_x: int, cell_y: int) -> Vector2:
 	var size: float = grid.config.cell_size
@@ -45,6 +54,17 @@ func test_smell_emitted_deposits_at_position() -> void:
 
 	assert_eq(grid.get_smell_at(spot), 60.0, "발신 즉시 해당 셀에 냄새가 쌓여야 한다")
 	assert_eq(grid.get_active_cell_count(), 1, "활성 셀 목록으로 관리해야 한다 (성능문서 5.2)")
+
+func test_client_peer_does_not_simulate_smell_grid() -> void:
+	var grid: SmellGrid = _make_client_grid(_make_config())
+	var spot: Vector2 = _cell_center(grid, 2, 2)
+
+	_event_bus.smell_emitted.emit(spot, 60.0, &"blood")
+	grid._process(grid.config.tick_interval)
+
+	assert_eq(grid.get_smell_at(spot), 0.0,
+		"클라이언트 냄새 격자는 자체 이벤트/감쇠 시뮬레이션을 실행하지 않는다")
+	assert_eq(grid.get_active_cell_count(), 0, "디버그 표시는 호스트 복제 데이터만 그려야 한다")
 
 func test_repeated_smell_accumulates_in_the_same_cell() -> void:
 	var grid: SmellGrid = _make_grid(_make_config())

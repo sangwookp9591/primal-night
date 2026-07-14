@@ -62,6 +62,10 @@ func _ready() -> void:
 		event_bus.campfire_extinguished.connect(_on_campfire_extinguished)
 
 func _physics_process(delta: float) -> void:
+	if not is_multiplayer_authority():
+		_move_along_path()
+		return
+
 	if _has_pending_noise:
 		_resolve_pending_noise()
 
