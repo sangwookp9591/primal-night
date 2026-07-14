@@ -161,6 +161,29 @@ func test_louder_noise_restarts_the_search_elsewhere() -> void:
 	assert_eq(raptor.state, Raptor.State.WANDER, "새 지점에서도 다 훑으면 상실한다")
 
 
+func test_repeated_moving_noise_updates_target_until_emission_stops() -> void:
+	var raptor: Raptor = _spawn_raptor(Vector2.ZERO)
+	var player: Node2D = _spawn_player(Vector2(200.0, 0.0))
+
+	_event_bus.noise_emitted.emit(player.global_position, 400.0, player)
+	await wait_physics_frames(2)
+	raptor._ai_tick()
+	assert_eq(raptor.move_target, Vector2(200.0, 0.0), "첫 소리 위치를 조사한다")
+
+	player.global_position = Vector2(320.0, 0.0)
+	_event_bus.noise_emitted.emit(player.global_position, 400.0, player)
+	await wait_physics_frames(2)
+	raptor._ai_tick()
+	assert_eq(raptor.move_target, Vector2(320.0, 0.0),
+		"반복 발신 중에는 최신 청취 위치로 조사 목표가 갱신된다")
+
+	player.global_position = Vector2(460.0, 0.0)
+	await wait_physics_frames(2)
+	raptor._ai_tick()
+	assert_eq(raptor.move_target, Vector2(320.0, 0.0),
+		"발신이 멈춘 뒤에는 플레이어가 움직여도 마지막 청취 위치에 고정된다")
+
+
 ## 재탐색: 훑는 동안 더 진한 냄새가 들어오면 그쪽으로 다시 탐색한다 (설계서 5.4).
 func test_stronger_smell_restarts_the_search() -> void:
 	var grid: SmellGrid = _spawn_smell_grid()
