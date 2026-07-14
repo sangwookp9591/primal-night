@@ -61,7 +61,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var profile: NoiseProfile = _select_noise_profile(crouching, running)
-	_noise_radius = _select_noise_radius(crouching, running)
+	_noise_radius = profile.radius
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
@@ -78,13 +78,6 @@ func _select_noise_profile(crouching: bool, running: bool) -> NoiseProfile:
 	if crouching:
 		return config.crouch_noise_profile
 	return config.run_noise_profile if running else config.walk_noise_profile
-
-func _select_noise_radius(crouching: bool, running: bool) -> float:
-	if in_bush and running:
-		return config.base_bush_run_noise
-	if crouching:
-		return config.base_crouch_noise
-	return config.base_run_noise if running else config.base_walk_noise
 
 func _get_input_vector() -> Vector2:
 	var horizontal: float = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")

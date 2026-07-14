@@ -10,8 +10,9 @@ func emit_profile(event_bus: Node, profile: NoiseProfile, position: Vector2, sou
 		now_seconds: float, authority_only: bool = true) -> bool:
 	if event_bus == null or profile == null or profile.radius <= 0.0 or not position.is_finite():
 		return false
-	if authority_only and source != null and not source.is_multiplayer_authority():
-		return false
+	if authority_only:
+		if source == null or not source.is_multiplayer_authority():
+			return false
 	if _should_merge(profile, position, now_seconds):
 		return false
 	_last_by_profile[profile.id] = { position = position, time = now_seconds }

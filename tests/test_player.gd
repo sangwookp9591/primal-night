@@ -16,8 +16,10 @@ func test_noise_radius_changes_for_idle_walk_and_run() -> void:
 	var config: Resource = PlayerConfigScript.new()
 	config.walk_speed = 120.0
 	config.run_speed = 240.0
-	config.base_walk_noise = 10.0
-	config.base_run_noise = 25.0
+	config.walk_noise_profile = config.walk_noise_profile.duplicate()
+	config.run_noise_profile = config.run_noise_profile.duplicate()
+	config.walk_noise_profile.radius = 10.0
+	config.run_noise_profile.radius = 25.0
 	player.config = config
 
 	assert_eq(player.get_noise_radius(), 0.0)

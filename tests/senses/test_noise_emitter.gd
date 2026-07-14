@@ -70,3 +70,13 @@ func test_authority_only_source_does_not_emit_from_non_authority_branch() -> voi
 
 	assert_signal_not_emitted(_event_bus, "noise_emitted",
 		"소리 판정에 영향 주는 발신은 권위 브랜치에서만 나가야 한다")
+
+
+func test_authority_only_rejects_null_source() -> void:
+	var emitter: NoiseEmitter = NoiseEmitterScript.new()
+	watch_signals(_event_bus)
+
+	assert_false(emitter.emit_profile(_event_bus, THROW_PROFILE, Vector2.ZERO, null, 1.0, true))
+
+	assert_signal_not_emitted(_event_bus, "noise_emitted",
+		"권위 발신은 null source 로 우회할 수 없어야 한다")

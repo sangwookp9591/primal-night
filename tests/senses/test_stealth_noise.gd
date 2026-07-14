@@ -73,9 +73,9 @@ func test_crouch_reduces_noise_radius() -> void:
 	Input.action_press("crouch")
 	await wait_physics_frames(1)
 
-	assert_eq(player.get_noise_radius(), player.config.base_crouch_noise,
+	assert_eq(player.get_noise_radius(), player.config.crouch_noise_profile.radius,
 		"웅크리면 웅크리기 소음 반경이 나와야 한다")
-	assert_lt(player.config.base_crouch_noise, player.config.base_walk_noise,
+	assert_lt(player.config.crouch_noise_profile.radius, player.config.walk_noise_profile.radius,
 		"웅크리기 소음이 걷기보다 작아야 비교가 성립한다")
 
 func test_stealth_zone_marks_the_player_in_bush_on_enter_and_clears_on_exit() -> void:
@@ -104,9 +104,9 @@ func test_running_through_bush_increases_the_noise_radius() -> void:
 	Input.action_press("run")
 	await wait_physics_frames(1)
 
-	assert_eq(player.get_noise_radius(), player.config.base_bush_run_noise,
+	assert_eq(player.get_noise_radius(), player.config.bush_run_noise_profile.radius,
 		"수풀에서 달리면 수풀 통과 소음 반경이 나와야 한다")
-	assert_gt(player.config.base_bush_run_noise, player.config.base_run_noise,
+	assert_gt(player.config.bush_run_noise_profile.radius, player.config.run_noise_profile.radius,
 		"수풀 달리기 소음이 평소 달리기보다 커야 비교가 성립한다")
 
 func test_crouching_in_bush_stays_quiet_not_the_bush_run_profile() -> void:
@@ -119,7 +119,7 @@ func test_crouching_in_bush_stays_quiet_not_the_bush_run_profile() -> void:
 	Input.action_press("crouch")
 	await wait_physics_frames(1)
 
-	assert_eq(player.get_noise_radius(), player.config.base_crouch_noise,
+	assert_eq(player.get_noise_radius(), player.config.crouch_noise_profile.radius,
 		"수풀 안이라도 웅크리면 조용한 소음 반경을 유지해야 한다")
 
 ## ★ 완료판정: 같은 거리에서도 웅크림/달리기에 따라 랩터의 반응이 갈려야 한다

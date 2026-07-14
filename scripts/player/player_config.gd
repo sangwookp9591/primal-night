@@ -15,8 +15,4 @@ const DEFAULT_BUSH_RUN_NOISE: NoiseProfile = preload("res://data/senses/noise_bu
 @export var crouch_noise_profile: NoiseProfile = DEFAULT_CROUCH_NOISE
 ## 수풀 안에서 달리면 이 프로필로 바뀐다 — 수풀을 헤치는 소리는 평소 달리기보다 크다.
 @export var bush_run_noise_profile: NoiseProfile = DEFAULT_BUSH_RUN_NOISE
-@export var base_walk_noise: float = 80.0
-@export var base_run_noise: float = 160.0
-@export var base_crouch_noise: float = 30.0
-@export var base_bush_run_noise: float = 260.0
 @export var noise_emit_interval: float = 0.25
