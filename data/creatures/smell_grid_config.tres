@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SmellGridConfig" load_steps=2 format=3 uid="uid://smellgridconfig"]
+
+[ext_resource type="Script" path="res://scripts/senses/smell_grid_config.gd" id="1_smellgridconfig"]
+
+[resource]
+script = ExtResource("1_smellgridconfig")
+cell_size = 128.0
+tick_interval = 0.25
+decay_factor = 0.85
+advect_fraction = 0.5
+min_active_value = 0.5

@@ -1,0 +1,72 @@
+[gd_scene load_steps=12 format=4 uid="uid://playerscene"]
+
+[ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
+[ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
+[ext_resource type="Script" path="res://scripts/survival/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/survival/stamina_component.gd" id="4_stamina"]
+[ext_resource type="Resource" path="res://data/survival/survival_config.tres" id="5_survival"]
+[ext_resource type="Script" path="res://scripts/inventory/inventory.gd" id="6_inventory"]
+[ext_resource type="Script" path="res://scripts/survival/interactor.gd" id="7_interactor"]
+[ext_resource type="Script" path="res://scripts/survival/heal_target.gd" id="8_healtarget"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(28, 20)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_reach"]
+radius = 48.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_healspot"]
+radius = 20.0
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+config = ExtResource("2_config")
+
+[node name="Body" type="ColorRect" parent="."]
+offset_left = -16.0
+offset_top = -48.0
+offset_right = 16.0
+offset_bottom = 0.0
+color = Color(0.2, 0.72, 0.45, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -10)
+shape = SubResource("RectangleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3_health")
+config = ExtResource("5_survival")
+
+[node name="StaminaComponent" type="Node" parent="."]
+script = ExtResource("4_stamina")
+config = ExtResource("5_survival")
+
+[node name="Inventory" type="Node" parent="."]
+script = ExtResource("6_inventory")
+slot_count = 8
+
+; 상호작용 손. layer 0 / mask 4 — interactable(layer 4) 만 감지한다.
+[node name="Interactor" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitorable = false
+script = ExtResource("7_interactor")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Interactor"]
+shape = SubResource("CircleShape2D_reach")
+
+; 동료(또는 자신)가 붕대를 쓰는 지점. interactable 이므로 layer 4.
+[node name="HealTarget" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("8_healtarget")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HealTarget"]
+shape = SubResource("CircleShape2D_healspot")

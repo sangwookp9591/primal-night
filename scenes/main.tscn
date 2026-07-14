@@ -1,0 +1,79 @@
+[gd_scene load_steps=16 format=4 uid="uid://primalnightmain"]
+
+[ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/props/survival_demo.tscn" id="3_survivaldemo"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud/hud.tscn" id="4_hud"]
+[ext_resource type="PackedScene" path="res://scenes/debug/performance_overlay.tscn" id="5_perfoverlay"]
+[ext_resource type="Script" path="res://scripts/senses/smell_grid.gd" id="6_smellgrid"]
+[ext_resource type="PackedScene" path="res://scenes/creature/raptor.tscn" id="7_raptor"]
+[ext_resource type="Script" path="res://scripts/senses/noise_debug.gd" id="8_noisedebug"]
+[ext_resource type="Script" path="res://scripts/net/local_session_service.gd" id="9_netsession"]
+[ext_resource type="Script" path="res://scripts/net/net_movement.gd" id="10_netmovement"]
+[ext_resource type="Resource" path="res://resources/net/net_config.tres" id="11_netconfig"]
+[ext_resource type="Script" path="res://scripts/items/net_pickup.gd" id="12_netpickup"]
+[ext_resource type="Script" path="res://scripts/survival/net_survival.gd" id="13_netsurvival"]
+[ext_resource type="Script" path="res://scripts/props/net_campfire.gd" id="14_netcampfire"]
+[ext_resource type="Script" path="res://scripts/net/net_resync.gd" id="15_netresync"]
+
+[node name="Main" type="Node2D"]
+
+[node name="World" parent="." instance=ExtResource("1_world")]
+
+; 스폰은 벽 밖 서쪽 평지 (x=-384 열은 자유 이동 확인됨).
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(-384, 200)
+
+[node name="SurvivalDemo" parent="." instance=ExtResource("3_survivaldemo")]
+
+; 냄새 격자 — 기본 영역은 NavigationRegion2D 전체를 덮는다.
+; 초기 바람은 플레이어 진영에서 랩터 스폰 쪽(남서)으로 분다.
+[node name="SmellGrid" type="Node2D" parent="."]
+script = ExtResource("6_smellgrid")
+wind_direction = Vector2(-0.57, 0.82)
+wind_strength = 1.0
+
+[node name="Raptor" parent="." instance=ExtResource("7_raptor")]
+position = Vector2(-800, 800)
+
+; 소음 반경 디버그 (F4 로 냄새 격자·랩터 표시와 함께 토글).
+[node name="NoiseDebug" type="Node2D" parent="."]
+script = ExtResource("8_noisedebug")
+
+[node name="Hud" parent="." instance=ExtResource("4_hud")]
+
+[node name="PerformanceOverlay" parent="." instance=ExtResource("5_perfoverlay")]
+
+; 세션 어댑터 경계 (설계서 9.1). 게임 코드는 SessionService 인터페이스만 본다.
+; 로컬 2인 개발은 LocalSessionService, Steam 출시는 SteamSessionService 로 이 노드만 교체.
+[node name="NetSession" type="Node" parent="."]
+script = ExtResource("9_netsession")
+config = ExtResource("11_netconfig")
+
+; 호스트가 권위적으로 스폰하는 원격 아바타 컨테이너.
+[node name="Players" type="Node2D" parent="."]
+
+; 2인 이동 동기화 + 호스트 권한 검증 (설계서 7.2/7.4).
+; 싱글플레이는 peer 없는 동일 흐름이라 이 노드들이 있어도 네트워크 활동이 없다 (설계서 9.3).
+[node name="NetMovement" type="Node" parent="."]
+script = ExtResource("10_netmovement")
+avatar_scene = ExtResource("2_player")
+config = ExtResource("11_netconfig")
+
+; 아이템 획득 호스트 권위 — 줍기 의도 검증·직렬 확정·복제 (설계서 7.2/7.4, W2-T2).
+[node name="NetPickup" type="Node" parent="."]
+script = ExtResource("12_netpickup")
+
+; 피해·출혈·붕대 치료 호스트 권위 + 생존 스냅샷 복제 (설계서 7.2/5.2, W2-T2).
+[node name="NetSurvival" type="Node" parent="."]
+script = ExtResource("13_netsurvival")
+config = ExtResource("11_netconfig")
+
+; 모닥불 설치·점화 호스트 권위 — 재료·거리·자리 검증, 소등 복제 (설계서 5.8/7.2, W2-T5).
+[node name="NetCampfire" type="Node" parent="."]
+script = ExtResource("14_netcampfire")
+
+; 재접속 전체 상태 재동기화 — 인벤토리·체력·출혈·위치 스냅샷 (설계서 6.3/7.3, W2-T5).
+; ★ NetMovement 뒤에 있어야 한다: 재접속 처리 순서 = 아바타 스폰 → 상태 복원·스냅샷.
+[node name="NetResync" type="Node" parent="."]
+script = ExtResource("15_netresync")

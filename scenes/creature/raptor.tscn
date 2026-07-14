@@ -1,0 +1,40 @@
+[gd_scene load_steps=4 format=4 uid="uid://raptorscene"]
+
+[ext_resource type="Script" path="res://scripts/creature/raptor.gd" id="1_raptor"]
+[ext_resource type="Resource" path="res://data/creatures/raptor.tres" id="2_data"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_raptor"]
+size = Vector2(32, 20)
+
+; 랩터. layer 8 (공룡), 지형(layer 1)과 충돌.
+[node name="Raptor" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1_raptor")
+data = ExtResource("2_data")
+
+[node name="Body" type="ColorRect" parent="."]
+offset_left = -18.0
+offset_top = -40.0
+offset_right = 18.0
+offset_bottom = 0.0
+color = Color(0.78, 0.24, 0.2, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -8)
+shape = SubResource("RectangleShape2D_raptor")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+path_desired_distance = 8.0
+target_desired_distance = 16.0
+
+; 추격 전환 경고 (설계서 3.2: 예고 없는 위협 금지).
+[node name="AlertLabel" type="Label" parent="."]
+offset_left = -8.0
+offset_top = -76.0
+offset_right = 8.0
+offset_bottom = -44.0
+theme_override_colors/font_color = Color(1, 0.9, 0.2, 1)
+theme_override_font_sizes/font_size = 28
+text = "!"
+visible = false

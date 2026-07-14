@@ -1,0 +1,136 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  godot-headless:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.7"
+      GODOT_RELEASE: "4.7-stable"
+      GODOT_BIN: /tmp/godot/Godot_v4.7-stable_linux.x86_64
+      TEMPLATE_DIR: /home/runner/.local/share/godot/export_templates/4.7.stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot export templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.7.stable
+          key: godot-4.7-stable-export-templates
+
+      - name: Install Godot
+        run: |
+          mkdir -p /tmp/godot
+          curl -L -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+
+      - name: Install export templates
+        run: |
+          mkdir -p "$TEMPLATE_DIR"
+          if [ ! -f "$TEMPLATE_DIR/windows_release_x86_64.exe" ]; then
+            curl -L -o /tmp/templates.tpz https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz
+            unzip -j -o /tmp/templates.tpz 'templates/windows_release_x86_64.exe' 'templates/windows_debug_x86_64.exe' -d "$TEMPLATE_DIR"
+          fi
+
+      - name: Import and parse project
+        run: "$GODOT_BIN" --headless --path . --import --quit
+
+      - name: Run GUT
+        run: |
+          mkdir -p artifacts
+          "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit -gjunit_xml_file=res://artifacts/gut.xml
+
+      # 2주 목표 장면의 진짜 E2E 관문. 유닛 테스트는 각 조각만 지킨다 —
+      # 이건 부상 → 피 냄새 → 바람 이류 → 랩터 조사 → 추격 → 모닥불 → 후퇴 전 구간이
+      # 실제 main.tscn 에서 이어지는지 본다. (WEEK1_VERIFICATION_ROUND2.md R2-M-01)
+      # 고정 seed 라 결정적이다. 3회 돌려 비결정 회귀도 함께 막는다.
+      - name: Replay goal scene (E2E)
+        run: |
+          for i in 1 2 3; do
+            echo "--- goal scene replay $i/3 ---"
+            "$GODOT_BIN" --headless --path . -s scripts/creature/goal_scene_replay.gd | tee "artifacts/goal_scene_replay_$i.log"
+          done
+
+      # 2주 차 관문 (W2-T1): 헤드리스 2인 하네스 — 실제 main.tscn 2개를 한 프로세스의
+      # MultiplayerAPI 브랜치 2개에 올리고 실제 ENet 루프백으로
+      # 접속 → 스폰 → 이동 동기화 → 텔레포트 변조 거부 → 이탈 정리를 자동 판정한다.
+      - name: Two-player headless harness (E2E)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/net/two_player_harness.gd | tee artifacts/two_player_harness.log
+
+      # W2-T4: ENetMultiplayerPeer has no deterministic RTT/loss injection knob.
+      # This short CI scenario keeps the artificial delay/loss queue inside scripts/net
+      # and reduces the 2h remote-test target to deterministic RTT 100ms/250ms + loss 1%/5%
+      # movement sync and reconnect assertions.
+      - name: Network conditions harness (RTT/loss)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/net/network_conditions_harness.gd | tee artifacts/network_conditions_harness.log
+
+      # W2-T2: 2인 협동 하네스 — 실제 main.tscn 2개 + ENet 루프백으로
+      # 같은 아이템 동시 획득(정확히 1명, 복제/소실 0) → 클라 부상(변조 피해량 클램프)
+      # → 호스트 냄새 격자 blood 축적(호스트 단독 발신) → 호스트 붕대 치료 확정
+      # → 냄새 정지를 자동 판정한다 (설계서 7.2/7.4, 5.2).
+      - name: Two-player co-op harness (pickup/bleed/heal E2E)
+        run: |
+          "$GODOT_BIN" --headless --path . -s scripts/survival/two_player_coop_harness.gd | tee artifacts/two_player_coop_harness.log
+
+      # ★ W2-T5: 2주 목표 장면 전 구간 통합 하네스 — 방 생성 → 2인 탐색 → 부상
+      # → 랩터 냄새 추적 → 붕대 치료 → 모닥불 탈출(전원 보호 시에만 후퇴)
+      # → 재접속 복원까지 하나의 실행으로 잇는다 (설계서 6.x 2주 성공 기준).
+      # 고정 seed 로 결정적이다 (B-01). 5회 돌려 비결정 회귀를 함께 막는다.
+      - name: Two-player goal scene harness (full E2E x5)
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "--- goal scene harness $i/5 ---"
+            "$GODOT_BIN" --headless --path . -s scripts/net/two_player_goal_scene_harness.gd | tee "artifacts/two_player_goal_scene_$i.log"
+          done
+
+      # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
+      # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
+      - name: Verify no tests were silently skipped
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+
+          on_disk = {os.path.basename(p) for p in glob.glob("tests/**/test_*.gd", recursive=True)}
+          xml = open("artifacts/gut.xml", encoding="utf-8").read()
+
+          # 자체 생성한 리포트다. XML 파서를 쓸 이유가 없고, 속성만 뽑으면 충분하다.
+          suites = re.findall(r'<testsuite\s+([^>]*)>', xml)
+          reported, tests, failures = set(), 0, 0
+          for attrs in suites:
+              d = dict(re.findall(r'(\w+)="([^"]*)"', attrs))
+              reported.add(os.path.basename(d.get("name", "")))
+              tests += int(d.get("tests", 0))
+              failures += int(d.get("failures", 0)) + int(d.get("errors", 0))
+
+          missing = on_disk - reported
+          print(f"디스크 {len(on_disk)}개 / 리포트 {len(reported)}개 / 테스트 {tests}개 / 실패 {failures}건")
+
+          if missing:
+              sys.exit("::error::조용히 건너뛴 테스트 스크립트: " + ", ".join(sorted(missing)))
+          if tests == 0:
+              sys.exit("::error::테스트가 하나도 실행되지 않았다")
+          if failures:
+              sys.exit(f"::error::실패 {failures}건")
+          print("OK — 모든 테스트 스크립트가 실제로 실행되었고 전부 통과")
+          PY
+
+      - name: Export Windows x86_64
+        run: |
+          mkdir -p export artifacts
+          "$GODOT_BIN" --headless --path . --export-release "Windows Desktop" export/primal-night-windows.exe
+          cp export/primal-night-windows.exe artifacts/
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: godot-ci-results
+          path: |
+            artifacts/**
+            export/**

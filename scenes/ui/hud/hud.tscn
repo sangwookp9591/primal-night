@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=4 uid="uid://primalhud"]
+
+[ext_resource type="Script" path="res://scenes/ui/hud/hud.gd" id="1_hud"]
+
+[node name="Hud" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="Root" type="MarginContainer" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -168.0
+offset_right = 420.0
+grow_vertical = 0
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Column" type="VBoxContainer" parent="Root"]
+theme_override_constants/separation = 4
+
+[node name="HealthRow" type="HBoxContainer" parent="Root/Column"]
+theme_override_constants/separation = 8
+
+[node name="HealthStage" type="Label" parent="Root/Column/HealthRow"]
+custom_minimum_size = Vector2(64, 0)
+text = "양호"
+
+[node name="HealthBar" type="ProgressBar" parent="Root/Column/HealthRow"]
+custom_minimum_size = Vector2(220, 18)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="Bleeding" type="Label" parent="Root/Column/HealthRow"]
+visible = false
+text = "출혈"
+theme_override_colors/font_color = Color(0.9, 0.18, 0.18, 1)
+
+[node name="StaminaRow" type="HBoxContainer" parent="Root/Column"]
+theme_override_constants/separation = 8
+
+[node name="StaminaLabel" type="Label" parent="Root/Column/StaminaRow"]
+custom_minimum_size = Vector2(64, 0)
+text = "기력"
+
+[node name="StaminaBar" type="ProgressBar" parent="Root/Column/StaminaRow"]
+custom_minimum_size = Vector2(220, 12)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="Slots" type="GridContainer" parent="Root/Column"]
+columns = 8
+theme_override_constants/h_separation = 4
+
+[node name="Prompt" type="Label" parent="Root/Column"]
+text = ""

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SurvivalConfig" load_steps=2 format=3 uid="uid://survivalconfig"]
+
+[ext_resource type="Script" path="res://scripts/survival/survival_config.gd" id="1_survivalconfig"]
+
+[resource]
+script = ExtResource("1_survivalconfig")
+max_health = 100.0
+health_hurt_ratio = 0.6
+health_critical_ratio = 0.3
+max_stamina = 100.0
+stamina_run_drain = 20.0
+stamina_regen_idle = 15.0
+stamina_regen_walk = 7.0
+stamina_recover_threshold = 20.0
+bleed_damage_per_second = 2.0
+bleed_smell_interval = 0.5
+bleed_smell_strength = 60.0
+bandage_hold_seconds = 2.0
