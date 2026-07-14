@@ -14,6 +14,9 @@ const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_conf
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
 
+## StealthZone(수풀)이 겹침으로 직접 설정한다 (설계서 5.6). Player 는 트리를 뒤지지 않는다.
+var in_bush: bool = false
+
 ## 이 아바타를 조종하는 peer id. 로컬 기계가 조종하지 않는 원격 아바타는
 ## 입력을 읽지 않는다 — 위치는 호스트 검증(NetMovement)과 스냅샷이 정한다 (설계서 7.2).
 ## 싱글플레이는 offline peer id(1) == 기본값이라 기존 흐름 그대로다 (설계서 9.3).
@@ -36,9 +39,10 @@ func _physics_process(delta: float) -> void:
 		return
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
-	# 스태미나가 없으면 run 을 누르고 있어도 달릴 수 없다.
-	var running: bool = moving and Input.is_action_pressed("run") and stamina.can_run()
-	var speed: float = config.run_speed if running else config.walk_speed
+	var crouching: bool = Input.is_action_pressed("crouch")
+	# 스태미나가 없으면 run 을 누르고 있어도 달릴 수 없다. 웅크리면 달리지 않는다 (은신 우선).
+	var running: bool = moving and not crouching and Input.is_action_pressed("run") and stamina.can_run()
+	var speed: float = config.crouch_speed if crouching else (config.run_speed if running else config.walk_speed)
 
 	stamina.update(running, moving, delta)
 
@@ -50,8 +54,8 @@ func _physics_process(delta: float) -> void:
 		_noise_emit_elapsed = 0.0
 		return
 
-	var profile: NoiseProfile = config.run_noise_profile if running else config.walk_noise_profile
-	_noise_radius = config.base_run_noise if running else config.base_walk_noise
+	var profile: NoiseProfile = _select_noise_profile(crouching, running)
+	_noise_radius = _select_noise_radius(crouching, running)
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
@@ -60,6 +64,21 @@ func _physics_process(delta: float) -> void:
 
 func get_noise_radius() -> float:
 	return _noise_radius
+
+## 수풀에서 달리면 헤치는 소리가 우선한다. 그다음은 웅크림(항상 조용), 그다음 걷기/달리기.
+func _select_noise_profile(crouching: bool, running: bool) -> NoiseProfile:
+	if in_bush and running:
+		return config.bush_run_noise_profile
+	if crouching:
+		return config.crouch_noise_profile
+	return config.run_noise_profile if running else config.walk_noise_profile
+
+func _select_noise_radius(crouching: bool, running: bool) -> float:
+	if in_bush and running:
+		return config.base_bush_run_noise
+	if crouching:
+		return config.base_crouch_noise
+	return config.base_run_noise if running else config.base_walk_noise
 
 func _get_input_vector() -> Vector2:
 	var horizontal: float = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
