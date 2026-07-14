@@ -14,6 +14,11 @@ const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_conf
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
 
+## 이 아바타를 조종하는 peer id. 로컬 기계가 조종하지 않는 원격 아바타는
+## 입력을 읽지 않는다 — 위치는 호스트 검증(NetMovement)과 스냅샷이 정한다 (설계서 7.2).
+## 싱글플레이는 offline peer id(1) == 기본값이라 기존 흐름 그대로다 (설계서 9.3).
+var controller_peer_id: int = 1
+
 var _noise_radius: float = 0.0
 var _noise_emit_elapsed: float = 0.0
 var _event_bus: Node = null
@@ -24,6 +29,8 @@ func _ready() -> void:
 		_event_bus = get_node("/root/EventBus")
 
 func _physics_process(delta: float) -> void:
+	if controller_peer_id != multiplayer.get_unique_id():
+		return
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	# 스태미나가 없으면 run 을 누르고 있어도 달릴 수 없다.
