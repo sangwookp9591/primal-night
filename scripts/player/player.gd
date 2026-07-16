@@ -18,6 +18,7 @@ enum Stance { WALK, RUN, CROUCH }
 ## player.tscn 을 고치지 않는다. 시뮬은 이 노드가 호스트에서만 스스로 돌린다.
 var stats: SurvivalStats = SurvivalStats.new()
 var injury: InjuryComponent = InjuryComponent.new()
+var actions: ActionController = ActionController.new()
 
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
@@ -52,6 +53,8 @@ func _ready() -> void:
 	injury.name = "InjuryComponent"
 	injury.config = health.config
 	add_child(injury)
+	actions.name = "ActionController"
+	add_child(actions)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 
