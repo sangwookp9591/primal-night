@@ -67,10 +67,6 @@ func _run() -> void:
 
 	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 60초).
 	_log("--- phase 4: 경사 추적 접근 → 추격 대기 ---")
-	# The scent grid's coarse cell target can oscillate around the player without
-	# entering sight range; pin the deterministic replay cue to the actual target.
-	# This is harness choreography only—the runtime AI still follows scent cells.
-	_raptor.move_target = _player.global_position
 	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 60.0, _report_approach):
 		return _fail("랩터가 추격으로 전환하지 않았다")
 
