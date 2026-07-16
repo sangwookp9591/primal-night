@@ -97,3 +97,19 @@ visible = false
 theme_override_colors/font_color = Color(0.9, 0.15, 0.15, 1)
 theme_override_font_sizes/font_size = 20
 text = "⚠ 추격!"
+
+; 세션 목표 (W5-T2): 남은 시간 / 현재 조건 / 성공·실패. 문자열은 조건·초·결과가
+; 실제로 바뀐 프레임에만 만든다 (성능문서 6.2). 결과는 outcome_changed 신호로만 갱신.
+[node name="SessionRow" type="HBoxContainer" parent="Root/Column"]
+theme_override_constants/separation = 12
+
+[node name="SessionTime" type="Label" parent="Root/Column/SessionRow"]
+custom_minimum_size = Vector2(64, 0)
+text = "--:--"
+
+[node name="SessionCondition" type="Label" parent="Root/Column/SessionRow"]
+text = ""
+
+[node name="SessionOutcome" type="Label" parent="Root/Column/SessionRow"]
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+text = ""

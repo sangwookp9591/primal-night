@@ -100,3 +100,90 @@ func test_slots_refresh_on_the_inventory_changed_signal() -> void:
 	# 프레임을 돌리지 않았는데도 이미 갱신되어 있어야 한다 = 신호 기반이다.
 	var wood: ItemData = _game_data.get_item(&"wood")
 	assert_string_contains(hud.slot_text(0), wood.display_name, "changed 신호를 받아 즉시 갱신되어야 한다")
+
+
+## ── 세션 목표 HUD (W5-T2): 남은 시간 / 현재 조건 / 성공·실패 ─────────────────────
+
+## LoopObjective._ready 가 요구하는 최소 골격(세션·시계·컨테이너)을 갖춘 작은 월드.
+func _spawn_session() -> Dictionary:
+	var root: Node = add_child_autofree(Node.new())
+	root.name = "SessionWorld"
+
+	var session: LocalSessionService = LocalSessionService.new()
+	session.name = "NetSession"
+	session.config = NetConfig.new()
+	root.add_child(session)
+
+	var player: Player = PlayerScene.instantiate()
+	player.name = "Player"
+	root.add_child(player)
+
+	var container: Node2D = Node2D.new()
+	container.name = "Players"
+	root.add_child(container)
+
+	var clock: SessionClock = SessionClock.new()
+	clock.name = "SessionClock"
+	clock.phase_duration_seconds = 720.0
+	root.add_child(clock)
+
+	var objective: LoopObjective = LoopObjective.new()
+	objective.name = "LoopObjective"
+	objective.clock_path = ^"../SessionClock"
+	objective.session_path = ^"../NetSession"
+	objective.host_player_path = ^"../Player"
+	objective.players_container_path = ^"../Players"
+	root.add_child(objective)
+
+	var hud: Hud = HudScene.instantiate()
+	root.add_child(hud)
+	await wait_physics_frames(1)
+	hud.bind(player)
+	hud.bind_session(objective)
+	return {root = root, player = player, clock = clock, objective = objective, hud = hud}
+
+
+## 남은 시간은 mm:ss 로 표시한다 (숫자를 HUD 가 만들지 않고 시계에서 읽는다).
+func test_session_time_is_shown_as_mmss_from_the_clock() -> void:
+	var s: Dictionary = await _spawn_session()
+	var clock: SessionClock = s.clock
+	var hud: Hud = s.hud
+
+	clock.stop()  # 자동 카운트다운을 멈춰 값을 고정한다.
+	clock.remaining_seconds = 125.0
+	hud._refresh_session()
+
+	assert_eq(hud.session_time_text(), "02:05", "남은 시간을 시계 값에서 mm:ss 로 표시한다")
+
+
+## 현재 조건은 목표 상태를 따라 바뀐다 (문자열은 도메인이 소유, HUD 는 읽어 그린다).
+func test_session_condition_follows_the_objective_state() -> void:
+	var s: Dictionary = await _spawn_session()
+	var objective: LoopObjective = s.objective
+	var hud: Hud = s.hud
+
+	hud._refresh_session()
+	assert_eq(hud.session_condition_text(), String(LoopObjective.CONDITION_EXPOSE),
+		"노출 전에는 노출 조건을 보여준다")
+
+	objective.mark_risk_exposed()
+	hud._refresh_session()
+	assert_eq(hud.session_condition_text(), String(LoopObjective.CONDITION_OBSERVE),
+		"노출 뒤에는 랩터 관측 조건으로 바뀐다")
+
+
+## 성공/실패는 outcome_changed 신호로만 갱신한다 (매 프레임 폴링 금지).
+func test_session_outcome_updates_on_settlement() -> void:
+	var s: Dictionary = await _spawn_session()
+	var objective: LoopObjective = s.objective
+	var clock: SessionClock = s.clock
+	var hud: Hud = s.hud
+
+	assert_eq(hud.session_outcome_text(), "", "판정 전에는 결과를 비워둔다")
+
+	objective.mark_risk_exposed()
+	clock.advance(clock.phase_duration_seconds + 1.0)  # 시간 만료 → 실패.
+	await wait_physics_frames(2)
+
+	assert_eq(hud.session_outcome_text(), String(LoopObjective.CONDITION_FAILED),
+		"시간 만료로 실패가 확정되면 결과를 표시한다")

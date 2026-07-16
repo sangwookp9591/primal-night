@@ -35,6 +35,9 @@ const STAT_NAMES: Dictionary = {
 @onready var _wind_arrow: Label = $Root/Column/SenseRow/WindArrow
 @onready var _sound_arrow: Label = $Root/Column/SenseRow/SoundArrow
 @onready var _raptor_alert: Label = $Root/Column/SenseRow/RaptorAlert
+@onready var _session_time: Label = $Root/Column/SessionRow/SessionTime
+@onready var _session_condition: Label = $Root/Column/SessionRow/SessionCondition
+@onready var _session_outcome: Label = $Root/Column/SessionRow/SessionOutcome
 @onready var _stat_labels: Dictionary = {
 	&"temperature": $Root/Column/StatsRow/Temperature,
 	&"water": $Root/Column/StatsRow/Water,
@@ -60,6 +63,13 @@ var _last_sound_direction: Vector2 = Vector2.INF
 ## 재시도한다 (성능문서 6.1).
 const RAPTOR_SCAN_INTERVAL_SECONDS: float = 2.0
 var _raptor_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
+
+## 세션 목표(W5-T2). main.tscn 노드 순서상 HUD._ready 가 LoopObjective._ready 보다 먼저 도므로
+## 그룹 등록을 기다려 지연 바인딩한다 (랩터 지연 연결과 같은 관례).
+var _objective: LoopObjective = null
+var _session_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
+var _last_session_second: int = -1
+var _last_condition: StringName = &""
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -118,6 +128,9 @@ func _process(delta: float) -> void:
 		_indicator_model.set_wind(grid.wind_direction, grid.wind_strength)
 	_indicator_model.update(delta)
 	_refresh_sense_indicators()
+
+	_ensure_session_bound(delta)
+	_refresh_session()
 
 ## 숫자 나열보다 단계 표시 (설계서 10.1). 경계값은 SurvivalConfig 에서 온다.
 func stage_label_for_health() -> String:
@@ -212,6 +225,64 @@ func _ensure_raptors_connected(delta: float) -> void:
 
 func _on_raptor_state_changed(_previous_state: int, new_state: int) -> void:
 	_indicator_model.set_raptor_chasing(new_state == Raptor.State.CHASE)
+
+## 세션 목표를 그룹으로 지연 바인딩한다 (씬에 그냥 놓았을 때). 테스트는 bind_session 을 직접 부른다.
+func _ensure_session_bound(delta: float) -> void:
+	if _objective != null and is_instance_valid(_objective):
+		return
+	_session_scan_elapsed += delta
+	if _session_scan_elapsed < RAPTOR_SCAN_INTERVAL_SECONDS:
+		return
+	_session_scan_elapsed = 0.0
+	var found: Node = get_tree().get_first_node_in_group(&"loop_objective")
+	if found != null:
+		bind_session(found as LoopObjective)
+
+func bind_session(objective: LoopObjective) -> void:
+	if objective == null or _objective == objective:
+		return
+	_objective = objective
+	_objective.outcome_changed.connect(_on_session_outcome_changed)
+	_last_session_second = -1
+	_last_condition = &""
+	_refresh_session()
+	_on_session_outcome_changed(_objective.outcome)
+
+## 남은 초·조건은 실제로 바뀐 프레임에만 문자열을 만든다 (성능문서 6.2). 결과는 신호로만 갱신한다.
+func _refresh_session() -> void:
+	if _objective == null or not is_instance_valid(_objective):
+		return
+	var second: int = int(ceil(_objective.session_remaining_seconds()))
+	if second != _last_session_second:
+		_last_session_second = second
+		_session_time.text = _format_mmss(second)
+	var condition: StringName = _objective.current_condition()
+	if condition != _last_condition:
+		_last_condition = condition
+		_session_condition.text = String(condition)
+
+func _on_session_outcome_changed(outcome: int) -> void:
+	match outcome:
+		LoopObjective.Outcome.SUCCEEDED:
+			_session_outcome.text = String(LoopObjective.CONDITION_SUCCEEDED)
+		LoopObjective.Outcome.FAILED:
+			_session_outcome.text = String(LoopObjective.CONDITION_FAILED)
+		_:
+			_session_outcome.text = ""
+
+func _format_mmss(total_seconds: int) -> String:
+	var clamped: int = maxi(total_seconds, 0)
+	return "%02d:%02d" % [clamped / 60, clamped % 60]
+
+## 테스트/외부 조회용 (읽기 전용).
+func session_time_text() -> String:
+	return _session_time.text
+
+func session_condition_text() -> String:
+	return _session_condition.text
+
+func session_outcome_text() -> String:
+	return _session_outcome.text
 
 ## 감각 표시 3종을 모델 상태로 갱신한다. 문자열은 만들지 않고, 회전은 방향이
 ## 바뀐 프레임에만 계산·할당한다.
