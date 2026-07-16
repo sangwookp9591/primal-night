@@ -6,7 +6,7 @@
 - 플랫폼: Windows 10·11 x86_64 / Steam
 - 화면: 2D 아이소메트릭, `TileMapLayer` 기반
 - 개발 전제: 1인 개발, 총 24주 MVP, 싱글 및 검증된 2인 호스트 권한 협동 우선
-- 기준 문서: `README.md`, `docs/superpowers/specs/2026-07-13-primal-night-design.md`, `docs/technical/` 전체, 현재 `scripts/`, `scenes/`, `data/` 구조
+- 기준 문서: `README.md`, `docs/superpowers/specs/2026-07-13-primal-night-design.md`, `docs/design/ACTION_SYSTEM_DESIGN.md`, `docs/technical/` 전체, 현재 `scripts/`, `scenes/`, `data/` 구조
 
 > 표기 규칙
 >
@@ -67,6 +67,7 @@
 4. **2~4인 확장은 출시 1~2인과 분리**: `NetConfig.max_clients`, 로컬 PlayerId 핸드셰이크, 네 군집 청크 부하, 치료·획득 동시성 테스트를 통과한 뒤에만 4인을 노출한다. 현재 기능처럼 표시하면 안 된다.
 5. **변경 제안 — 공룡·익룡 14종 로스터, 완전 AI는 최대 3유형**: 현재 구현은 회색깃 랩터 1종뿐이다. 24주 MVP는 같은 행동 코드를 쓰는 데이터 변형과 `Curve2D/AnimationPlayer` 사건 연출로 화면 등장 10종을 만들고, 자유 이동 완전 AI는 포식 조사형·청소형·영역 초식형 3유형 상한을 지킨다. 티라노·익룡의 전용 자유 이동 AI와 나머지 종은 범위 관문 또는 정식/확장으로 미룬다.
 6. **제한 권총 3발은 6개월 MVP에서 연기**: 기존 정본의 현대 장비 후보지만 현재 전투·호스트 명중 판정이 없다. 조명탄·미끼가 같은 “비싸고 큰 감각 사건”을 더 적은 코드로 검증하므로, 핵심 루프와 저장이 완주된 뒤 정식 버전 후보로만 재평가한다.
+7. **변경 제안 — 행동 결과를 호스트 권위 파이프라인으로 통합**: 입력→조건 검사→상태·애니메이션→권위 타격/완료 프레임→결과·소음·피로·내구도 적용→종료 순서를 사용한다. `RayCast2D/ShapeCast2D`와 타일 metadata는 후보만 찾고 실제 mutation은 `ActionController`가 한 번만 커밋한다. 세부 계약은 `ACTION_SYSTEM_DESIGN.md`를 정본으로 한다.
 
 ---
 
@@ -344,6 +345,8 @@ MVP에는 살아 있는 인간 세력과 외교 시스템을 두지 않는다. 1
 ## 6. 핵심 게임 루프
 
 ### 6.1 전체 흐름
+
+**변경 제안:** 아래 거시 루프 안의 채집·치료·제작·해체·전투·담장 넘기는 `ACTION_SYSTEM_DESIGN.md`의 공통 행동 흐름을 따른다. 클라이언트는 행동 ID와 대상만 요청하고 자원·피해·내구도·경험치 결과는 호스트가 확정한다.
 
 ```text
 상태·바람·시간 확인
@@ -741,6 +744,8 @@ destruction_state, time_variants
 
 수분·포만이 0이어도 즉사하지 않는다. 먼저 스태미나 회복과 자연 체력 회복이 감소하고, 다음 날까지 방치했을 때만 체력에 간접 영향을 준다. 현재 `SurvivalStats`의 “바닥나도 즉사하지 않음” 계약을 유지한다.
 
+**변경 제안 — 행동 숙련 정책:** 현재 §13에는 스킬·경험치 시스템이 없고 §6.4는 영구 능력치 성장으로 난이도를 무너뜨리지 않는다. 따라서 `ActionDefinition.skill_id/xp_reward`는 비활성 값으로 두고 별도 경험치 시스템을 만들지 않는다. 추후 스킬을 도입하려면 이 절에서 범위·상한·세션 간 유지 여부를 먼저 확정한다.
+
 ---
 
 ## 14. 자원·아이템 및 SpawnTable 구조
@@ -827,7 +832,7 @@ spawn_tags, crafting_tags, story_tags
 | 저소음 신호 보정 | 전자 부속 3 | 신호대 5초 | 충전 소음 -30% |
 | 고속 충전 보정 | 전자 부속 3 | 신호대 5초 | 충전 90→75초 |
 
-자유 제작대 트리와 수십 개 중간재는 만들지 않는다. 조합은 `RecipeData`가 소유하고 호스트가 재료·거리·현재 상태를 검증한다.
+자유 제작대 트리와 수십 개 중간재는 만들지 않는다. 조합은 `RecipeData`가 소유하고 호스트가 재료·거리·현재 상태를 검증한다. **변경 제안:** 제작의 시간·애니메이션·취소·소음은 `ActionDefinition/ActionController`가 담당하되 재료·산출을 중복 저장하지 않으며, 세부 transaction은 `ACTION_SYSTEM_DESIGN.md` §6.6을 따른다.
 
 지정 자리에만 스냅되는 생존 설비는 별도로 다음 7개를 상한으로 둔다.
 
@@ -855,7 +860,7 @@ spawn_tags, crafting_tags, story_tags
 
 ### 14.4 사체 해체 위험·보상 루프
 
-**변경 제안:** 새 `CarcassHarvest`는 기존 `NoiseEmitter`, 등록형 `SmellSource`, `SmellGrid`, 호스트 권한 아이템 지급을 그대로 연결한다. 별도 냄새 시뮬레이터나 미니게임을 만들지 않는다.
+**변경 제안:** 새 사체 해체 행동은 `ActionController+TimedAction+ResourceNode`에서 기존 `NoiseEmitter`, 등록형 `SmellSource`, `SmellGrid`, 호스트 권한 아이템 지급을 그대로 연결한다. 25% 구간마다 호스트가 `yield_mask`를 한 번만 커밋하며, 별도 냄새 시뮬레이터나 미니게임을 만들지 않는다. 세부 권위·동시성 계약은 `ACTION_SYSTEM_DESIGN.md` §6.2를 따른다.
 
 ```text
 사체 발견
@@ -954,9 +959,11 @@ WANDER → INVESTIGATE → CHASE → FLEE
 
 ### 15.4 감각 전파
 
+현재 `NoiseProfile/NoiseEmitter/EventBus` 생산부와 랩터의 벽 감쇠·마지막 위치 소비부를 논리적인 **NoiseSystem 현재 구현**으로 본다. **변경 제안:** 새 행동은 이 경로를 교체하지 않고 권위 타격/완료 프레임에서 호출하며, 다종 청취자의 중복 질의가 실제로 생길 때만 공통 공간 인덱스로 승격한다. 세부 기준은 `ACTION_SYSTEM_DESIGN.md` §5.5다.
+
 | 감각 | 생산 | 전파 | AI 소비 | 네트워크 |
 |---|---|---|---|---|
-| 소리 | `NoiseEmitter`가 위치·반경·프로필 ID 이벤트 | 공간 해시, 반복 병합, 벽 감쇠 | 마지막 들린 좌표만 조사 | 호스트 권한, 결과 상태 복제 |
+| 소리 | `NoiseEmitter`가 위치·반경 이벤트를 발신하고 프로필 ID는 병합 key로 사용 | **현재** 반복 병합+랩터 청취 시 벽 감쇠, **변경 제안** 다종 청취자용 공간 해시 | 마지막 들린 좌표만 조사 | 호스트 권한, 결과 상태 복제 |
 | 냄새 | 등록형 `SmellSource`, 출혈 EventBus, **변경 제안** 사체·신선 가죽·힘줄 | 128px 셀, 4Hz, 바람 이류·0.85 감쇠 | 자기 셀 농도와 상승 경사, 사건은 hotspot 단계만 소비 | 호스트 격자, 4Hz 활성 셀 스냅샷 |
 | 빛 | 모닥불 이벤트 **현재**, `LightSignature` 제안 | 반경+차폐, 그래픽 광원과 규칙 분리 | 공포/시각 조사 반경 | 호스트 원천 상태만 복제 |
 | 흔적 | 발자국·혈흔·부러진 수풀 제안 | 청크 델타, 수명 제한 | 최근성·방향 단서 | 중요한 흔적만 신뢰 복제 |
@@ -1220,12 +1227,14 @@ root
 ├─ GameData                 # 현재 Autoload
 ├─ SaveManager              # 변경 제안: 원자적 저장·migration만
 └─ Main (Node2D)
+   ├─ DamageSystem          # 변경 제안: 호스트 피해·밀침·부위 부상
    ├─ Session
    │  ├─ NetSession         # SessionService 구현
    │  ├─ SessionClock       # 호스트 시간
    │  ├─ LoopObjective      # MVP/회색 상자 목표
    │  └─ EventDirector      # 장면 소유, 전역 Autoload 아님
    ├─ Network
+   │  ├─ NetAction          # 변경 제안: action id+대상 의도/확정 어댑터
    │  ├─ NetMovement
    │  ├─ NetPickup
    │  ├─ NetSurvival
@@ -1233,6 +1242,7 @@ root
    │  └─ NetResync
    ├─ WorldRoot (Node2D)
    │  ├─ WorldStreamer
+   │  ├─ TileInteractionSystem # 변경 제안: 타일 metadata·문·담장·자원 판정
    │  ├─ SmellGrid          # 월드 좌표 저해상도 격자
    │  ├─ LoadedChunks
    │  │  └─ Chunk_2_-1
@@ -1258,8 +1268,8 @@ root
    │  │        └─ Creatures
    │  └─ ActorSummaryRegistry
    ├─ Players
-   │  ├─ HostPlayer
-   │  └─ RemotePlayers
+   │  ├─ HostPlayer         # 변경 제안: ActionController 자식 추가
+   │  └─ RemotePlayers      # 변경 제안: 각 아바타에 ActionController
    ├─ Hud
    └─ Debug
       ├─ NoiseDebug
@@ -1317,6 +1327,7 @@ res://
 │  ├─ senses/               # noise, smell, light signature
 │  ├─ creature/             # AI와 종별 런타임
 │  ├─ player/
+│  ├─ actions/              # 행동을 실제로 공통화할 때만 생성
 │  ├─ survival/
 │  ├─ inventory/
 │  ├─ items/
@@ -1330,6 +1341,7 @@ res://
 │  ├─ zones/
 │  ├─ chunks/
 │  ├─ actors/
+│  ├─ actions/
 │  ├─ creatures/
 │  ├─ items/
 │  ├─ recipes/
@@ -1361,6 +1373,7 @@ res://
 | `scripts/core` | 전역 이벤트·읽기 전용 데이터·계측 | 현재 `event_bus.gd`, `game_data.gd`, `perf_monitor.gd` |
 | `scripts/net` | 전송 백엔드 경계, 호스트 권한, 복제, 재접속 | 현재 `SessionService`, `NetMovement`, `RpcGuard`, `NetResync` |
 | `scripts/session` | 세션 시간·목표·이벤트 판정 | 현재 `SessionClock`, `LoopObjective`, 제안 `EventDirector` |
+| `scripts/actions` | 현재 행동·시간·취소·권위 커밋 | 변경 제안 `ActionController`, `TimedAction`, `ActionDefinition`; 구현 시 생성 |
 | `scripts/world` | 청크 좌표·로딩·공간·경로·델타 | `WorldStreamer`, `WorldDelta`, `SpaceArea2D`, `Entrance` 제안 |
 | `scripts/senses` | 소리·냄새·빛의 원천과 전파 | 현재 `NoiseEmitter`, `SmellGrid`, 제안 `LightSignature` |
 | `scripts/survival` | 생존 수치·부상·치료 | 현재 `SurvivalStats`, `HealthComponent`, `NetSurvival` |
@@ -1399,7 +1412,8 @@ res://
 | `SurvivalRule` | `stat, rates, thresholds, modifiers, ui_stage_keys` | 날씨·공간·행동에 따른 수치 규칙 |
 | `ScenarioEvent` | 16.1 필드 전체 | 조건·행동·후속 이벤트 데이터 |
 | `EndingDefinition` | `id, base_outcome, required_flags, blocked_flags, priority, summary_key` | 기존 3개 판정을 6개 표현으로 매핑 |
-| `RecipeData` | `id, ingredients, result, station_tag, duration, noise_profile` | 제작 규칙과 UI의 단일 출처 |
+| `RecipeData` | `id, ingredients, result, station_tag, action_id, output_policy` | 제작 재료·산출·설비의 단일 출처. 시간·애니메이션·소음은 참조한 `ActionDefinition`이 소유 |
+| `ActionDefinition` | `id, kind, duration/windup/hit/recovery, animation, requirements, stamina/tool cost, range/arc, noise_profile, skill_id, xp_reward` | 변경 제안. 행동 흐름의 단일 출처이며 재료·산출은 `RecipeData`, 소음 반경은 `NoiseProfile`을 참조 |
 
 `ResourceDefinition`이라는 새 클래스를 `ItemData` 옆에 만들지 않는다. 현재 `ItemData`가 이미 그 책임을 수행하며, 이름만 맞추기 위한 중복은 저장 ID와 UI 데이터의 두 정본을 만든다.
 
@@ -1417,6 +1431,8 @@ flowchart TD
     C --> S[SpaceDefinition / Scene]
     I --> RP[RecipeData]
     RP --> I
+    AD[ActionDefinition] --> RP
+    AD --> I
     W --> SR[SurvivalRule]
     W --> E[EndingDefinition]
     SE --> SE
@@ -1559,6 +1575,7 @@ W19~20의 활성 수치는 데이터 45개를 삭제한다는 뜻이 아니다. 
 - 발신자에서 플레이어를 유도하고, 클라이언트가 보낸 대상 PlayerId를 신뢰하지 않는다.
 - 좌표·거리·쿨다운·소유권·재료·홀드 시간·현재 생존 상태를 호스트가 재검증한다.
 - 사체 해체 명령은 `carcass_id`와 홀드 시작/취소만 받고, 산출 ID·수량·`yield_mask`는 호스트가 시드와 현재 단계로 계산한다.
+- 행동 명령은 등록된 `action_id`와 제한된 대상 참조만 받고, 피해·명중 대상·내구도·경험치·소음 반경·완료 시간은 호스트 Resource와 월드 상태로 계산한다.
 - RPC별 발신자, 초당 횟수, 4KB 일반 payload 상한을 유지한다.
 - 재접속 새 peer를 `RpcGuard` 허용 목록에 재등록하고 이전 peer는 제거한다.
 - 반복 위반 연결 종료는 현재 미착수다. **변경 제안:** 구조화 위반 임계값을 설정하되 오탐·열악망 테스트 후 활성화한다.
