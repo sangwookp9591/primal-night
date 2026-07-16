@@ -113,3 +113,17 @@ text = ""
 [node name="SessionOutcome" type="Label" parent="Root/Column/SessionRow"]
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
 text = ""
+
+; 예측 조작 안내 + 현재 대기 표식 (W5-T3). 디버그 recorder 가 붙은 판에서만 보인다
+; (recorder 미배선 main.tscn 에서는 숨김). 조작 힌트는 정적, 대기 표식만 값이 바뀔 때 갱신.
+[node name="PredictRow" type="HBoxContainer" parent="Root/Column"]
+visible = false
+theme_override_constants/separation = 12
+
+[node name="PredictHint" type="Label" parent="Root/Column/PredictRow"]
+theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
+text = "예측  [1] 소리  [2] 냄새"
+
+[node name="PredictPending" type="Label" parent="Root/Column/PredictRow"]
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+text = ""

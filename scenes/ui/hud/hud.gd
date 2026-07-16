@@ -38,6 +38,9 @@ const STAT_NAMES: Dictionary = {
 @onready var _session_time: Label = $Root/Column/SessionRow/SessionTime
 @onready var _session_condition: Label = $Root/Column/SessionRow/SessionCondition
 @onready var _session_outcome: Label = $Root/Column/SessionRow/SessionOutcome
+@onready var _predict_row: HBoxContainer = $Root/Column/PredictRow
+@onready var _predict_hint: Label = $Root/Column/PredictRow/PredictHint
+@onready var _predict_pending: Label = $Root/Column/PredictRow/PredictPending
 @onready var _stat_labels: Dictionary = {
 	&"temperature": $Root/Column/StatsRow/Temperature,
 	&"water": $Root/Column/StatsRow/Water,
@@ -70,6 +73,11 @@ var _objective: LoopObjective = null
 var _session_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
 var _last_session_second: int = -1
 var _last_condition: StringName = &""
+
+## 예측 recorder(W5-T3). 디버그 판에서만 존재하므로 그룹으로 지연 바인딩한다.
+var _recorder: Node = null
+var _recorder_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
+var _last_pending: String = ""
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
@@ -131,6 +139,9 @@ func _process(delta: float) -> void:
 
 	_ensure_session_bound(delta)
 	_refresh_session()
+
+	_ensure_recorder_bound(delta)
+	_refresh_predict()
 
 ## 숫자 나열보다 단계 표시 (설계서 10.1). 경계값은 SurvivalConfig 에서 온다.
 func stage_label_for_health() -> String:
@@ -273,6 +284,46 @@ func _on_session_outcome_changed(outcome: int) -> void:
 func _format_mmss(total_seconds: int) -> String:
 	var clamped: int = maxi(total_seconds, 0)
 	return "%02d:%02d" % [clamped / 60, clamped % 60]
+
+## 예측 recorder 를 그룹으로 지연 바인딩한다 (디버그 판에서만 존재). 테스트는 bind_recorder 직접 호출.
+func _ensure_recorder_bound(delta: float) -> void:
+	if _recorder != null and is_instance_valid(_recorder):
+		return
+	_recorder_scan_elapsed += delta
+	if _recorder_scan_elapsed < RAPTOR_SCAN_INTERVAL_SECONDS:
+		return
+	_recorder_scan_elapsed = 0.0
+	var found: Node = get_tree().get_first_node_in_group(&"sense_playtest_recorder")
+	if found != null:
+		bind_recorder(found)
+
+func bind_recorder(recorder: Node) -> void:
+	if recorder == null or _recorder == recorder:
+		return
+	_recorder = recorder
+	_predict_row.visible = true
+	_last_pending = ""
+	_refresh_predict()
+
+## 대기 표식은 값이 바뀐 프레임에만 문자열을 만진다 (성능문서 6.2). 채널 이름은 recorder 가 소유.
+func _refresh_predict() -> void:
+	if _recorder == null or not is_instance_valid(_recorder):
+		return
+	var pending: String = _recorder.pending_summary()
+	if pending == _last_pending:
+		return
+	_last_pending = pending
+	_predict_pending.text = "" if pending.is_empty() else "대기: %s" % pending
+
+## 테스트/외부 조회용 (읽기 전용).
+func predict_visible() -> bool:
+	return _predict_row.visible
+
+func predict_hint_text() -> String:
+	return _predict_hint.text
+
+func predict_pending_text() -> String:
+	return _predict_pending.text
 
 ## 테스트/외부 조회용 (읽기 전용).
 func session_time_text() -> String:
