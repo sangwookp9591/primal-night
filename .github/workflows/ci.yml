@@ -50,6 +50,7 @@ jobs:
       # 고정 seed 라 결정적이다. 3회 돌려 비결정 회귀도 함께 막는다.
       - name: Replay goal scene (E2E)
         run: |
+          set -o pipefail
           for i in 1 2 3; do
             echo "--- goal scene replay $i/3 ---"
             "$GODOT_BIN" --headless --path . -s scripts/creature/goal_scene_replay.gd | tee "artifacts/goal_scene_replay_$i.log"
@@ -60,6 +61,7 @@ jobs:
       # 접속 → 스폰 → 이동 동기화 → 텔레포트 변조 거부 → 이탈 정리를 자동 판정한다.
       - name: Two-player headless harness (E2E)
         run: |
+          set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/net/two_player_harness.gd | tee artifacts/two_player_harness.log
 
       # W2-T4: ENetMultiplayerPeer has no deterministic RTT/loss injection knob.
@@ -68,6 +70,7 @@ jobs:
       # movement sync and reconnect assertions.
       - name: Network conditions harness (RTT/loss)
         run: |
+          set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/net/network_conditions_harness.gd | tee artifacts/network_conditions_harness.log
 
       # W2-T2: 2인 협동 하네스 — 실제 main.tscn 2개 + ENet 루프백으로
@@ -76,6 +79,7 @@ jobs:
       # → 냄새 정지를 자동 판정한다 (설계서 7.2/7.4, 5.2).
       - name: Two-player co-op harness (pickup/bleed/heal E2E)
         run: |
+          set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/survival/two_player_coop_harness.gd | tee artifacts/two_player_coop_harness.log
 
       # ★ W2-T5: 2주 목표 장면 전 구간 통합 하네스 — 방 생성 → 2인 탐색 → 부상
@@ -84,6 +88,7 @@ jobs:
       # 고정 seed 로 결정적이다 (B-01). 5회 돌려 비결정 회귀를 함께 막는다.
       - name: Two-player goal scene harness (full E2E x5)
         run: |
+          set -o pipefail
           for i in 1 2 3 4 5; do
             echo "--- goal scene harness $i/5 ---"
             "$GODOT_BIN" --headless --path . -s scripts/net/two_player_goal_scene_harness.gd | tee "artifacts/two_player_goal_scene_$i.log"
@@ -95,6 +100,7 @@ jobs:
       # 이탈)을 전부 관측했는지 본다. 하나라도 실패하면 exit 1 + 단계별 로그.
       - name: Sense loop detection harness (10 seeds)
         run: |
+          set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/senses/sense_loop_harness.gd | tee artifacts/sense_loop_harness.log
 
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.

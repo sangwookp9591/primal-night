@@ -11,7 +11,8 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const CAMPFIRE_SITE_POSITION: Vector2 = Vector2(-190.0, 330.0)
-## 재현 도구는 결정적이어야 한다 (B-01): 랩터 배회 RNG 만 고정 seed 로 덮어쓴다.
+## 재현 도구는 결정적이어야 한다 (B-01): 랩터 배회 RNG 를 고정 seed 로 덮어쓰고,
+## 모든 대기·timeout 을 physics tick 으로 세어 simulation clock 도 고정한다.
 ## 게임 플레이는 raptor._ready() 의 randomize() 로 여전히 무작위다.
 const RAPTOR_RNG_SEED: int = 3
 
@@ -19,16 +20,19 @@ var _main: Node2D = null
 var _player: Player = null
 var _raptor: Raptor = null
 var _grid: SmellGrid = null
-var _frames: int = 0
+## 하네스 로그 시각의 기준점. 엔진 physics frame 을 직접 읽어 simulation clock 을 고정한다.
+var _epoch_physics_frames: int = 0
 var _observed_states: Array[StringName] = []
 
 func _init() -> void:
 	_run()
 
 func _run() -> void:
-	await process_frame
+	await physics_frame
+	_epoch_physics_frames = Engine.get_physics_frames()
 	_main = MainScene.instantiate()
 	get_root().add_child(_main)
+	NavigationServer2D.map_force_update(_main.get_world_2d().navigation_map)
 	_player = _main.get_node("Player")
 	_raptor = _main.get_node("Raptor")
 	_raptor.rng.seed = RAPTOR_RNG_SEED
@@ -48,9 +52,12 @@ func _run() -> void:
 	_log("--- phase 1: 배회 관측 ---")
 	var wander_start: Vector2 = _raptor.global_position
 	await _wait_seconds(3.0)
+	var wander_distance: float = _raptor.global_position.distance_to(wander_start)
 	_log("배회 이동량 %.1fpx (시작 %s → 현재 %s), 상태=%s" % [
-		_raptor.global_position.distance_to(wander_start), wander_start,
+		wander_distance, wander_start,
 		_raptor.global_position, _raptor.get_state_name()])
+	if wander_distance < 230.0 or wander_distance > 270.0:
+		return _fail("회귀 assert: 180 물리 틱 배회 이동량이 230~270px 범위를 벗어났다 (%.1fpx)" % wander_distance)
 
 	# 2) 부상 → 출혈 → 피 냄새.
 	_log("--- phase 2: 디버그 부상 (H 키 경로) ---")
@@ -65,10 +72,10 @@ func _run() -> void:
 	if _raptor.state != Raptor.State.INVESTIGATE:
 		return _fail("조사가 아니라 %s 로 전환했다" % _raptor.get_state_name())
 
-	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 60초).
+	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 20초).
 	_log("--- phase 4: 경사 추적 접근 → 추격 대기 ---")
-	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 60.0, _report_approach):
-		return _fail("랩터가 추격으로 전환하지 않았다")
+	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 20.0, _report_approach):
+		return _fail("회귀 assert: 조사 진입 후 20초 안에 추격으로 전환하지 않았다")
 
 	# 5) 모닥불 설치 후 플레이어가 불로 도망.
 	_log("--- phase 5: 모닥불 설치·점화, 플레이어 도피 ---")
@@ -87,6 +94,15 @@ func _run() -> void:
 	_log("--- phase 6: 랩터 후퇴 대기 ---")
 	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.FLEE, 20.0, _report_approach):
 		return _fail("랩터가 물러나지 않았다")
+	var expected_states: Array[StringName] = [&"investigate", &"chase", &"flee"]
+	var expected_state_index: int = 0
+	for observed_state: StringName in _observed_states:
+		if observed_state == expected_states[expected_state_index]:
+			expected_state_index += 1
+			if expected_state_index == expected_states.size():
+				break
+	if expected_state_index != expected_states.size():
+		return _fail("회귀 assert: 상태 순서에 INVESTIGATE -> CHASE -> FLEE가 없다 (%s)" % str(_observed_states))
 	var flee_start_distance: float = _raptor.global_position.distance_to(CAMPFIRE_SITE_POSITION)
 	await _wait_seconds(3.0)
 	var flee_end_distance: float = _raptor.global_position.distance_to(CAMPFIRE_SITE_POSITION)
@@ -125,21 +141,21 @@ func _report_approach() -> void:
 
 ## 실제 입력 액션으로 플레이어를 목표까지 걷게 한다 (아이소 역변환).
 func _walk_player_to(target: Vector2, timeout_seconds: float) -> bool:
-	var elapsed_frames: int = 0
-	var max_frames: int = int(timeout_seconds * 60.0)
+	var elapsed_physics_ticks: int = 0
+	var max_physics_ticks: int = int(timeout_seconds * Engine.physics_ticks_per_second)
 	while _player.global_position.distance_to(target) > 24.0:
-		if elapsed_frames >= max_frames:
+		if elapsed_physics_ticks >= max_physics_ticks:
 			_release_moves()
 			return false
 		var direction: Vector2 = target - _player.global_position
 		var raw: Vector2 = Vector2(direction.x * 0.5 + direction.y, -direction.x * 0.5 + direction.y)
 		_set_move(&"move_right", &"move_left", raw.x)
 		_set_move(&"move_down", &"move_up", raw.y)
-		await process_frame
-		elapsed_frames += 1
-		_frames += 1
+		await physics_frame
+		elapsed_physics_ticks += 1
 	_release_moves()
-	_log("플레이어 도보 이동 완료: %s (%.0f프레임)" % [_player.global_position.snapped(Vector2.ONE), elapsed_frames])
+	_log("플레이어 도보 이동 완료: %s (%.0f 물리 틱)" % [
+		_player.global_position.snapped(Vector2.ONE), elapsed_physics_ticks])
 	return true
 
 func _set_move(positive: StringName, negative: StringName, amount: float) -> void:
@@ -158,24 +174,24 @@ func _release_moves() -> void:
 		Input.action_release(action)
 
 func _wait_seconds(seconds: float) -> void:
-	for frame_index: int in range(int(seconds * 60.0)):
-		await process_frame
-		_frames += 1
+	for physics_tick_index: int in range(int(seconds * Engine.physics_ticks_per_second)):
+		await physics_frame
 
 ## condition 이 참이 될 때까지 대기. report 는 1초마다 호출한다.
 func _wait_until(condition: Callable, timeout_seconds: float, report: Callable) -> bool:
-	var max_frames: int = int(timeout_seconds * 60.0)
-	for frame_index: int in range(max_frames):
+	var max_physics_ticks: int = int(timeout_seconds * Engine.physics_ticks_per_second)
+	for physics_tick_index: int in range(max_physics_ticks):
 		if condition.call():
 			return true
-		if frame_index % 60 == 0:
+		if physics_tick_index % Engine.physics_ticks_per_second == 0:
 			report.call()
-		await process_frame
-		_frames += 1
+		await physics_frame
 	return condition.call()
 
 func _log(message: String) -> void:
-	print("[t=%5.1fs] %s" % [float(_frames) / 60.0, message])
+	print("[t=%5.1fs] %s" % [
+		float(Engine.get_physics_frames() - _epoch_physics_frames)
+			/ float(Engine.physics_ticks_per_second), message])
 
 func _fail(reason: String) -> void:
 	_log("=== 재현 실패: %s ===" % reason)
