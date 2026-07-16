@@ -12,7 +12,7 @@ const DEFAULT_CONFIG: NetConfig = preload("res://resources/net/net_config.tres")
 const REQUEST_MAX_PER_SECOND: int = 10
 const SNAPSHOT_MAX_PER_SECOND: int = 30
 const SNAPSHOT_MAX_ENTRIES: int = 8
-const SNAPSHOT_ENTRY_BYTES: int = 48
+const SNAPSHOT_ENTRY_BYTES: int = 64
 const HURT_PAYLOAD_BYTES: int = 8
 ## 스냅샷 한 명분 생존 수치 개수: [체온, 수분, 포만, 피로] (설계서 5.1).
 const STATS_PER_ENTRY: int = 4
@@ -34,6 +34,8 @@ var _snapshot_ids: PackedStringArray = PackedStringArray()
 var _snapshot_healths: PackedFloat32Array = PackedFloat32Array()
 var _snapshot_bleedings: PackedByteArray = PackedByteArray()
 var _snapshot_stats: PackedFloat32Array = PackedFloat32Array()
+var _snapshot_body_parts: PackedStringArray = PackedStringArray()
+var _snapshot_injuries: PackedStringArray = PackedStringArray()
 
 
 func _ready() -> void:
@@ -101,8 +103,7 @@ func _host_hurt(player: Player, claimed_damage: float) -> void:
 	if not is_finite(claimed_damage) or claimed_damage <= 0.0:
 		return
 	var amount: float = minf(claimed_damage, player.health.config.remote_hurt_max_damage)
-	player.health.take_damage(amount, &"debug")
-	player.health.start_bleeding()
+	player.injury.apply_host_leg_laceration(amount)
 
 
 ## 호스트 → 클라이언트: 체력·출혈·생존 수치 스냅샷 (비신뢰 최신값, 설계서 7.2).
@@ -110,11 +111,13 @@ func _host_hurt(player: Player, claimed_damage: float) -> void:
 ## [체온, 수분, 포만, 피로] × 인원. 배열을 4개로 늘리는 대신 하나로 묶는다.
 @rpc("authority", "call_remote", "unreliable_ordered")
 func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array,
-		bleedings: PackedByteArray, stats: PackedFloat32Array) -> void:
+		bleedings: PackedByteArray, stats: PackedFloat32Array,
+		body_parts: PackedStringArray, injuries: PackedStringArray) -> void:
 	if not _guard.check(&"apply_survival_snapshot", multiplayer.get_remote_sender_id(),
 			ids.size() * SNAPSHOT_ENTRY_BYTES, _now_seconds):
 		return
 	if ids.size() != healths.size() or ids.size() != bleedings.size() \
+			or ids.size() != body_parts.size() or ids.size() != injuries.size() \
 			or stats.size() != ids.size() * STATS_PER_ENTRY \
 			or ids.size() > SNAPSHOT_MAX_ENTRIES:
 		push_warning("NetSurvival: apply_survival_snapshot 스키마 위반 — 폐기")
@@ -126,8 +129,13 @@ func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array
 		var avatar: Player = _avatar_of(StringName(ids[index]))
 		if avatar == null:
 			continue
+		var part: StringName = StringName(body_parts[index])
+		var injury_kind: StringName = StringName(injuries[index])
+		if not avatar.injury.is_valid_injury_state(part, injury_kind):
+			continue
 		avatar.health.apply_replicated(health_value, bleedings[index] != 0)
 		avatar.stats.apply_from(stats, index * STATS_PER_ENTRY)
+		avatar.injury.apply_replicated(part, injury_kind)
 
 
 ## --- 붕대 치료 세션 (설계서 5.2): 호스트가 세션·홀드 시간·붕대·거리를 검증한다 ---
@@ -225,6 +233,7 @@ func apply_heal_result(healer_id: String, patient_id: String) -> void:
 	var patient: Player = _avatar_of(StringName(patient_id))
 	if patient != null:
 		patient.health.stop_bleeding()
+		patient.injury.clear()
 
 
 func _host_heal_start(healer_id: StringName, patient_id: StringName) -> void:
@@ -261,6 +270,7 @@ func _host_heal_commit(healer_id: StringName, patient_id: StringName) -> void:
 	var healer: Player = _avatar_of(healer_id)
 	healer.inventory.remove_item(HealTarget.BANDAGE_ID, 1)
 	patient.health.stop_bleeding()
+	patient.injury.clear()
 	_heal_sessions.erase(healer_id)
 	_set_heal_lock(healer_id, patient_id, false)
 	if multiplayer.get_peers().size() > 0:
@@ -273,7 +283,8 @@ func _heal_valid(healer_id: StringName, patient_id: StringName) -> bool:
 	var patient: Player = _avatar_of(patient_id)
 	if healer == null or patient == null:
 		return false
-	if not patient.health.is_bleeding or not patient.health.is_alive():
+	if (not patient.health.is_bleeding and not patient.injury.has_leg_laceration()) \
+			or not patient.health.is_alive():
 		return false
 	if not healer.inventory.has_item(HealTarget.BANDAGE_ID, 1):
 		return false
@@ -316,7 +327,8 @@ func _broadcast_snapshot() -> void:
 		index += 1
 	if index != count:
 		_resize_snapshot(index)
-	apply_survival_snapshot.rpc(_snapshot_ids, _snapshot_healths, _snapshot_bleedings, _snapshot_stats)
+	apply_survival_snapshot.rpc(_snapshot_ids, _snapshot_healths, _snapshot_bleedings, _snapshot_stats,
+		_snapshot_body_parts, _snapshot_injuries)
 
 
 func _resize_snapshot(count: int) -> void:
@@ -324,6 +336,8 @@ func _resize_snapshot(count: int) -> void:
 	_snapshot_healths.resize(count)
 	_snapshot_bleedings.resize(count)
 	_snapshot_stats.resize(count * STATS_PER_ENTRY)
+	_snapshot_body_parts.resize(count)
+	_snapshot_injuries.resize(count)
 
 
 func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> void:
@@ -331,6 +345,8 @@ func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> 
 	_snapshot_healths[index] = avatar.health.current_health
 	_snapshot_bleedings[index] = 1 if avatar.health.is_bleeding else 0
 	avatar.stats.fill_into(_snapshot_stats, index * STATS_PER_ENTRY)
+	_snapshot_body_parts[index] = String(avatar.injury.body_part)
+	_snapshot_injuries[index] = String(avatar.injury.injury_kind)
 
 
 func _on_player_left(player_id: StringName) -> void:

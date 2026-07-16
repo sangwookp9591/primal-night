@@ -17,6 +17,7 @@ func test_player_has_survival_components() -> void:
 
 	assert_not_null(player.health, "Player 에 HealthComponent 가 붙어 있어야 한다")
 	assert_not_null(player.stamina, "Player 에 StaminaComponent 가 붙어 있어야 한다")
+	assert_not_null(player.injury, "Player 에 InjuryComponent 가 붙어 있어야 한다")
 
 func test_running_drains_stamina() -> void:
 	var player: Player = add_child_autofree(PlayerScene.instantiate())
@@ -79,3 +80,14 @@ func test_movement_lock_stops_the_player() -> void:
 
 	assert_eq(player.velocity, Vector2.ZERO, "이동이 잠기면 속도가 0 이어야 한다")
 	assert_eq(player.get_noise_radius(), 0.0, "이동이 잠기면 소음도 나지 않아야 한다")
+
+func test_leg_laceration_reduces_actual_movement_speed() -> void:
+	var player: Player = add_child_autofree(PlayerScene.instantiate())
+	player.injury.apply_host_leg_laceration(0.0)
+
+	Input.action_press("move_right")
+	await wait_physics_frames(2)
+
+	assert_almost_eq(player.velocity.length(),
+		player.config.walk_speed * player.health.config.leg_laceration_move_multiplier, 0.5,
+		"다리 열상 이동 배율이 실제 이동 속도에 적용되어야 한다")

@@ -70,6 +70,25 @@ func test_completed_hold_stops_bleeding_and_consumes_the_bandage() -> void:
 	assert_signal_emitted(_event_bus, "bleeding_stopped", "bleeding_stopped 가 발신되어야 한다")
 	assert_eq(healer.inventory.count_of(&"bandage"), 1, "붕대 1개를 소비해야 한다")
 
+func test_completed_bandage_clears_leg_laceration_together_with_bleeding() -> void:
+	var pair: Array = await _spawn_pair(24.0)
+	var healer: Player = pair[0]
+	var patient: Player = pair[1]
+	patient.injury.apply_host_leg_laceration(0.0)
+	healer.inventory.add_item(&"bandage", 1)
+	watch_signals(_event_bus)
+	patient.health._process(patient.health.config.bleed_smell_interval)
+	assert_signal_emit_count(_event_bus, "smell_emitted", 1,
+		"지혈 전 다리 열상은 피 냄새를 내야 한다")
+
+	healer.interactor.begin()
+	healer.interactor._process(_hold_seconds(patient) + 0.01)
+	patient.health._process(patient.health.config.bleed_smell_interval)
+
+	assert_false(patient.health.is_bleeding, "붕대는 출혈을 멈춰야 한다")
+	assert_false(patient.injury.has_leg_laceration(), "붕대는 다리 열상도 함께 해소해야 한다")
+	assert_signal_emit_count(_event_bus, "smell_emitted", 1, "지혈 후 피 냄새는 멈춰야 한다")
+
 ## 지혈되면 피 냄새도 멈춘다 — 목표 장면의 뒷부분.
 func test_healing_stops_the_blood_smell() -> void:
 	var pair: Array = await _spawn_pair(24.0)

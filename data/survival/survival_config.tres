@@ -15,4 +15,5 @@ stamina_recover_threshold = 20.0
 bleed_damage_per_second = 2.0
 bleed_smell_interval = 0.5
 bleed_smell_strength = 60.0
+leg_laceration_move_multiplier = 0.7
 bandage_hold_seconds = 2.0

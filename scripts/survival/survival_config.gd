@@ -58,6 +58,10 @@ extends Resource
 @export var bleed_smell_interval: float = 0.5
 @export var bleed_smell_strength: float = 60.0
 
+@export_group("Injury")
+## 다리 열상 중 이동 효율. PlayerConfig 공유 Resource 자체는 변경하지 않는다.
+@export_range(0.0, 1.0, 0.05) var leg_laceration_move_multiplier: float = 0.7
+
 @export_group("Healing")
 ## 동료가 상호작용을 길게 눌러 지혈하는 데 걸리는 시간 (설계서 5.2).
 @export var bandage_hold_seconds: float = 2.0

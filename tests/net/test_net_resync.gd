@@ -122,7 +122,7 @@ func test_reconnect_within_grace_restores_client_replica() -> void:
 	authority_avatar.inventory.add_item(&"stone", 5)
 	authority_avatar.inventory.add_item(&"bandage", 2)
 	authority_avatar.health.take_damage(30.0, &"debug")
-	authority_avatar.health.start_bleeding()
+	authority_avatar.injury.apply_host_leg_laceration(0.0)
 
 	client.session.leave_session()
 	assert_true(await wait_until(func() -> bool:
@@ -143,6 +143,7 @@ func test_reconnect_within_grace_restores_client_replica() -> void:
 		"재접속한 클라이언트가 인벤토리를 되찾아야 한다")
 	assert_true(await wait_until(func() -> bool:
 		return restored_replica.health.is_bleeding, 5.0), "출혈 상태를 되찾아야 한다")
+	assert_true(restored_replica.injury.has_leg_laceration(), "동일한 다리 열상 상태를 되찾아야 한다")
 	assert_true(restored_replica.health.current_health < 100.0, "체력 손실도 복원되어야 한다")
 
 	# ★ 총합 불변식: 호스트 권위 인벤토리는 재접속으로 늘지도 줄지도 않는다.
@@ -157,7 +158,7 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 	var authority_avatar: Player = _avatar_on(host, client_id)
 	authority_avatar.inventory.add_item(&"stone", 5)
 	authority_avatar.health.take_damage(30.0, &"debug")
-	authority_avatar.health.start_bleeding()
+	authority_avatar.injury.apply_host_leg_laceration(0.0)
 	authority_avatar.stats.apply_replicated(72.0, 61.0, 53.0, 44.0)
 	var saved_health: float = authority_avatar.health.current_health
 	authority_avatar.global_position = Vector2(400.0, 300.0)
@@ -182,6 +183,8 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 		return fresh_avatar.inventory.count_of(&"stone") == 5, 5.0),
 		"보관된 인벤토리가 새 아바타에 복원되어야 한다")
 	assert_true(fresh_avatar.health.is_bleeding, "출혈 상태가 복원되어야 한다")
+	assert_eq(fresh_avatar.injury.body_part, &"leg", "동일한 부위가 복원되어야 한다")
+	assert_eq(fresh_avatar.injury.injury_kind, &"laceration", "동일한 부상 상태가 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.health.current_health, saved_health, 3.0, "체력이 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.stats.temperature, 72.0, 0.01, "체온이 복원되어야 한다")
 	assert_almost_eq(fresh_avatar.stats.water, 61.0, 0.01, "수분이 복원되어야 한다")
@@ -196,6 +199,7 @@ func test_reconnect_after_despawn_restores_saved_state() -> void:
 		return replica != null and replica.inventory.count_of(&"stone") == 5, 5.0),
 		"복원된 인벤토리가 클라이언트로 복제되어야 한다")
 	var replica: Player = _avatar_on(client, client_id)
+	assert_true(replica.injury.has_leg_laceration(), "열상이 클라이언트 복제본에도 복원되어야 한다")
 	assert_almost_eq(replica.stats.temperature, 72.0, 0.01, "체온이 클라이언트로 복제되어야 한다")
 	assert_almost_eq(replica.stats.water, 61.0, 0.01, "수분이 클라이언트로 복제되어야 한다")
 	assert_almost_eq(replica.stats.food, 53.0, 0.01, "포만이 클라이언트로 복제되어야 한다")

@@ -100,6 +100,16 @@ func test_client_claimed_damage_is_clamped_to_host_rule() -> void:
 		"호스트 규칙만큼은 피해를 입어야 한다")
 	assert_gt(host_view.health.current_health, max_health - max_damage - 3.0,
 		"호스트 규칙(%.0f)을 넘는 피해가 적용되면 안 된다" % max_damage)
+	assert_true(host_view.injury.has_leg_laceration(), "호스트만 다리 열상 부위를 확정해야 한다")
+
+
+func test_client_cannot_directly_confirm_injury_body_part_or_effect() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+
+	assert_false(client_avatar.injury.apply_host_leg_laceration(0.0),
+		"클라이언트 복제본은 부위·효과를 직접 확정할 수 없어야 한다")
+	assert_false(client_avatar.injury.has_leg_laceration())
 
 
 ## ★ 피 냄새는 권위(호스트)만 발신한다 (설계서 7.2: 냄새 이벤트는 호스트 권한).
@@ -138,6 +148,7 @@ func test_survival_state_replicates_to_client() -> void:
 			and client_avatar.health.current_health < client_avatar.health.config.max_health, 5.0),
 		"클라이언트 복제본이 호스트 확정 체력·출혈 상태로 수렴해야 한다")
 	assert_true(client_avatar.health.is_bleeding, "출혈 상태가 복제되어야 한다")
+	assert_true(client_avatar.injury.has_leg_laceration(), "호스트 확정 다리 열상이 복제되어야 한다")
 
 
 func _host_id() -> StringName:
@@ -153,7 +164,7 @@ func test_client_healer_completes_full_hold_and_host_confirms() -> void:
 	var client_view_host: Player = client.host_player
 
 	# 호스트 플레이어가 출혈 중 (권위 상태) → 복제로 클라이언트 화면에도 보인다.
-	(host.host_player as Player).health.start_bleeding()
+	(host.host_player as Player).injury.apply_host_leg_laceration(0.0)
 	assert_true(await wait_until(func() -> bool:
 		return client_view_host.health.is_bleeding, 5.0), "출혈이 클라이언트로 복제되어야 한다")
 	# 붕대: 호스트 권위 인벤토리와 클라이언트 복제본 (이전 획득을 시뮬레이션).
@@ -181,6 +192,10 @@ func test_client_healer_completes_full_hold_and_host_confirms() -> void:
 	assert_true(await wait_until(func() -> bool:
 		return not client_view_host.health.is_bleeding, 5.0),
 		"지혈 상태가 클라이언트로 복제되어야 한다")
+	assert_false((host.host_player as Player).injury.has_leg_laceration(),
+		"호스트 치료 확정은 다리 열상도 해소해야 한다")
+	assert_false(client_view_host.injury.has_leg_laceration(),
+		"열상 해소가 클라이언트에도 복제되어야 한다")
 	assert_true(await wait_until(func() -> bool:
 		return not (host.host_player as Player).movement_locked \
 			and not client_avatar.movement_locked, 5.0),
@@ -191,7 +206,7 @@ func test_client_healer_completes_full_hold_and_host_confirms() -> void:
 func test_heal_commit_without_session_is_rejected() -> void:
 	var client_id: StringName = await _join_and_spawn()
 	var host_view_client: Player = host.container.get_node(String(client_id))
-	host_view_client.health.start_bleeding()
+	host_view_client.injury.apply_host_leg_laceration(0.0)
 	(host.host_player as Player).inventory.add_item(&"bandage", 1)
 
 	(host.survival as NetSurvival)._host_heal_commit(_host_id(), StringName(String(client_id)))
@@ -224,7 +239,7 @@ func test_heal_commit_fails_when_bandage_was_consumed_mid_hold() -> void:
 	var client_id: StringName = await _join_and_spawn()
 	var host_view_client: Player = host.container.get_node(String(client_id))
 	var patient_id: StringName = StringName(String(client_id))
-	host_view_client.health.start_bleeding()
+	host_view_client.injury.apply_host_leg_laceration(0.0)
 	(host.host_player as Player).inventory.add_item(&"bandage", 1)
 	var survival: NetSurvival = host.survival
 
@@ -246,7 +261,7 @@ func test_patient_death_mid_hold_cancels_session_and_unlocks_remote_patient() ->
 	var client_avatar: Player = client.container.get_node(String(client_id))
 	var host_view_client: Player = host.container.get_node(String(client_id))
 	var patient_id: StringName = StringName(String(client_id))
-	host_view_client.health.start_bleeding()
+	host_view_client.injury.apply_host_leg_laceration(0.0)
 	(host.host_player as Player).inventory.add_item(&"bandage", 1)
 	var survival: NetSurvival = host.survival
 
@@ -273,7 +288,7 @@ func test_patient_leaving_session_cancels_heal() -> void:
 	var client_id: StringName = await _join_and_spawn()
 	var host_view_client: Player = host.container.get_node(String(client_id))
 	var patient_id: StringName = StringName(String(client_id))
-	host_view_client.health.start_bleeding()
+	host_view_client.injury.apply_host_leg_laceration(0.0)
 	(host.host_player as Player).inventory.add_item(&"bandage", 1)
 	var survival: NetSurvival = host.survival
 

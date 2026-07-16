@@ -17,6 +17,7 @@ enum Stance { WALK, RUN, CROUCH }
 ## 체온·수분·포만·피로 (설계서 5.1). 코드로 붙인다 — 수치가 하나 늘 때마다
 ## player.tscn 을 고치지 않는다. 시뮬은 이 노드가 호스트에서만 스스로 돌린다.
 var stats: SurvivalStats = SurvivalStats.new()
+var injury: InjuryComponent = InjuryComponent.new()
 
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
@@ -48,6 +49,9 @@ func _ready() -> void:
 	stats.name = "SurvivalStats"
 	stats.config = health.config
 	add_child(stats)
+	injury.name = "InjuryComponent"
+	injury.config = health.config
+	add_child(injury)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 
@@ -60,7 +64,8 @@ func _physics_process(delta: float) -> void:
 	# 스태미나가 없으면 run 을 누르고 있어도 달릴 수 없다. 웅크리면 달리지 않는다 (은신 우선).
 	var running: bool = moving and not crouching and Input.is_action_pressed("run") and stamina.can_run()
 	stance = Stance.CROUCH if crouching else (Stance.RUN if running else Stance.WALK)
-	var speed: float = config.crouch_speed if crouching else (config.run_speed if running else config.walk_speed)
+	var speed: float = (config.crouch_speed if crouching else \
+		(config.run_speed if running else config.walk_speed)) * injury.movement_multiplier()
 
 	stamina.update(running, moving, delta, stats.fatigue_ratio())
 
@@ -98,11 +103,11 @@ func get_noise_profile_for_stance(for_stance: int) -> NoiseProfile:
 func max_speed_for_stance(for_stance: int) -> float:
 	match for_stance:
 		Stance.CROUCH:
-			return config.crouch_speed
+			return config.crouch_speed * injury.movement_multiplier()
 		Stance.RUN:
-			return config.run_speed
+			return config.run_speed * injury.movement_multiplier()
 		_:
-			return config.walk_speed
+			return config.walk_speed * injury.movement_multiplier()
 
 func _get_input_vector() -> Vector2:
 	var horizontal: float = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")

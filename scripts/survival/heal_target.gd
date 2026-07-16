@@ -19,7 +19,7 @@ func _ready() -> void:
 	_game_data = get_node("/root/GameData")
 
 func can_interact(who: Node) -> bool:
-	if _player == null or not _player.health.is_bleeding:
+	if _player == null or (not _player.health.is_bleeding and not _player.injury.has_leg_laceration()):
 		return false
 	var healer: Player = who as Player
 	if healer == null:
@@ -65,6 +65,7 @@ func interact(who: Node) -> void:
 		return
 
 	_player.health.stop_bleeding()
+	_player.injury.clear()
 
 ## 같은 기계(멀티플레이 브랜치)의 NetSurvival 만 잡는다. 상호작용 시점 1회 조회 후 캐시.
 func _find_net_survival() -> NetSurvival:

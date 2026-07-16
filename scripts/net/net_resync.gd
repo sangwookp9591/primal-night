@@ -66,6 +66,8 @@ func _on_player_left(player_id: StringName) -> void:
 		items = _collect_items(avatar),
 		health = avatar.health.current_health,
 		bleeding = avatar.health.is_bleeding,
+		body_part = avatar.injury.body_part,
+		injury_kind = avatar.injury.injury_kind,
 		stats = _collect_stats(avatar),
 		position = avatar.global_position,
 		avatar_id = avatar.get_instance_id(),
@@ -100,6 +102,7 @@ func _restore_into(avatar: Player, saved: Dictionary) -> void:
 	for item_id: StringName in items:
 		avatar.inventory.add_item(item_id, int(items[item_id]))
 	avatar.health.apply_replicated(float(saved.health), bool(saved.bleeding))
+	avatar.injury.apply_replicated(StringName(saved.body_part), StringName(saved.injury_kind))
 	_restore_stats(avatar, saved.stats)
 	# 위치는 이동 검증 기준과 함께 옮긴다 — 아니면 복원 직후 클라이언트의 이동
 	# 의도가 텔레포트로 오판되어 스폰 위치로 되돌아간다 (NetMovement.teleport_avatar).
@@ -121,7 +124,8 @@ func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 	var stats: Dictionary = _collect_stats(avatar)
 	apply_player_snapshot.rpc_id(peer, String(player_id), ids, counts,
 		avatar.health.current_health, avatar.health.is_bleeding, avatar.global_position,
-		float(stats.temperature), float(stats.water), float(stats.food), float(stats.fatigue))
+		float(stats.temperature), float(stats.water), float(stats.food), float(stats.fatigue),
+		String(avatar.injury.body_part), String(avatar.injury.injury_kind))
 
 
 ## 호스트 → 재접속 피어: 전체 상태 스냅샷. 복제본을 비우고 권위 상태로 다시 채운다
@@ -129,8 +133,10 @@ func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 @rpc("authority", "call_remote", "reliable")
 func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
 		item_counts: PackedInt32Array, health: float, bleeding: bool, position: Vector2,
-		temperature: float, water: float, food: float, fatigue: float) -> void:
-	var payload: int = player_id.length() + item_ids.size() * 24 + 64
+		temperature: float, water: float, food: float, fatigue: float,
+		body_part: String, injury_kind: String) -> void:
+	var payload: int = player_id.length() + body_part.length() + injury_kind.length() \
+		+ item_ids.size() * 24 + 64
 	if not _guard.check(&"apply_player_snapshot", multiplayer.get_remote_sender_id(), payload, _now_seconds):
 		return
 	if player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
@@ -143,12 +149,16 @@ func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
 	var avatar: Player = _avatar_of(StringName(player_id))
 	if avatar == null:
 		return
+	if not avatar.injury.is_valid_injury_state(StringName(body_part), StringName(injury_kind)):
+		push_warning("NetResync: apply_player_snapshot 부상 스키마 위반 — 폐기")
+		return
 	_clear_inventory(avatar)
 	for index: int in range(item_ids.size()):
 		if item_counts[index] > 0:
 			avatar.inventory.add_item(StringName(item_ids[index]), item_counts[index])
 	avatar.health.apply_replicated(health, bleeding)
 	avatar.stats.apply_replicated(temperature, water, food, fatigue)
+	avatar.injury.apply_replicated(StringName(body_part), StringName(injury_kind))
 	avatar.global_position = position
 	avatar.stats.reset_motion_baseline()
 
