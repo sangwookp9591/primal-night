@@ -1,9 +1,15 @@
-[gd_scene load_steps=3 format=4 uid="uid://senseplaytest"]
+[gd_scene load_steps=4 format=4 uid="uid://senseplaytest"]
 
 [ext_resource type="PackedScene" path="res://scenes/main.tscn" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="2_item"]
+[ext_resource type="Script" path="res://scripts/debug/sense_playtest_recorder.gd" id="3_recorder"]
 
 [node name="Main" instance=ExtResource("1_main")]
+
+; 재미 판정 recorder (W5-T3). 디버그 판 전용 — main.tscn 에는 배선하지 않는다.
+; 루트(Main)의 자식이라 ../Raptor·../LoopObjective·../NetPickup 이 그대로 해석된다.
+[node name="SensePlaytestRecorder" type="Node" parent="."]
+script = ExtResource("3_recorder")
 
 [node name="DebugSenseItems" type="Node2D" parent="."]
 
