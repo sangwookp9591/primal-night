@@ -44,9 +44,10 @@ PRIMAL NIGHT의 행동은 다음 순서를 정본으로 사용한다.
 | 영역 | 현재 구현 근거 | 판정 | 변경 제안 |
 |---|---|---|---|
 | 상호작용 선택 | `Interactor`가 입력 시점에만 겹친 `Area2D`를 조회하고 `can_interact/get_hold_seconds/interact` 덕 타이핑 계약을 호출한다. | **승격** | 타깃 후보 탐색과 HUD 프롬프트는 유지한다. 결과 커밋과 취소 소유권만 `ActionController`로 옮긴다. |
-| 2초 치료 | `HealTarget`과 `NetSurvival`이 2초 홀드, 양쪽 이동 잠금, 붕대·거리·출혈·생존 상태, 호스트 경과 시간을 검증한다. | **TimedAction의 검증된 원형** | 즉시 제거하지 않는다. 공통 행동 경로가 치료 동시성 테스트를 그대로 통과한 뒤 어댑터로 치환한다. |
+| 2초 치료 | `HealTarget`과 `NetSurvival`이 2초 홀드, 양쪽 이동 잠금, 붕대·거리·출혈·생존 상태, 호스트 경과 시간을 검증한다. | **TimedAction의 검증된 원형** | 즉시 제거하지 않는다. 다음 작업은 치료 2초를 공통 행동에 연결하고 기존 `test_healing/test_net_survival`을 그대로 통과시키는 것이다. |
 | 1초 모닥불 설치 | `CampfireSite/CampfireConfig`가 1초 홀드, 돌 3+나무 2, 설치 소음 200px를 데이터로 가진다. `NetCampfire`가 자리·거리·재료를 호스트에서 확정한다. | **TimedAction+제작의 검증된 원형** | 지정 자리와 `CampfireConfig`를 유지한다. `ActionDefinition`은 흐름만 공통화하고 비용의 정본을 복제하지 않는다. |
 | 월드 아이템 획득 | `WorldItem`은 즉시 상호작용이고 `NetPickup`은 안전한 상대 경로, 거리, 존재, 잔량, 인벤토리 여유를 호스트에서 검증한다. 동시 요청은 직렬 확정한다. | **권위 mutation 기준 구현** | 자원 노드와 제작 산출도 같은 “의도→호스트 조회→확정→신뢰 복제” 패턴을 따른다. |
+| 퀵 제작 | `RecipeData`, `Crafting`, `ActionDefinition/ActionController/TimedAction` 최소 절편, `NetCrafting`이 연결됐다. 클라이언트는 `recipe_id`만 보내고 호스트가 재료·무게·슬롯·산출을 원자적으로 검증한 뒤 결과를 복제한다. | **W6 최소 구현** | 현재는 `craft_bait` 한 경로다. 치료/모닥불을 즉시 갈아엎지 않고, 다음 라운드에서 치료 2초만 공통 행동으로 승격한다. |
 | 피해·출혈 | `HealthComponent`가 체력·출혈·피 냄새를 소유하고 `NetSurvival`이 디버그 부상 의도를 호스트에서 상한 처리한다. | **부분 승격** | 체력 컴포넌트는 유지한다. 무기 피해·부위 부상·밀침·넘어짐의 계산과 1회 커밋을 `DamageSystem`에 추가한다. |
 | 스태미나·피로 | `StaminaComponent`와 `SurvivalStats`가 호스트에서 달리기 소모, 피로 보정과 회복을 계산한다. | **재사용** | 행동 시작 비용과 행동 중단 조건을 이 컴포넌트에 연결한다. 별도 스태미나 시스템을 만들지 않는다. |
 | 행동 소음 데이터 | `NoiseProfile`은 `id/radius/merge_window_seconds/merge_distance_px`를 가진 Resource다. | **NoiseSystem의 데이터 정본** | `ActionDefinition`에는 `NoiseProfile` 참조만 둔다. `noise_radius`를 중복 저장하지 않는다. |
@@ -61,10 +62,10 @@ PRIMAL NIGHT의 행동은 다음 순서를 정본으로 사용한다.
 
 다음은 저장소 검색상 구현이 없으므로 모두 **변경 제안**이다.
 
-- `ActionController`, 공통 `TimedAction`, `ActionDefinition`, `ResourceNode`, `DamageSystem`, `TileInteractionSystem`.
+- `ResourceNode`, 범용 `DamageSystem`, `TileInteractionSystem`.
 - 근접 공격용 `ShapeCast2D`, 총기 hitscan, 무기 범위·각도·반동·탄약·내구도 처리.
 - 벽·담장 넘기 custom data와 `VaultState`.
-- 제작 `RecipeData` 런타임, 자원 잔량·재생성 처리, 사체 `yield_mask` 커밋.
+- 제작은 W6 `craft_bait`만 현재 구현이다. 자원 잔량·재생성 처리, 사체 `yield_mask` 커밋, 지정 설비 제작 확장은 아직 없다.
 - 부위 부상, 도구 내구도, 스킬·경험치 시스템.
 
 **변경 제안 — 대체 금지:** 새 시스템이 `Inventory`, `HealthComponent`, `StaminaComponent`, `NoiseProfile/NoiseEmitter`, `Interactor`, `NetPickup`, `NetSurvival`, `NetCampfire`, `RpcGuard`를 한 번에 대체하지 않는다. 검증된 도메인 mutation은 유지하고 행동의 순서·취소·권위 타이밍만 공통화한다.
@@ -771,7 +772,9 @@ carcass_id와 다음 unopened yield bit 요청
 
 ### 6.6 제작과 지정 설비
 
-**변경 제안:** `RecipeData`는 재료·산출·설비·산출 실패 정책의 정본이고 `ActionDefinition`은 시간·애니메이션·잠금·소음의 정본이다. 같은 재료·시간·소음 값을 양쪽에 저장하지 않는다. 제작 ActionDefinition은 `recipe_id`를 참조하고 직접 결과 배열은 비운다.
+**현재 구현:** W6 퀵 제작은 `data/recipes/craft_bait.tres`와 `NetCrafting`으로 검증됐다. 클라이언트 페이로드는 `recipe_id`뿐이고, 호스트가 `GameData.get_recipe()`로 재료·산출을 조회한다. `Crafting.craft()`는 재료 제거 후의 무게·슬롯 여유를 먼저 시뮬레이션하고, 실패 시 인벤토리를 바꾸지 않는다.
+
+**변경 제안:** 정식 제작에서 `RecipeData`는 재료·산출·설비·산출 실패 정책의 정본이고 `ActionDefinition`은 시간·애니메이션·잠금·소음의 정본이다. 같은 재료·시간·소음 값을 양쪽에 저장하지 않는다. 제작 ActionDefinition은 `recipe_id`를 참조하고 직접 결과 배열은 비운다.
 
 ```text
 퀵 제작 선택
@@ -804,7 +807,8 @@ carcass_id와 다음 unopened yield bit 요청
 | `gather_wood` | W9~10 최소 | TIMED, Resource 값 | 거리, 자원 잔량, 스태미나 | wood, 노드 고갈 | 새 채집 프로필 |
 | `gather_fiber` | W9~10 최소 | TIMED, Resource 값 | 거리, 자원 잔량 | fiber, 식물만 일자 제한 재생성 가능 | 작은 부스럭 프로필 |
 | `butcher_carcass_quarter` | W9~10 최소 | TIMED, 돌칼 8초/긁개 6초 | 도구, 72px, 스태미나, unopened bit | seed 고정 뼈·가죽·힘줄·고기 | 240px, 피 냄새 stage, 구간 경합 실패 |
-| `craft_bandage_quick` | W6 퀵 제작 | TIMED, 2초 | `RecipeData.bandage` | bandage | 작은 부스럭, 재료 원자성 |
+| `craft_bait` | W6 현재 구현 | TIMED 데이터 1초, 즉시 권위 커밋 | raw_meat 1 | bait 1 | `NetCrafting` host 권위, 재료·무게·슬롯 원자성 |
+| `craft_bandage_quick` | 변경 제안 | TIMED, 2초 | `RecipeData.bandage` | bandage | 작은 부스럭, 재료 원자성 |
 | `craft_bone_scraper` | W9~10 | TIMED, 3초 | bone 2+sinew 1 | bone_scraper | 160px |
 | `melee_spear_thrust` | 정식 확장 | MELEE, 선딜/타격/후딜 Resource | spear, 스태미나, 내구도 | ShapeCast 후보에 피해·밀침 | 타격 프레임 1회, max_targets Resource |
 | `aim_pistol` | 정식 확장 | TIMED aim state | pistol, 생존 상태 | 호스트 조준 tick 누적 | 이동·피로·부상으로 안정도 변화 |
@@ -822,21 +826,21 @@ carcass_id와 다음 unopened yield bit 요청
 
 | 시스템 | W6~W10 최소 절편 | 정식 버전 확장 |
 |---|---|---|
-| ActionController | 플레이어당 현재 행동 1개, 시작/취소/완료, 이동 잠금, 호스트 1회 커밋 | 근접·총기·vault phase, 조준 상태, 네트워크 표시 보간 |
-| TimedAction | 퀵 제작·치료·채집·사체 구간의 host tick | 도구별 속도 보정, 설비 작업, 협동 보조 행동 |
-| ActionDefinition | 시간·애니메이션·요구 아이템/도구·스태미나·거리·NoiseProfile·recipe 참조 | 무기 각도·반동·다중 대상·failure, 승인 뒤 skill/xp |
+| ActionController | **현재 최소:** 플레이어당 현재 행동 1개, 시작/취소/완료, 이동 잠금. 아직 치료/모닥불 전면 승격 전이다. | 근접·총기·vault phase, 조준 상태, 네트워크 표시 보간 |
+| TimedAction | **현재 최소:** physics tick 누적, duration 미달 커밋 거부, 취소 후 부작용 0. | 도구별 속도 보정, 설비 작업, 협동 보조 행동 |
+| ActionDefinition | **현재 최소:** id, duration, animation, stamina_cost, noise 검증. | 무기 각도·반동·다중 대상·failure, 승인 뒤 skill/xp |
 | DamageSystem | W6 다리 열상→출혈·이동 효율 저하, host-only 적용 | 근접 피해·밀침·넘어짐·부위 판정·hitscan |
 | NoiseSystem | 기존 `NoiseProfile/NoiseEmitter/Raptor` 그대로, 채집·해체 프로필만 추가 | 다종 청취자 spatial index, 공통 acoustic/occlusion query |
 | TileInteractionSystem | W7~8 요청 시 metadata 읽기, 문/자원 marker 해석 | 담장 vault, 창문, 바리케이드, 동적 nav/collision transaction |
 
 ### 8.2 W6 확정 작업을 보호하는 순서
 
-`WEEK5_6_PLAN.md`의 W6 확정 항목인 16칸 인벤토리, 다리 열상, 퀵 제작, 3일 시계가 우선이다. **변경 제안:** 아래 순서로 끼워 넣어 범위를 늘리지 않는다.
+`WEEK5_6_PLAN.md`의 W6 확정 항목인 16칸 인벤토리, 다리 열상, 퀵 제작, 3일 시계가 우선이다. **현재 구현:** 네 항목은 W6 최소 범위로 코드와 targeted 테스트가 있다.
 
-1. **16칸 인벤토리:** `Inventory.slot_count`를 먼저 수정·검증한다. 현재 `NetResync.SNAPSHOT_MAX_ITEMS=16`이 16개 고유 스택을 수용하는지 확인하고, 충분하면 상한 코드는 바꾸지 않는다. 행동 시스템과 결합하지 않는다.
-2. **다리 열상:** `DamageSystem`의 host-only 최소 API와 다리 이동 modifier만 도입한다. 근접 무기·ShapeCast·넘어짐을 함께 만들지 않는다.
-3. **퀵 제작:** 가장 작은 `ActionDefinition+ActionController+TimedAction` 절편을 사용한다. `RecipeData`의 기존 W6 범위만 처리하고 치료/모닥불 마이그레이션은 미룬다.
-4. **3일 시계:** 기존 `SessionClock`의 호스트 권위·스냅샷을 확장한다. ActionController가 시간을 소유하지 않는다.
+1. **16칸 인벤토리:** `Inventory.slot_count=16`과 16개 스냅샷 상한을 유지한다. 행동 시스템과 결합하지 않는다.
+2. **다리 열상:** `InjuryComponent`가 다리 열상 이동 modifier를 제공하고 `Player.max_speed_for_stance()` 경로에 반영한다. 근접 무기·ShapeCast·넘어짐은 만들지 않았다.
+3. **퀵 제작:** `craft_bait`만 처리한다. `NetCrafting`은 `NetPickup/NetCampfire`와 같은 `RpcGuard + 의도/확정 RPC` 패턴이고, 재료 부족·무게 부족·중복 요청·변조 페이로드 테스트가 targeted GUT에 있다.
+4. **3일 시계:** `SessionClock`은 낮/황혼/밤 × 3일, host authority snapshot, HUD 표시, `three_day_slice_harness`를 가진다. ActionController가 시간을 소유하지 않는다.
 5. W6 GREEN 뒤 치료 2초를 공통 행동에 연결해 기존 `test_healing/test_net_survival`을 동일하게 통과시키며 추출이 맞는지 확인한다.
 
 W6에서 범용 콤보, 총기, vault, 자원 재생성, XP를 만들지 않는다. 퀵 제작 한 경로로 공통 행동의 필요성이 검증되지 않으면 기존 `Interactor` 홀드로 W6를 끝내고 공통화는 W9로 미룬다.
@@ -932,6 +936,7 @@ W6에서 범용 콤보, 총기, vault, 자원 재생성, XP를 만들지 않는�
 | `tests/world/test_tile_interaction.gd` | vault 반대편·방향·스태미나·좌표 수렴 |
 | `tests/world/test_resource_action.gd` | 동시 채집/해체 총량·yield bit 불변 |
 | 기존 noise/campfire/healing/net tests | 승격 후 현재 동작과 권위가 회귀하지 않음 |
+| `tests/crafting/test_net_crafting.gd` | `recipe_id`만 허용, 재료·무게 실패 무변경, 중복 요청 1회, 복제 일치 |
 
 ### 11.2 반드시 남길 E2E
 
@@ -955,6 +960,7 @@ W6에서 범용 콤보, 총기, vault, 자원 재생성, XP를 만들지 않는�
 - 2인 호스트 권위 E2E가 클라이언트 변조, 동시 요청, 재접속을 포함한다.
 - UI 애니메이션이 아니라 실제 인벤토리·체력·좌표·내구도·소음·월드 델타가 변한다.
 - 설명 수치와 런타임 수치가 같은 `.tres`에서 생성된다.
+- GUT가 parse error 파일을 건너뛴 exit 0은 GREEN으로 인정하지 않는다. 실행 요약의 Scripts/Tests/Asserts 수가 기대 파일을 포함해야 한다.
 
 ---
 
@@ -974,4 +980,4 @@ W6에서 범용 콤보, 총기, vault, 자원 재생성, XP를 만들지 않는�
 | 스킬·XP | §13 변경 전 처리 시스템 미도입; 필드는 비활성 값 |
 | 공포 보정 | §13 정책상 수치형 공포 없음, 총기 공식에서 0 |
 | 밸런스 수치 | `.tres` Resource 단일 출처, 코드 하드코딩 금지 |
-| W6 보호 | 16칸→다리 열상 최소→퀵 제작 최소 행동 절편→3일 시계; 전투/vault/총기 금지 |
+| W6 보호 | 16칸→다리 열상 최소→퀵 제작 최소 행동 절편→3일 시계 구현됨; 다음은 치료 2초 공통 행동 승격, 전투/vault/총기 금지 |

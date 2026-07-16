@@ -61,6 +61,8 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if controller_peer_id != multiplayer.get_unique_id():
 		return
+	if Input.is_action_just_pressed("quick_craft"):
+		_request_quick_craft(&"craft_bait")
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -121,3 +123,9 @@ func _get_input_vector() -> Vector2:
 
 	var iso: Vector2 = Vector2(raw.x - raw.y, (raw.x + raw.y) * 0.5)
 	return iso.normalized()
+
+func _request_quick_craft(recipe_id: StringName) -> void:
+	for node in get_tree().get_nodes_in_group(&"net_crafting"):
+		if node.has_method("request"):
+			node.request(recipe_id, self)
+			return

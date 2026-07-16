@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=19 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://scripts/net/net_resync.gd" id="15_netresync"]
 [ext_resource type="Script" path="res://scripts/session/session_clock.gd" id="16_sessionclock"]
 [ext_resource type="Script" path="res://scripts/session/loop_objective.gd" id="17_loopobjective"]
+[ext_resource type="Script" path="res://scripts/crafting/net_crafting.gd" id="18_netcrafting"]
 
 [node name="Main" type="Node2D"]
 
@@ -74,6 +75,10 @@ config = ExtResource("11_netconfig")
 ; 모닥불 설치·점화 호스트 권위 — 재료·거리·자리 검증, 소등 복제 (설계서 5.8/7.2, W2-T5).
 [node name="NetCampfire" type="Node" parent="."]
 script = ExtResource("14_netcampfire")
+
+; 퀵 제작 호스트 권위 — recipe_id 의도만 받고 재료·결과는 호스트 데이터로 확정.
+[node name="NetCrafting" type="Node" parent="."]
+script = ExtResource("18_netcrafting")
 
 ; 재접속 전체 상태 재동기화 — 인벤토리·체력·출혈·위치 스냅샷 (설계서 6.3/7.3, W2-T5).
 ; ★ NetMovement 뒤에 있어야 한다: 재접속 처리 순서 = 아바타 스폰 → 상태 복원·스냅샷.
