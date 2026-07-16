@@ -8,7 +8,6 @@ func craft(actor: Node, recipe: RecipeData) -> bool:
 	var inv: Inventory = actor.inventory
 	for id in recipe.ingredients:
 		if not inv.has_item(StringName(id), int(recipe.ingredients[id])): return false
-	var before := inv.total_weight()
 	if inv.total_weight() + recipe.result.weight * recipe.result_count > inv.max_weight: return false
 	var can_stack := inv.count_of(recipe.result.id) > 0
 	if not can_stack and inv.used_slots() >= inv.slot_count: return false
