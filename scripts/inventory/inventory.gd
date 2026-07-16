@@ -1,12 +1,13 @@
 class_name Inventory
 extends Node
 
-## 8칸 슬롯 인벤토리 (프로토타입. 출시는 16칸 — 설계서 5.8).
+## 16칸 슬롯 + 무게 제한 인벤토리 (설계서 5.8).
 ##
 ## 불변식 (tests/inventory/test_inventory.gd 가 검증한다):
 ##   1. 슬롯은 slot_count 개를 넘지 않는다.
 ##   2. 한 슬롯의 수량은 ItemData.get_stack_limit() 을 넘지 않는다.
 ##   3. 수량은 음수가 되지 않는다.
+##   4. 총 무게는 max_weight 를 넘지 않는다.
 ##
 ## 수량은 GameData 에 등록된 ItemData 로만 검증한다. 등록되지 않은 id 는
 ## 조용히 기본값으로 대체하지 않고 거부한다 (설계서 13장).
@@ -14,7 +15,8 @@ extends Node
 ## HUD 는 이 신호로만 갱신한다. 매 프레임 폴링하지 않는다 (성능문서 6.2).
 signal changed()
 
-@export var slot_count: int = 8
+@export var slot_count: int = 16
+@export var max_weight: float = 20.0
 
 ## 슬롯은 _ready 에서 한 번만 할당하고 이후에는 제자리에서 수정한다.
 ## 획득/소비마다 새 Dictionary 를 만들지 않는다 (성능문서 6.1).
@@ -36,9 +38,14 @@ func add_item(id: StringName, count: int) -> int:
 	var item: ItemData = _game_data.get_item(id)
 	if item == null:
 		return 0
+	if not is_finite(item.weight) or item.weight <= 0.0:
+		push_error("Inventory: invalid weight for item %s" % id)
+		return 0
 
 	var limit: int = item.get_stack_limit()
-	var remaining: int = count
+	var weight_room: int = maxi(floori((max_weight - total_weight()) / item.weight), 0)
+	var allowed: int = mini(count, weight_room)
+	var remaining: int = allowed
 
 	# 1) 기존 스택을 먼저 채운다. 새 슬롯을 낭비하지 않는다.
 	for slot: Dictionary in _slots:
@@ -64,7 +71,7 @@ func add_item(id: StringName, count: int) -> int:
 		slot["count"] = moved
 		remaining -= moved
 
-	var added: int = count - remaining
+	var added: int = allowed - remaining
 	if added > 0:
 		_update_carried_smell_source(id)
 		changed.emit()

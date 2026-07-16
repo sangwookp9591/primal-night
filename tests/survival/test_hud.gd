@@ -1,6 +1,6 @@
 extends GutTest
 
-## HUD: 체력 / 스태미나 / 인벤토리 8칸 / 출혈 상태.
+## HUD: 체력 / 스태미나 / 인벤토리 16칸 / 출혈 상태.
 ## ★ 표시 수치는 반드시 데이터 리소스에서 생성한다. UI 에 하드코딩 금지 (설계서 5.6/15장).
 ## ★ 숫자 나열보다 단계 표시 (설계서 10.1).
 
@@ -22,13 +22,13 @@ func _spawn() -> Array:
 	hud.bind(player)
 	return [player, hud]
 
-func test_shows_eight_inventory_slots() -> void:
+func test_shows_sixteen_inventory_slots() -> void:
 	var spawned: Array = await _spawn()
 	var player: Player = spawned[0]
 	var hud: Hud = spawned[1]
 
-	assert_eq(player.inventory.slot_count, 8, "전제: 인벤토리는 8칸")
-	for i: int in range(8):
+	assert_eq(player.inventory.slot_count, 16, "전제: 인벤토리는 16칸")
+	for i: int in range(16):
 		assert_eq(hud.slot_text(i), "", "빈 슬롯은 비어 보여야 한다")
 
 ## ★ 슬롯 표시는 ItemData.display_name 에서 생성된다. HUD 에 이름을 적어두지 않는다.

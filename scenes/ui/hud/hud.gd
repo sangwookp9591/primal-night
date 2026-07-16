@@ -1,14 +1,14 @@
 class_name Hud
 extends CanvasLayer
 
-## 최소 HUD: 체력 / 스태미나 / 인벤토리 8칸 / 출혈 상태 / 감각 피드백(바람·소리·랩터 경보).
+## 최소 HUD: 체력 / 스태미나 / 인벤토리 16칸 / 출혈 상태 / 감각 피드백(바람·소리·랩터 경보).
 ##
 ## 성능 규칙 (성능문서 6.1/6.2):
 ##   - 매 프레임 갱신하는 것은 ProgressBar.value 두 개와 감각 모델의 숫자 필드뿐이다
 ##     (문자열 조립·할당 없음, 성분 복사와 float 감산만 한다).
 ##   - 문자열은 상태가 실제로 바뀐 순간에만 만든다 (단계 라벨, 슬롯, 프롬프트).
 ##   - 슬롯은 인벤토리 changed 신호로만 다시 그린다. 매 프레임 폴링하지 않는다.
-##   - 슬롯 Label 은 bind 시 8개를 한 번만 만들고 이후 재사용한다 (UI 재구성 금지).
+##   - 슬롯 Label 은 bind 시 16개를 한 번만 만들고 이후 재사용한다 (UI 재구성 금지).
 ##
 ## 표시 수치는 전부 데이터 리소스에서 생성한다. HUD 에 하드코딩하지 않는다 (설계서 5.6/15장).
 ##
@@ -74,7 +74,7 @@ func bind(player: Player) -> void:
 		return
 	_player = player
 
-	_slots.columns = player.inventory.slot_count
+	_slots.columns = mini(player.inventory.slot_count, 8)
 	for i: int in range(player.inventory.slot_count):
 		var label: Label = Label.new()
 		label.custom_minimum_size = Vector2(48.0, 24.0)

@@ -214,14 +214,14 @@ func test_partial_pickup_replicates_remainder() -> void:
 	await wait_physics_frames(2)
 	var client_avatar: Player = client.container.get_node(String(client_id))
 	var host_view_client: Player = host.container.get_node(String(client_id))
-	# 붕대 스택 상한 5, 8칸 = 용량 40. 양쪽 복제본 모두 38개로 채워 2자리만 남긴다.
-	host_view_client.inventory.add_item(&"bandage", 38)
-	client_avatar.inventory.add_item(&"bandage", 38)
+	# 붕대 스택 상한 5, 16칸 = 용량 80. 양쪽 복제본 모두 78개로 채워 2자리만 남긴다.
+	host_view_client.inventory.add_item(&"bandage", 78)
+	client_avatar.inventory.add_item(&"bandage", 78)
 
 	_item_on(client, "Bandages").interact(client_avatar)
 
 	assert_true(await wait_until(func() -> bool:
-		return host_view_client.inventory.count_of(&"bandage") == 40, 5.0),
+		return host_view_client.inventory.count_of(&"bandage") == 80, 5.0),
 		"호스트가 남은 2자리만 채워야 한다")
 	assert_true(await wait_until(func() -> bool:
 		var host_item: WorldItem = _item_on(host, "Bandages")
@@ -230,5 +230,5 @@ func test_partial_pickup_replicates_remainder() -> void:
 			and host_item.count == 2 and client_item.count == 2, 5.0),
 		"잔량 2개가 양쪽 월드에 남아야 한다")
 	assert_true(await wait_until(func() -> bool:
-		return client_avatar.inventory.count_of(&"bandage") == 40, 5.0),
-		"클라이언트 복제본도 40개로 일치해야 한다")
+		return client_avatar.inventory.count_of(&"bandage") == 80, 5.0),
+		"클라이언트 복제본도 80개로 일치해야 한다")

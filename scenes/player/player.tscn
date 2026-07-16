@@ -49,7 +49,8 @@ config = ExtResource("5_survival")
 
 [node name="Inventory" type="Node" parent="."]
 script = ExtResource("6_inventory")
-slot_count = 8
+slot_count = 16
+max_weight = 20.0
 
 ; 상호작용 손. layer 0 / mask 4 — interactable(layer 4) 만 감지한다.
 [node name="Interactor" type="Area2D" parent="."]

@@ -63,7 +63,7 @@ func test_pickup_rejected_when_inventory_is_full() -> void:
 	var item: WorldItem = spawned[1]
 	var limit: int = player.inventory.slot_count * 5  # 붕대 스택 상한 5
 	player.inventory.add_item(&"bandage", limit)
-	assert_eq(player.inventory.used_slots(), 8, "8칸이 모두 찼다")
+	assert_eq(player.inventory.used_slots(), 16, "16칸이 모두 찼다")
 
 	player.interactor.begin()
 
@@ -75,11 +75,11 @@ func test_partial_pickup_leaves_the_remainder_in_the_world() -> void:
 	var spawned: Array = await _spawn(&"bandage", 4, Vector2(16.0, 0.0))
 	var player: Player = spawned[0]
 	var item: WorldItem = spawned[1]
-	# 8칸 * 5 = 40 이 용량. 38개를 채워 2자리만 남긴다.
-	player.inventory.add_item(&"bandage", 38)
+	# 16칸 * 5 = 80 이 용량. 78개를 채워 2자리만 남긴다.
+	player.inventory.add_item(&"bandage", 78)
 
 	player.interactor.begin()
 
-	assert_eq(player.inventory.count_of(&"bandage"), 40, "남은 2자리만 채운다")
+	assert_eq(player.inventory.count_of(&"bandage"), 80, "남은 2자리만 채운다")
 	assert_false(item.is_queued_for_deletion(), "남은 아이템은 사라지면 안 된다")
 	assert_eq(item.count, 2, "월드 아이템 수량이 주운 만큼 줄어야 한다")

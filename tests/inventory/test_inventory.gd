@@ -27,12 +27,12 @@ func test_game_data_registers_the_three_prototype_items() -> void:
 		assert_ne(item.display_name, "", "표시 이름이 데이터에 있어야 한다 (UI 하드코딩 금지)")
 		assert_gt(item.get_stack_limit(), 0, "스택 상한은 1 이상이어야 한다")
 
-func test_starts_empty_with_eight_slots() -> void:
+func test_starts_empty_with_sixteen_slots() -> void:
 	var inventory: Inventory = _make_inventory()
 
-	assert_eq(inventory.slot_count, 8, "프로토타입 인벤토리는 8칸이다")
+	assert_eq(inventory.slot_count, 16, "출시 인벤토리는 16칸이다")
 	assert_eq(inventory.used_slots(), 0, "처음에는 빈 상태여야 한다")
-	for i: int in range(8):
+	for i: int in range(16):
 		assert_true(inventory.get_slot(i).is_empty(), "슬롯 %d 는 비어 있어야 한다" % i)
 
 func test_add_item_returns_amount_added_and_is_countable() -> void:
@@ -74,7 +74,7 @@ func test_partial_fill_tops_up_existing_stack_before_using_a_new_slot() -> void:
 	assert_eq(inventory.used_slots(), 1, "기존 스택을 먼저 채워야 새 슬롯을 낭비하지 않는다")
 	assert_eq(inventory.get_slot(0)["count"], limit, "기존 스택이 상한까지 찼다")
 
-## ★ 불변식: 슬롯 초과 금지. 8칸이 꽉 차면 더 받지 않는다.
+## ★ 불변식: 슬롯 초과 금지. 16칸이 꽉 차면 더 받지 않는다.
 func test_rejects_items_beyond_slot_capacity() -> void:
 	var inventory: Inventory = _make_inventory()
 	var limit: int = _stack_limit(&"bandage")
@@ -82,13 +82,13 @@ func test_rejects_items_beyond_slot_capacity() -> void:
 
 	var added_full: int = inventory.add_item(&"bandage", capacity)
 	assert_eq(added_full, capacity, "정확히 가득 찰 만큼은 전부 들어간다")
-	assert_eq(inventory.used_slots(), inventory.slot_count, "8칸이 모두 찼다")
+	assert_eq(inventory.used_slots(), inventory.slot_count, "16칸이 모두 찼다")
 
 	var overflow: int = inventory.add_item(&"bandage", 1)
 
 	assert_eq(overflow, 0, "꽉 찬 인벤토리는 1개도 더 받지 않는다")
 	assert_eq(inventory.count_of(&"bandage"), capacity, "보유량이 용량을 넘지 않는다")
-	assert_eq(inventory.used_slots(), inventory.slot_count, "슬롯 수가 8 을 넘지 않는다")
+	assert_eq(inventory.used_slots(), inventory.slot_count, "슬롯 수가 16 을 넘지 않는다")
 
 func test_partial_add_when_only_some_room_left() -> void:
 	var inventory: Inventory = _make_inventory()
