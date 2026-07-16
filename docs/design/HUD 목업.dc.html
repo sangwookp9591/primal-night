@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0906}
+a{color:#e0a458;text-decoration:none}a:hover{color:#edc088}
+@keyframes pn-pulse{0%,100%{opacity:0.55}50%{opacity:0.95}}
+@keyframes pn-blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes pn-flicker{0%,100%{opacity:0.85}42%{opacity:0.65}68%{opacity:0.95}}
+@keyframes pn-drift{0%{transform:translateX(-3%)}100%{transform:translateX(3%)}}
+@keyframes pn-heartbeat{0%,100%{transform:scale(1)}12%{transform:scale(1.08)}24%{transform:scale(1)}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 24px 44px;background:#0b0906;font-family:'IBM Plex Sans KR',sans-serif;color:#ece3d2">
+  <div style="width:min(1400px,96vw);display:flex;justify-content:space-between;align-items:baseline">
+    <div style="display:flex;align-items:baseline;gap:14px">
+      <span style="font-family:'Song Myung',serif;font-size:20px">PRIMAL NIGHT</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">인게임 HUD 목업 · 설계서 10.1</span>
+    </div>
+    <div style="display:flex;gap:16px;font-size:13px"><a href="캐릭터 에셋 시트.dc.html">캐릭터 에셋 시트</a><a href="디자인 시스템 보드.dc.html">디자인 시스템 보드</a></div>
+  </div>
+
+  <div style="width:min(1400px,96vw);aspect-ratio:16/9;position:relative;overflow:hidden;background:#0d0b08;--acc:{{acc}};--sen:{{sen}}">
+
+    <!-- 월드 -->
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,{{sc1}} 0%,{{sc2}} 55%,{{sc3}} 100%)"></div>
+    <div style="position:absolute;top:6%;right:14%;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(236,231,215,0.5),rgba(236,231,215,0.06) 55%,transparent 70%);filter:blur(2px)"></div>
+    <div style="position:absolute;inset:0;background:repeating-linear-gradient(115deg,transparent 0 46px,rgba(236,227,210,0.025) 46px 48px)"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:46%;background:radial-gradient(ellipse 60% 80% at 42% 100%,rgba(10,14,8,0.85),transparent 70%),radial-gradient(ellipse 70% 60% at 85% 100%,rgba(8,10,7,0.9),transparent 75%)"></div>
+    <div style="position:absolute;left:30%;bottom:24%;width:280px;height:170px;border-radius:50%;background:radial-gradient(circle,{{fire}},transparent 62%);animation:pn-flicker 2.6s infinite;filter:blur(6px)"></div>
+    <div style="position:absolute;inset:0;animation:pn-drift 14s ease-in-out infinite alternate;background:radial-gradient(ellipse 45% 22% at 60% 45%,rgba(190,200,190,0.05),transparent 70%),radial-gradient(ellipse 50% 20% at 25% 60%,rgba(190,200,190,0.04),transparent 70%)"></div>
+
+    <!-- 캐릭터 스프라이트 슬롯 -->
+    <div style="position:absolute;left:50%;top:52%;transform:translate(-50%,-58%);width:74px;height:98px">
+      <div style="position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:58px;height:16px;border-radius:50%;background:rgba(0,0,0,0.55);filter:blur(4px)"></div>
+      <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="player-sprite" shape="rect" fit="contain" placeholder="생존자 스프라이트" hint-size="74px,98px" style="position:absolute;inset:0"></x-import>
+    </div>
+
+    <!-- 연출 오버레이 -->
+    <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,transparent 52%,rgba(5,4,2,0.7) 100%)"></div>
+    <sc-if value="{{ grain }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;inset:0;pointer-events:none;opacity:0.35;background-image:radial-gradient(rgba(236,227,210,0.06) 1px,transparent 1px);background-size:3px 3px"></div>
+    </sc-if>
+    <sc-if value="{{ isChase }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;pointer-events:none;animation:pn-pulse 0.9s infinite;background:radial-gradient(ellipse 70% 65% at 50% 50%,transparent 44%,rgba(150,28,20,{{ goreVig }}) 100%)"></div>
+    </sc-if>
+    <sc-if value="{{ bleeding }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;pointer-events:none;opacity:{{ goreBlood }};background:radial-gradient(ellipse 26% 20% at 2% 96%,rgba(120,18,12,0.55),transparent 70%),radial-gradient(ellipse 20% 26% at 99% 88%,rgba(120,18,12,0.4),transparent 70%),radial-gradient(ellipse 30% 12% at 50% 101%,rgba(120,18,12,0.45),transparent 75%)"></div>
+    </sc-if>
+
+    <!-- 상단 리드아웃 바 -->
+    <div style="position:absolute;top:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;gap:0;background:linear-gradient(180deg,rgba(6,5,3,0.88),rgba(6,5,3,0.62));border-bottom:1px solid rgba(232,214,180,0.1);font-family:'IBM Plex Mono',monospace;font-size:11px;color:#b5aa93">
+      <span style="padding:0 18px;display:inline-flex;align-items:center;gap:7px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b5aa93" stroke-width="2"><path d="M6 8 h12 l-1.5 12 h-9 Z M9 8 a3 3 0 0 1 6 0"></path></svg>배낭 <b style="color:#ece3d2">4.2 / 18</b></span>
+      <span style="width:1px;height:12px;background:rgba(232,214,180,0.18)"></span>
+      <span style="padding:0 18px">신호기 부품 <b style="color:var(--acc,#e0a458)">2 / 5</b></span>
+      <span style="width:1px;height:12px;background:rgba(232,214,180,0.18)"></span>
+      <span style="padding:0 18px;display:inline-flex;align-items:center;gap:7px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b5aa93" stroke-width="2" stroke-linecap="round"><path d="M6 5 L4 11 M12 4 L10 10 M18 5 L16 11"></path><path d="M4 16 l-1.5 4 M10 15 l-1.5 4 M16 16 l-1.5 4"></path></svg>이슬비</span>
+      <span style="width:1px;height:12px;background:rgba(232,214,180,0.18)"></span>
+      <span style="padding:0 18px;color:var(--acc,#e0a458)">D-5</span>
+      <span style="width:1px;height:12px;background:rgba(232,214,180,0.18)"></span>
+      <span style="padding:0 18px;color:#ece3d2">{{ clock }}</span>
+      <span style="width:1px;height:12px;background:rgba(232,214,180,0.18)"></span>
+      <span style="padding:0 18px;display:inline-flex;align-items:center;gap:7px;color:var(--sen,#6fc7c9)"><span style="display:inline-block;font-size:12px;transform:rotate({{ windDeg }}deg)">➤</span>약풍</span>
+    </div>
+
+    <!-- 좌상단 아이콘 스택 -->
+    <div style="position:absolute;top:38px;left:12px;display:flex;flex-direction:column;gap:7px">
+      <button onClick="{{ togglePanel }}" title="상태 창 (H)" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:none;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1.5px {{ heartRing }};display:flex;align-items:center;justify-content:center;animation:{{ heartAnim }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="{{ heartFill }}"><path d="M12 20 C6 15 3 11.5 3 8.4 A4.4 4.4 0 0 1 12 6.8 A4.4 4.4 0 0 1 21 8.4 C21 11.5 18 15 12 20 Z"></path></svg>
+      </button>
+      <button title="인벤토리 (Tab)" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:none;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.28);display:flex;align-items:center;justify-content:center" style-hover="box-shadow:inset 0 0 0 1.5px rgba(232,214,180,0.55)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9bda6" stroke-width="1.8"><path d="M6 8 h12 l-1.5 12 h-9 Z M9 8 a3 3 0 0 1 6 0"></path></svg>
+      </button>
+      <button title="제작 (C)" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:none;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.28);display:flex;align-items:center;justify-content:center" style-hover="box-shadow:inset 0 0 0 1.5px rgba(232,214,180,0.55)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9bda6" stroke-width="1.8" stroke-linecap="round"><path d="M5 19 L12 12 M12 12 L15 9 M15 9 a4 4 0 1 0 4 -4 l-3 3 -2 -2 3 -3 a4 4 0 0 0 -4 4"></path></svg>
+      </button>
+      <button title="지도 (M)" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:none;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.28);display:flex;align-items:center;justify-content:center" style-hover="box-shadow:inset 0 0 0 1.5px rgba(232,214,180,0.55)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9bda6" stroke-width="1.8" stroke-linejoin="round"><path d="M4 6 L9 4 L15 6 L20 4 V18 L15 20 L9 18 L4 20 Z M9 4 V18 M15 6 V20"></path></svg>
+      </button>
+    </div>
+
+    <!-- 좌측 상태 패널 -->
+    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;top:38px;left:58px;width:252px;background:rgba(9,8,5,0.88);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.16),0 6px 24px rgba(0,0,0,0.5)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(232,214,180,0.06);border-bottom:1px solid rgba(232,214,180,0.12)">
+          <span style="font-size:12px;letter-spacing:0.12em;color:#ece3d2">생존자 상태</span>
+          <button onClick="{{ togglePanel }}" style="cursor:pointer;border:none;background:none;color:#a89c84;font-size:12px;padding:0 2px" style-hover="color:#ece3d2">✕</button>
+        </div>
+        <div style="display:flex;border-bottom:1px solid rgba(232,214,180,0.12)">
+          <span style="flex:1;text-align:center;font-size:11px;letter-spacing:0.1em;padding:6px 0;color:var(--acc,#e0a458);border-bottom:2px solid var(--acc,#e0a458)">상태</span>
+          <span style="flex:1;text-align:center;font-size:11px;letter-spacing:0.1em;padding:6px 0;color:#7d735f">부상</span>
+          <span style="flex:1;text-align:center;font-size:11px;letter-spacing:0.1em;padding:6px 0;color:#7d735f">스킬</span>
+        </div>
+        <div style="display:flex;gap:12px;padding:12px 12px 6px;align-items:center">
+          <div style="position:relative;width:34px;height:64px;flex-shrink:0">
+            <svg width="34" height="64" viewBox="0 0 44 82" fill="{{ figureFill }}" style="transition:fill 0.5s">
+              <circle cx="22" cy="9" r="7"></circle>
+              <path d="M14 20 h16 q3 0 3 3 l-1 18 h-4 l-1 -12 h-2 l1 30 -4 20 h-5 l2 -20 h-2 l2 20 h-5 l-4 -20 1 -30 h-2 l-1 12 h-4 l-1 -18 q0 -3 3 -3 Z"></path>
+            </svg>
+            <sc-if value="{{ bleeding }}" hint-placeholder-val="{{ false }}">
+              <svg width="34" height="64" viewBox="0 0 44 82" fill="#ff4b38" style="position:absolute;inset:0;animation:pn-blink 1.2s infinite"><circle cx="15" cy="34" r="4.5"></circle></svg>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+            <div style="font-size:13px;color:{{ healthColor }}">{{ healthStage }}</div>
+            <sc-if value="{{ bleeding }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:11px;color:#ff9d90;animation:pn-blink 1.2s infinite">출혈 — 왼팔</div>
+            </sc-if>
+            <div style="font-size:11px;color:#7d735f">붕대로 지혈 가능</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;padding:8px 12px 14px">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:34px;font-size:11px;color:{{ r.labelColor }};flex-shrink:0">{{ r.label }}</span>
+              <span style="display:flex;gap:2px;flex:1">
+                <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="12">
+                  <span style="flex:1;height:10px;background:{{ c.bg }};box-shadow:inset 0 -2px 0 rgba(0,0,0,0.25)"></span>
+                </sc-for>
+              </span>
+              <span style="width:28px;font-size:10px;text-align:right;color:{{ r.stageColor }};flex-shrink:0">{{ r.stage }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 추격 경보 -->
+    <sc-if value="{{ isChase }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;top:52px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;animation:pn-heartbeat 0.9s infinite">
+        <div style="font-family:'Song Myung',serif;font-size:28px;letter-spacing:0.3em;color:#ff8d7e;text-shadow:0 0 18px rgba(197,71,60,0.8),0 2px 4px rgba(0,0,0,0.9)">추 격</div>
+        <div style="width:170px;height:2px;background:linear-gradient(90deg,transparent,#c5473c,transparent);animation:pn-blink 0.9s infinite"></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isDetect }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;right:0;top:38%;width:110px;height:200px;pointer-events:none;background:radial-gradient(ellipse 90% 50% at 100% 50%,rgba(242,201,76,0.22),transparent 70%)"></div>
+      <div style="position:absolute;right:20px;top:46%;display:flex;flex-direction:column;align-items:center;gap:5px;text-shadow:0 1px 5px rgba(0,0,0,0.9)">
+        <span style="font-size:24px;color:#f2c94c;animation:pn-blink 1.4s infinite;filter:drop-shadow(0 0 6px rgba(242,201,76,0.6))">➤</span>
+        <span style="font-size:11px;letter-spacing:0.22em;color:#f2c94c">큰 소리 · 동</span>
+      </div>
+    </sc-if>
+
+    <!-- 알림 플레이트 (상호작용) -->
+    <sc-if value="{{ showPrompt }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:50%;bottom:19%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;min-width:280px;padding:14px 26px;background:rgba(7,6,4,0.82);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.2)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;color:#0d0b08;background:var(--acc,#e0a458);font-weight:600">E</span>
+          <span style="font-size:14px;letter-spacing:0.06em">붕대 감기</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#a89c84">{{ holdPct }}%</span>
+        </div>
+        <div style="width:100%;height:4px;background:rgba(232,214,180,0.1)"><div style="width:{{ holdPct }}%;height:100%;background:var(--acc,#e0a458)"></div></div>
+      </div>
+    </sc-if>
+
+    <!-- 우하단 퀵슬롯 -->
+    <div style="position:absolute;right:0;bottom:0;width:560px;height:180px;pointer-events:none;background:radial-gradient(ellipse 90% 100% at 100% 100%,rgba(5,4,2,0.75),transparent 72%)"></div>
+    <div style="position:absolute;right:22px;bottom:20px;display:flex;align-items:flex-end;gap:10px">
+      <div style="display:flex;gap:5px">
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.3);display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#8a8070">1</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linejoin="round"><path d="M6 15 L9 8 L15 7 L19 12 L16 17 L8 18 Z"></path></svg>
+          <span style="position:absolute;bottom:2px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#c9bda6">3</span>
+        </div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.3);display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#8a8070">2</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linecap="round"><path d="M4 16 h13"></path><path d="M4 12 h16"></path><path d="M7 8 h13"></path></svg>
+          <span style="position:absolute;bottom:2px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#c9bda6">5</span>
+        </div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.3);display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#8a8070">3</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><rect x="5" y="5" width="14" height="14" rx="3"></rect><path d="M12 9 v6 M9 12 h6"></path></svg>
+          <span style="position:absolute;bottom:2px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#c9bda6">1</span>
+        </div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.72);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.3);display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#8a8070">4</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acc,#e0a458)" stroke-width="1.6" stroke-linejoin="round"><path d="M12 4 C14 8 17 9 17 13 a5 5 0 0 1 -10 0 C7 9 10 8 12 4 Z"></path></svg>
+          <span style="position:absolute;bottom:2px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#c9bda6">2</span>
+        </div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.45);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.12)"><span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5b5344">5</span></div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.45);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.12)"><span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5b5344">6</span></div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.45);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.12)"><span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5b5344">7</span></div>
+        <div style="position:relative;width:46px;height:46px;background:rgba(8,7,5,0.45);box-shadow:inset 0 0 0 1px rgba(232,214,180,0.12)"><span style="position:absolute;top:2px;left:4px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5b5344">8</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="position:relative;width:60px;height:60px;background:rgba(8,7,5,0.8);box-shadow:inset 0 0 0 1.5px var(--acc,#e0a458),inset 0 0 16px rgba(224,164,88,0.12);display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:3px;left:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--acc,#e0a458)">F</span>
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><rect x="3" y="10" width="9" height="4" rx="1"></rect><path d="M12 9 L19 6 v12 L12 15 Z" stroke="var(--acc,#e0a458)"></path></svg>
+        </div>
+        <span style="font-size:10px;letter-spacing:0.18em;color:#b5aa93;text-shadow:0 1px 3px rgba(0,0,0,0.9)">손전등</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데모 컨트롤 -->
+  <div style="width:min(1400px,96vw);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.2em;color:#7d735f;margin-right:6px">상태 데모</span>
+    <sc-for list="{{ modes }}" as="m" hint-placeholder-count="3">
+      <button onClick="{{ m.select }}" style="cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;font-size:12px;letter-spacing:0.1em;padding:8px 18px;border:none;background:{{ m.bg }};color:{{ m.color }};box-shadow:inset 0 0 0 1px {{ m.border }}">{{ m.label }}</button>
+    </sc-for>
+    <span style="width:1px;height:18px;background:rgba(232,214,180,0.15);margin:0 4px"></span>
+    <button onClick="{{ toggleBleeding }}" style="cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;font-size:12px;letter-spacing:0.1em;padding:8px 18px;border:none;background:{{ bleedBtnBg }};color:{{ bleedBtnColor }};box-shadow:inset 0 0 0 1px {{ bleedBtnBorder }}">출혈 {{ bleedBtnLabel }}</button>
+    <span style="flex:1"></span>
+    <span style="font-size:11px;color:#7d735f">하트 아이콘 = 상태 창 토글 · 테마/그레인/혈흔 → Tweaks · 캐릭터 이미지는 중앙 슬롯에 드롭</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;잿불&quot;,&quot;한랭 우기&quot;,&quot;재의 새벽&quot;],&quot;default&quot;:&quot;잿불&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;테마&quot;},&quot;grain&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;연출&quot;},&quot;gore&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.8,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;연출&quot;}}">
+class Component extends DCLogic {
+  state = { mode: "calm", bleeding: false, panelOpen: true, holdPct: 64, windDeg: -45, clockMin: 402 };
+
+  componentDidMount() {
+    this._t = setInterval(() => {
+      this.setState(s => ({
+        holdPct: (s.holdPct + 7) % 100,
+        clockMin: (s.clockMin + 1) % 1440,
+        windDeg: s.windDeg + (Math.random() * 8 - 4),
+      }));
+    }, 1600);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+
+  themeVals() {
+    const name = this.props.theme ?? "잿불";
+    if (name === "한랭 우기") return { acc: "#6cc3d5", sen: "#6cc3d5", sc1: "#131a24", sc2: "#18222e", sc3: "#0c1218", fire: "rgba(224,164,88,0.32)" };
+    if (name === "재의 새벽") return { acc: "#e07846", sen: "#9a8fb8", sc1: "#241a20", sc2: "#2a1e22", sc3: "#140f13", fire: "rgba(224,120,70,0.4)" };
+    return { acc: "#e0a458", sen: "#6fc7c9", sc1: "#181c14", sc2: "#1d2016", sc3: "#0e100a", fire: "rgba(224,164,88,0.38)" };
+  }
+
+  renderVals() {
+    const { mode, bleeding, panelOpen, holdPct, windDeg, clockMin } = this.state;
+    const isChase = mode === "chase", isDetect = mode === "detect";
+    const gore = this.props.gore ?? 0.8;
+    const hurt = bleeding || isChase;
+    const healthPct = isChase ? 34 : bleeding ? 52 : 86;
+    const acc = this.themeVals();
+    const stageColor = { safe: "#9db383", warn: "#e0b558", danger: "#e8705f" };
+    const CELLS = 12;
+    const row = (label, ratio, lvl, fillColor) => {
+      const filled = Math.round(ratio * CELLS);
+      const col = fillColor || stageColor[lvl];
+      return {
+        label,
+        labelColor: "#a89c84",
+        stage: lvl === "safe" ? "양호" : lvl === "warn" ? "주의" : "위험",
+        stageColor: stageColor[lvl],
+        cells: Array.from({ length: CELLS }, (_, i) => ({
+          bg: i < filled ? col : "rgba(236,227,210,0.07)",
+        })),
+      };
+    };
+    const hLvl = healthPct < 40 ? "danger" : hurt ? "warn" : "safe";
+    const mk = (id, label) => ({
+      label,
+      select: () => this.setState({ mode: id }),
+      bg: mode === id ? "rgba(224,164,88,0.14)" : "rgba(20,17,12,0.9)",
+      border: mode === id ? acc.acc : "rgba(232,214,180,0.2)",
+      color: mode === id ? acc.acc : "#c9bda6",
+    });
+    return {
+      ...acc,
+      isChase, isDetect, bleeding, panelOpen,
+      holdPct: Math.round(holdPct), windDeg: Math.round(windDeg),
+      grain: this.props.grain ?? true,
+      goreVig: (0.45 * gore + 0.15).toFixed(2),
+      goreBlood: (0.9 * gore).toFixed(2),
+      clock: String(Math.floor(clockMin / 60)).padStart(2, "0") + ":" + String(clockMin % 60).padStart(2, "0"),
+      showPrompt: mode === "calm",
+      healthStage: hLvl === "danger" ? "위독" : hurt ? "부상" : "양호",
+      healthColor: stageColor[hLvl === "safe" ? "safe" : hLvl],
+      figureFill: hLvl === "danger" ? "#c5473c" : hurt ? "#d9a441" : "rgba(236,227,210,0.85)",
+      heartRing: bleeding || hLvl === "danger" ? "#c5473c" : "rgba(232,214,180,0.35)",
+      heartFill: hLvl === "danger" ? "#e8705f" : hurt ? "#e0b558" : "#b5aa93",
+      heartAnim: bleeding || isChase ? "pn-heartbeat 0.9s infinite" : "none",
+      rows: [
+        row("체력", healthPct / 100, hLvl, hLvl === "danger" ? "#c5473c" : acc.acc),
+        row("기력", isChase ? 0.28 : 0.71, isChase ? "warn" : "safe", "rgba(236,227,210,0.55)"),
+        row("체온", isChase ? 0.55 : 0.8, isChase ? "warn" : "safe"),
+        row("수분", 0.45, "warn"),
+        row("포만", 0.75, "safe"),
+        row("피로", isChase ? 0.2 : 0.65, isChase ? "danger" : "safe"),
+      ],
+      togglePanel: () => this.setState(s => ({ panelOpen: !s.panelOpen })),
+      modes: [mk("calm", "평상"), mk("detect", "소리 감지"), mk("chase", "랩터 추격")],
+      toggleBleeding: () => this.setState(s => ({ bleeding: !s.bleeding })),
+      bleedBtnLabel: bleeding ? "멈춤" : "시작",
+      bleedBtnBg: bleeding ? "rgba(197,71,60,0.16)" : "rgba(20,17,12,0.9)",
+      bleedBtnBorder: bleeding ? "#c5473c" : "rgba(232,214,180,0.2)",
+      bleedBtnColor: bleeding ? "#ff9d90" : "#c9bda6",
+    };
+  }
+}
+</script>
+</body>
+</html>

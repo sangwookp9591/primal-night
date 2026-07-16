@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0906}
+a{color:#e0a458;text-decoration:none}a:hover{color:#edc088}
+</style>
+</helmet>
+<div style="min-height:100vh;position:relative;overflow:hidden;background:{{ sceneBg }};font-family:'IBM Plex Sans KR',sans-serif;color:#ece3d2;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;transition:background 0.6s">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 50% 42%,transparent 50%,rgba(5,4,2,0.7) 100%)"></div>
+  <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 100%,rgba(150,40,22,0.22),transparent 70%)"></div>
+  </sc-if>
+
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:40px;max-width:760px;width:100%">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.3em;color:#a89c84">세션 종료 — {{ endDay }}</div>
+      <h1 style="margin:0;font-family:'Song Myung',serif;font-size:64px;font-weight:400;letter-spacing:0.05em;color:{{ verdictColor }}">{{ verdictTitle }}</h1>
+      <p style="margin:0;font-size:16px;line-height:1.7;color:#c9bda6;max-width:460px">{{ verdictBody }}</p>
+    </div>
+
+    <div style="width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <sc-for list="{{ figures }}" as="f" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:18px 16px;border-radius:5px;background:rgba(10,8,5,0.6);border:1px solid rgba(232,214,180,0.14);text-align:center">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;color:{{ f.color }}">{{ f.value }}</div>
+          <div style="font-size:12px;color:#a89c84">{{ f.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="width:100%;display:flex;flex-direction:column;gap:8px;padding:20px 24px;border-radius:5px;background:rgba(10,8,5,0.6);border:1px solid rgba(232,214,180,0.14)">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84;margin-bottom:6px">세션 기록</div>
+      <sc-for list="{{ events }}" as="e" hint-placeholder-count="4">
+        <div style="display:flex;gap:14px;align-items:baseline;font-size:14px;padding:5px 0;border-bottom:1px solid rgba(232,214,180,0.07)">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#a89c84;width:74px;flex-shrink:0">{{ e.time }}</span>
+          <span style="color:{{ e.color }}">{{ e.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;gap:12px">
+      <a href="HUD 목업.dc.html" style="padding:13px 32px;border-radius:3px;border:1px solid rgba(224,164,88,0.55);background:rgba(224,164,88,0.12);color:#ecd9b8;font-size:16px;font-weight:500" style-hover="background:rgba(224,164,88,0.22)">다시 도전</a>
+      <a href="메인 메뉴.dc.html" style="padding:13px 32px;border-radius:3px;border:1px solid rgba(232,214,180,0.25);color:#c9bda6;font-size:16px" style-hover="background:rgba(232,214,180,0.06);color:#ece3d2">메인 메뉴</a>
+    </div>
+
+    <button onClick="{{ toggle }}" style="cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;padding:7px 16px;border-radius:20px;border:1px solid rgba(232,214,180,0.2);background:transparent;color:#a89c84" style-hover="color:#ece3d2;border-color:rgba(232,214,180,0.4)">데모: {{ toggleLabel }} 보기</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { failed: false };
+  renderVals() {
+    const failed = this.state.failed;
+    const amber = "#e0a458", red = "#d96a5c", dim = "#ece3d2";
+    return {
+      failed,
+      sceneBg: failed
+        ? "linear-gradient(180deg,#1c1210 0%,#221312 55%,#0e0806 100%)"
+        : "linear-gradient(180deg,#141810 0%,#1a1d13 55%,#0c0e08 100%)",
+      endDay: failed ? "D-2 · 5일차 밤" : "D-0 · 7일차 새벽",
+      verdictTitle: failed ? "계곡에 남다" : "구조 신호 송신",
+      verdictColor: failed ? red : amber,
+      verdictBody: failed
+        ? "피 냄새가 바람을 타고 무리를 불렀다. 다음 판에는 출혈을 먼저 막고, 바람을 등지지 마라."
+        : "화산재가 하늘을 덮기 전, 신호기가 응답을 받았다. 두 사람 모두 계곡을 벗어났다.",
+      figures: failed ? [
+        { value: "4일 22시간", label: "생존 시간", color: dim },
+        { value: "랩터 습격", label: "사망 원인", color: red },
+        { value: "3/5", label: "신호기 부품", color: dim },
+        { value: "17회", label: "큰 소음 발생", color: "#d9a441" },
+      ] : [
+        { value: "6일 18시간", label: "생존 시간", color: dim },
+        { value: "2/2", label: "생존 인원", color: "#8fa974" },
+        { value: "5/5", label: "신호기 부품", color: amber },
+        { value: "6회", label: "큰 소음 발생", color: dim },
+      ],
+      events: failed ? [
+        { time: "1일차 09:12", text: "야영지 구축 · 모닥불 점화", color: "#c9bda6" },
+        { time: "2일차 14:40", text: "하천 도하 중 부상 — 출혈 시작", color: red },
+        { time: "3일차 03:05", text: "피 냄새 감지 반경 확대 (바람 북서)", color: "#d9a441" },
+        { time: "5일차 01:48", text: "랩터 무리 추격 — 대응 실패", color: red },
+      ] : [
+        { time: "1일차 08:30", text: "야영지 구축 · 모닥불 점화", color: "#c9bda6" },
+        { time: "3일차 16:22", text: "송신기 코일 확보 (협동 운반)", color: "#c9bda6" },
+        { time: "5일차 21:10", text: "랩터 추격 — 연막으로 냄새 차단", color: "#d9a441" },
+        { time: "7일차 05:57", text: "고지대 안테나 설치 · 신호 송신 성공", color: amber },
+      ],
+      toggle: () => this.setState(s => ({ failed: !s.failed })),
+      toggleLabel: failed ? "성공 화면" : "실패 화면",
+    };
+  }
+}
+</script>
+</body>
+</html>
