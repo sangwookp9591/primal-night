@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#100e0a}
+a{color:#e0a458;text-decoration:none}a:hover{color:#edc088}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#100e0a;color:#ece3d2;font-family:'IBM Plex Sans KR',sans-serif;padding:56px 48px 96px">
+<div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:48px">
+
+  <header style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid rgba(232,214,180,0.16);padding-bottom:28px">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.22em;color:#a89c84">PRIMAL NIGHT — 기본 캐릭터 에셋</div>
+      <h1 style="margin:0;font-family:'Song Myung',serif;font-size:42px;font-weight:400">생존자 · 기준 시트</h1>
+    </div>
+    <div style="display:flex;gap:16px;font-size:13px"><a href="HUD 목업.dc.html">HUD 목업</a><a href="에셋 스타일 가이드.dc.html">스타일 가이드</a></div>
+  </header>
+
+  <section style="display:grid;grid-template-columns:300px 1fr;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">초상 / 스타일 기준컷</div>
+      <div style="width:300px;height:360px"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="char-portrait" shape="rect" placeholder="생존자 기준컷 — 고해상도 페인팅 2D" hint-size="300px,360px" style="width:300px;height:360px"></x-import></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84;margin-top:8px">인게임 스프라이트 (S방향)</div>
+      <div style="display:flex;align-items:flex-end;gap:14px">
+        <div style="width:74px;height:98px;background:linear-gradient(180deg,#181c14,#0e100a)"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="player-sprite" shape="rect" fit="contain" placeholder="S방향" hint-size="74px,98px" style="width:74px;height:98px"></x-import></div>
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#a89c84">이 슬롯은 HUD 목업의 월드 중앙과 연동된다 — 여기 드롭하면 목업에도 나타난다.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">고정 아이덴티티 — 모든 생성 요청에 문장 그대로 포함</div>
+        <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.9;color:#c9bda6">
+          <li>한국인 성인 생존자 1인 — 보통 체형, 짧은 검은 머리</li>
+          <li>저채도 <b style="color:#c96a54">러스트레드 우비</b> (#8E4438) + 차콜 카고 팬츠 (#2B2A26)</li>
+          <li>하이킹 부츠, 콤팩트한 짙은 배낭, 오른손에 손전등</li>
+          <li>진지한 표정 — 코믹·귀여움 연출 금지</li>
+          <li>조명: 좌상단 차가운 달빛 단일 광원, 그림자 우하단 고정</li>
+          <li>타사 IP 요소·글자·워터마크 금지</li>
+        </ul>
+      </div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">생성 프롬프트 (GPT sol · 8방향 한 번에)</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.8;color:#c9bda6;background:rgba(8,7,5,0.6);border:1px solid rgba(232,214,180,0.1);border-radius:4px;padding:16px">One character sheet, 8 directions (N, NE, E, SE, S, SW, W, NW) in a single image, 4 idle + 6 walk frames per direction. Same single subject in every cell: one adult Korean survivor, average build, short black hair, muted rust-red rain jacket (#8E4438), charcoal cargo pants, hiking boots, compact dark backpack, flashlight in right hand. High-resolution painted 2D, isometric three-quarter orthographic view, identical camera distance and scale in all cells. Single cool moonlight key light from upper-left, identical shadow angle in all cells. Muted natural palette, low saturation. Transparent background, generous cell spacing, no text, no logos, no watermark.</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h2 style="margin:0;font-family:'Song Myung',serif;font-size:24px;font-weight:400">8방향 시트</h2>
+      <span style="font-size:12px;color:#a89c84">한 번의 생성 요청에서 나온 시트 원본을 그대로 드롭 — 방향별 개별 생성 금지 (에셋 정책 2장)</span>
+    </div>
+    <div style="width:100%;aspect-ratio:2/1"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="char-sheet-8dir" shape="rect" fit="contain" placeholder="8방향 × 프레임 시트 (단일 생성 결과)" hint-size="100%,100%" style="width:100%;height:100%"></x-import></div>
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px">
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">N</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">NE</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">E</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">SE</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">S</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">SW</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">W</div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7d735f;padding:6px 0;border-top:1px solid rgba(232,214,180,0.12)">NW</div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:24px;font-weight:400">반영 전 체크</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#c9bda6">
+      <div style="padding:12px 16px;background:#16130e;border:1px solid rgba(232,214,180,0.12);border-radius:5px">☐ 8방향이 한 요청에서 나왔고 같은 개체로 보인다</div>
+      <div style="padding:12px 16px;background:#16130e;border:1px solid rgba(232,214,180,0.12);border-radius:5px">☐ 픽셀 스냅 + 팔레트 양자화 완료 (Nearest 필터에서 선명)</div>
+      <div style="padding:12px 16px;background:#16130e;border:1px solid rgba(232,214,180,0.12);border-radius:5px">☐ 인공색이 손전등 발광부 외에 없다</div>
+      <div style="padding:12px 16px;background:#16130e;border:1px solid rgba(232,214,180,0.12);border-radius:5px">☐ 게임에서 실제 회전시켜 확인했다</div>
+    </div>
+  </section>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

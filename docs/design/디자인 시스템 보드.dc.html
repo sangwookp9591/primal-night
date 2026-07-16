@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#100e0a}
+a{color:#e0a458;text-decoration:none}a:hover{color:#edc088}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#100e0a;color:#ece3d2;font-family:'IBM Plex Sans KR',sans-serif;padding:64px 48px 96px">
+<div style="max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:72px">
+
+  <header style="display:flex;flex-direction:column;gap:16px;border-bottom:1px solid rgba(232,214,180,0.16);padding-bottom:40px">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.22em;color:#a89c84">PRIMAL NIGHT — UI 디자인 시스템 v0.1</div>
+    <h1 style="margin:0;font-family:'Song Myung',serif;font-size:56px;font-weight:400;letter-spacing:0.04em;line-height:1.15">저채도 자연색,<br>제한된 인공의 빛</h1>
+    <p style="margin:0;max-width:620px;font-size:15px;line-height:1.7;color:#a89c84">설계서 11.1의 시각 방향을 UI 언어로 옮긴 보드. 세계는 저채도 자연색으로 가라앉고, 생존자의 현대 장비(손전등·계기·경보)만 제한적인 인공색을 낸다. HUD의 모든 강조색은 "장비가 내는 빛"이라는 규칙을 따른다.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:28px;font-weight:400">01 · 테마 방향 3안</h2>
+    <p style="margin:0;font-size:14px;color:#a89c84;max-width:640px">배경·표면·본문은 안을 가르는 축이고, 단계색(양호·주의·위험)은 3안 공통으로 고정한다 — 색각 접근성과 학습 일관성 때문이다.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+
+      <article style="background:#16130e;border:1px solid rgba(232,214,180,0.16);border-radius:8px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="height:120px;background:radial-gradient(ellipse 70% 90% at 30% 100%, rgba(224,164,88,0.35), transparent 65%), linear-gradient(180deg,#0d0b08,#1c1710)"></div>
+        <div style="padding:20px 20px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <h3 style="margin:0;font-family:'Song Myung',serif;font-size:20px;font-weight:400">A · 잿불</h3>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">기본안</span>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#a89c84">모닥불 곁의 온기. 따뜻한 잿빛 바탕에 호박색 장비광. 야영·제작 중심 화면에서 가장 안정적.</p>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#16130e;border:1px solid rgba(232,214,180,0.2)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">#16130E</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#262017"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">#262017</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#ece3d2"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">#ECE3D2</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#e0a458"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e0a458">#E0A458</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#6fc7c9"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6fc7c9">#6FC7C9</span></div>
+          </div>
+          <div style="background:rgba(13,10,7,0.85);border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:#ece3d2;width:32px">양호</span>
+              <div style="flex:1;height:10px;background:rgba(232,214,180,0.1);border-radius:2px;overflow:hidden"><div style="width:78%;height:100%;background:#e0a458"></div></div>
+            </div>
+            <div style="display:flex;gap:6px;font-size:11px">
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(143,169,116,0.14);color:#8fa974">체온 양호</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(217,164,65,0.14);color:#d9a441">수분 주의</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(197,71,60,0.16);color:#d96a5c">피로 위험</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article style="background:#10141a;border:1px solid rgba(190,214,232,0.16);border-radius:8px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="height:120px;background:radial-gradient(ellipse 70% 90% at 70% 0%, rgba(108,195,213,0.28), transparent 65%), linear-gradient(180deg,#0a0e13,#141b24)"></div>
+        <div style="padding:20px 20px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <h3 style="margin:0;font-family:'Song Myung',serif;font-size:20px;font-weight:400;color:#dee6ee">B · 한랭 우기</h3>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8b99a8">대안</span>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#8b99a8">비 내리는 밤의 계곡. 차가운 청회색 바탕에 손전등 시안. 긴장·잠입 구간의 체감 온도가 낮다.</p>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#10141a;border:1px solid rgba(190,214,232,0.2)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b99a8">#10141A</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#1c2430"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b99a8">#1C2430</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#dee6ee"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b99a8">#DEE6EE</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#6cc3d5"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6cc3d5">#6CC3D5</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#d9a441"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d9a441">#D9A441</span></div>
+          </div>
+          <div style="background:rgba(7,10,14,0.85);border:1px solid rgba(190,214,232,0.14);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:#dee6ee;width:32px">양호</span>
+              <div style="flex:1;height:10px;background:rgba(190,214,232,0.1);border-radius:2px;overflow:hidden"><div style="width:78%;height:100%;background:#6cc3d5"></div></div>
+            </div>
+            <div style="display:flex;gap:6px;font-size:11px">
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(143,169,116,0.14);color:#8fa974">체온 양호</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(217,164,65,0.14);color:#d9a441">수분 주의</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(197,71,60,0.16);color:#d96a5c">피로 위험</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article style="background:#171317;border:1px solid rgba(228,205,214,0.16);border-radius:8px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="height:120px;background:radial-gradient(ellipse 70% 90% at 50% 110%, rgba(224,120,70,0.32), transparent 65%), linear-gradient(180deg,#100d10,#1e171c)"></div>
+        <div style="padding:20px 20px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <h3 style="margin:0;font-family:'Song Myung',serif;font-size:20px;font-weight:400;color:#e9e0e0">C · 재의 새벽</h3>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a3929a">대안</span>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#a3929a">화산 폭발 전야. 재가 섞인 자회색 바탕에 용암빛 주황. 종반부(D-1) 연출과 마케팅 아트에 강하다.</p>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#171317;border:1px solid rgba(228,205,214,0.2)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a3929a">#171317</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#251d23"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a3929a">#251D23</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#e9e0e0"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a3929a">#E9E0E0</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#e07846"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e07846">#E07846</span></div>
+            <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border-radius:4px;background:#9a8fb8"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9a8fb8">#9A8FB8</span></div>
+          </div>
+          <div style="background:rgba(12,9,12,0.85);border:1px solid rgba(228,205,214,0.14);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:#e9e0e0;width:32px">양호</span>
+              <div style="flex:1;height:10px;background:rgba(228,205,214,0.1);border-radius:2px;overflow:hidden"><div style="width:78%;height:100%;background:#e07846"></div></div>
+            </div>
+            <div style="display:flex;gap:6px;font-size:11px">
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(143,169,116,0.14);color:#8fa974">체온 양호</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(217,164,65,0.14);color:#d9a441">수분 주의</span>
+              <span style="padding:2px 8px;border-radius:3px;background:rgba(197,71,60,0.16);color:#d96a5c">피로 위험</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:28px;font-weight:400">02 · 공통 역할색</h2>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#8fa974"></div><div style="font-size:13px;font-weight:500">양호 / 안전</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#8FA974</div></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#d9a441"></div><div style="font-size:13px;font-weight:500">주의</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#D9A441</div></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#c5473c"></div><div style="font-size:13px;font-weight:500">위험 / 출혈</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#C5473C</div></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#6fc7c9"></div><div style="font-size:13px;font-weight:500">바람 / 감각</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#6FC7C9</div></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#f2c94c"></div><div style="font-size:13px;font-weight:500">소리 신호</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#F2C94C</div></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px"><div style="height:28px;border-radius:4px;background:#e0a458"></div><div style="font-size:13px;font-weight:500">장비광 / 강조</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89c84">#E0A458</div></div>
+    </div>
+    <p style="margin:0;font-size:13px;color:#a89c84;max-width:640px">위험 신호는 색 + 형태(⚠ 삼각형, 점멸, 화면 가장자리 위치)를 항상 병행한다 — 설계서 12장 색각 접근성 요구.</p>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:28px;font-weight:400">03 · 타이포그래피</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">디스플레이 — SONG MYUNG</div>
+        <div style="font-family:'Song Myung',serif;font-size:40px;line-height:1.3">화산이 깨어나기 전에,<br>계곡을 벗어나라</div>
+        <p style="margin:0;font-size:13px;color:#a89c84">타이틀·장 전환·세션 결과. 명조 계열의 긴장감이 스릴러 톤을 만든다. 본문에는 쓰지 않는다.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">UI 본문 — IBM PLEX SANS KR</div>
+          <div style="font-size:17px;line-height:1.6">붕대를 감으면 출혈이 멎는다. <strong>피 냄새는 바람을 타고 퍼진다.</strong><br><span style="color:#a89c84">보조 설명과 비활성 상태는 저명도 모래색.</span></div>
+        </div>
+        <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">계기 — IBM PLEX MONO</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;letter-spacing:0.06em">D-5 06:42 <span style="color:#6fc7c9">NW 2</span> <span style="color:#e0a458">12:00</span></div>
+          <p style="margin:0;font-size:13px;color:#a89c84">시간·좌표·수량 등 "장비가 표시하는 숫자"에만 사용. 현대 장비의 인공적 질감을 담당한다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:28px;font-weight:400">04 · HUD 컴포넌트</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <div style="background:linear-gradient(180deg,#1a1610,#0f0c08);border:1px solid rgba(232,214,180,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:18px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">생존 게이지 · 단계 라벨</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:14px;width:44px">양호</span>
+          <div style="flex:1;height:14px;background:rgba(232,214,180,0.08);border:1px solid rgba(232,214,180,0.14);border-radius:2px;overflow:hidden"><div style="width:82%;height:100%;background:linear-gradient(90deg,#b98544,#e0a458)"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:14px;width:44px;color:#d96a5c">부상</span>
+          <div style="flex:1;height:14px;background:rgba(232,214,180,0.08);border:1px solid rgba(232,214,180,0.14);border-radius:2px;overflow:hidden"><div style="width:38%;height:100%;background:linear-gradient(90deg,#8f3830,#c5473c)"></div></div>
+          <span style="font-size:12px;padding:3px 10px;border-radius:3px;background:rgba(197,71,60,0.18);border:1px solid rgba(197,71,60,0.5);color:#d96a5c">출혈</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:14px;width:44px;color:#a89c84">기력</span>
+          <div style="flex:1;height:8px;background:rgba(232,214,180,0.08);border-radius:2px;overflow:hidden"><div style="width:64%;height:100%;background:rgba(236,227,210,0.55)"></div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 12px;border-radius:3px;background:rgba(13,10,7,0.7);border:1px solid rgba(143,169,116,0.35);color:#8fa974"><span style="width:7px;height:7px;border-radius:50%;background:#8fa974"></span>체온 양호</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 12px;border-radius:3px;background:rgba(13,10,7,0.7);border:1px solid rgba(217,164,65,0.4);color:#d9a441"><span style="width:7px;height:7px;background:#d9a441;transform:rotate(45deg)"></span>수분 주의</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 12px;border-radius:3px;background:rgba(13,10,7,0.7);border:1px solid rgba(197,71,60,0.5);color:#d96a5c"><span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #d96a5c"></span>피로 위험</span>
+        </div>
+        <p style="margin:0;font-size:12px;color:#a89c84">단계마다 도형이 다르다: 양호 ● / 주의 ◆ / 위험 ▲ — 색 없이도 구분된다.</p>
+      </div>
+
+      <div style="background:linear-gradient(180deg,#1a1610,#0f0c08);border:1px solid rgba(232,214,180,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:18px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#a89c84">퀵슬롯 · 상호작용 · 감각 신호</div>
+        <div style="display:flex;gap:6px">
+          <div style="width:52px;height:52px;border-radius:4px;background:rgba(13,10,7,0.8);border:1px solid #e0a458;box-shadow:0 0 12px rgba(224,164,88,0.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><path d="M7 14 L12 4 L15 9 L17 14 Z"></path><path d="M6 17 h12 M8 20 h8" stroke="#a89c84"></path></svg><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">3</span></div>
+          <div style="width:52px;height:52px;border-radius:4px;background:rgba(13,10,7,0.8);border:1px solid rgba(232,214,180,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><ellipse cx="12" cy="13" rx="7" ry="5.5"></ellipse><path d="M8 11 q2 -2 5 -1" stroke="#a89c84"></path></svg><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">5</span></div>
+          <div style="width:52px;height:52px;border-radius:4px;background:rgba(13,10,7,0.8);border:1px solid rgba(232,214,180,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><rect x="4" y="9" width="16" height="7" rx="2"></rect><path d="M9 9 v7 M14 9 v7" stroke="#a89c84"></path></svg><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89c84">1</span></div>
+          <div style="width:52px;height:52px;border-radius:4px;background:rgba(13,10,7,0.55);border:1px dashed rgba(232,214,180,0.14)"></div>
+          <div style="width:52px;height:52px;border-radius:4px;background:rgba(13,10,7,0.55);border:1px dashed rgba(232,214,180,0.14)"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;max-width:280px">
+          <div style="display:flex;justify-content:space-between;font-size:14px"><span><b style="font-family:'IBM Plex Mono',monospace;color:#e0a458">E</b> 붕대 감기</span><span style="font-family:'IBM Plex Mono',monospace;color:#a89c84">64%</span></div>
+          <div style="height:5px;background:rgba(232,214,180,0.1);border-radius:2px;overflow:hidden"><div style="width:64%;height:100%;background:#e0a458"></div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:6px 12px;border-radius:20px;background:rgba(111,199,201,0.1);border:1px solid rgba(111,199,201,0.35);color:#6fc7c9"><span style="display:inline-block;transform:rotate(-45deg)">➤</span>바람 북서 · 약함</span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:6px 12px;border-radius:20px;background:rgba(242,201,76,0.1);border:1px solid rgba(242,201,76,0.35);color:#f2c94c"><span style="display:inline-block;transform:rotate(120deg)">➤</span>큰 소리</span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:6px 12px;border-radius:3px;background:rgba(197,71,60,0.2);border:1px solid #c5473c;color:#ff8d7e;font-weight:700">⚠ 추격</span>
+        </div>
+        <p style="margin:0;font-size:12px;color:#a89c84">감각 신호는 알약형, 위험 경보만 각진 사각 — 형태로 긴급도를 가른다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-family:'Song Myung',serif;font-size:28px;font-weight:400">05 · 아이콘 세트 예제</h2>
+    <p style="margin:0;font-size:14px;color:#a89c84;max-width:640px">24px 격자 · 1.6px 선 · 뭉툭한 끝. 아이템은 실루엣 우선, 상태는 단순 기호. 최종 아이콘은 에셋 생성 정책에 따라 한 시트로 생성하되, 이 형태 언어를 기준으로 삼는다.</p>
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:12px">
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linejoin="round"><path d="M6 15 L9 8 L15 7 L19 12 L16 17 L8 18 Z"></path></svg><span style="font-size:12px;color:#a89c84">돌</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linecap="round"><path d="M4 16 h13"></path><path d="M4 12 h16"></path><path d="M7 8 h13"></path></svg><span style="font-size:12px;color:#a89c84">목재</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><rect x="5" y="5" width="14" height="14" rx="3"></rect><path d="M12 9 v6 M9 12 h6"></path></svg><span style="font-size:12px;color:#a89c84">붕대</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e0a458" stroke-width="1.6" stroke-linejoin="round"><path d="M12 4 C14 8 17 9 17 13 a5 5 0 0 1 -10 0 C7 9 10 8 12 4 Z"></path><path d="M5 20 h14" stroke="#a89c84"></path></svg><span style="font-size:12px;color:#a89c84">모닥불</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6"><rect x="3" y="10" width="9" height="4" rx="1"></rect><path d="M12 9 L19 6 v12 L12 15 Z" stroke="#e0a458"></path></svg><span style="font-size:12px;color:#a89c84">손전등</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="15" r="4"></circle><path d="M10 11 V5 M10 5 h4 v3"></path></svg><span style="font-size:12px;color:#a89c84">체온</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linejoin="round"><path d="M12 4 C15 9 18 11 18 15 a6 6 0 0 1 -12 0 C6 11 9 9 12 4 Z"></path></svg><span style="font-size:12px;color:#a89c84">수분</span></div>
+      <div style="background:#16130e;border:1px solid rgba(232,214,180,0.14);border-radius:6px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ece3d2" stroke-width="1.6" stroke-linecap="round"><path d="M4 12 h16"></path><path d="M5 12 a7 7 0 0 0 14 0"></path></svg><span style="font-size:12px;color:#a89c84">포만</span></div>
+    </div>
+  </section>
+
+  <footer style="border-top:1px solid rgba(232,214,180,0.16);padding-top:24px;display:flex;justify-content:space-between;font-size:13px;color:#a89c84">
+    <span>다음: <a href="HUD 목업.dc.html">인터랙티브 HUD 목업</a> · <a href="메인 메뉴.dc.html">메인 메뉴</a> · <a href="세션 결과.dc.html">세션 결과</a> · <a href="에셋 스타일 가이드.dc.html">에셋 스타일 가이드</a></span>
+    <span style="font-family:'IBM Plex Mono',monospace">PRIMAL NIGHT · 2026-07</span>
+  </footer>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

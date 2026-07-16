@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<x-import component-from-global-scope="doc-page" from="./doc-page.js" size="a4" margin="0.8in" hint-size="100%,100%">
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#211d16;font-size:13px;line-height:1.7">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #211d16;padding-bottom:12px;margin-bottom:8px">
+    <span style="font-family:'Song Myung',serif;font-size:26px">PRIMAL NIGHT 에셋 스타일 가이드</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b6153">v0.1 · 2026-07 · 생성 담당: GPT sol</span>
+  </div>
+  <p style="margin:0 0 18px;color:#57503f">이 문서는 <b>고해상도 페인팅 2D</b> 스타일로 생성하는 모든 스프라이트·타일·아이콘의 기준이다. 절차 규칙(8방향 일괄 생성, 픽셀 스냅, 팔레트 양자화)은 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px">docs/technical/2026-07-14-asset-generation-policy.md</span>를 따르고, 이 가이드는 그 위에 "어떻게 보여야 하는가"를 고정한다.</p>
+
+  <h2 style="font-family:'Song Myung',serif;font-size:17px;margin:22px 0 8px">1. 스타일 요약</h2>
+  <ul style="margin:0;padding-left:18px">
+    <li><b>고해상도 페인팅 2D</b> — 눈에 보이는 붓 터치, 부드러운 명암 블렌딩, 픽셀 격자 없음. 외곽선은 색선(어두운 근접색)으로만, 검정 만화선 금지.</li>
+    <li><b>아이소메트릭 3/4 시점</b>, 직교 투영, 개체 간 동일 스케일·동일 카메라 거리.</li>
+    <li><b>진지한 생존 스릴러 톤</b> — 코믹·귀여움 연출 금지. 고어는 실루엣과 혈흔까지만.</li>
+    <li>타사 IP(쥬라기 공원 등) 디자인·로고·시설 인용 금지. 이미지 안 글자·워터마크 금지.</li>
+  </ul>
+
+  <h2 style="font-family:'Song Myung',serif;font-size:17px;margin:22px 0 8px">2. 팔레트 — 저채도 자연색 + 제한적 인공색</h2>
+  <p style="margin:0 0 10px;color:#57503f">세계(지형·식생·공룡)는 아래 자연색 범위 안에서만 칠한다. 인공색(호박·시안)은 <b>현대 장비가 빛을 내는 부분에만</b> 허용한다 — 손전등 빔, 계기 LED, 신호기 램프.</p>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;break-inside:avoid">
+    <thead><tr style="border-bottom:1.5px solid #211d16;text-align:left"><th style="padding:6px 8px">역할</th><th style="padding:6px 8px">색</th><th style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">HEX</th><th style="padding:6px 8px">허용 대상</th></tr></thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">심야 바탕</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#16130e;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#16130E</td><td style="padding:6px 8px">지면 최암부, 그림자</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">식생 녹갈</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#3a4028;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#3A4028</td><td style="padding:6px 8px">풀·양치식물·수관</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">흙·바위 갈색</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#5a4c38;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#5A4C38</td><td style="padding:6px 8px">지면·암석·나무 둥치</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">달빛 하이라이트</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#c8c4ae;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#C8C4AE</td><td style="padding:6px 8px">상면 림라이트 (채도 낮게)</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">생존자 러스트레드</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#8e4438;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#8E4438</td><td style="padding:6px 8px">우비 등 의류 포인트, 랩터 안면 무늬</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">랩터 차콜그린</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#2e3527;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#2E3527</td><td style="padding:6px 8px">깃털 본체 (하복부 #B0A88E)</td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">장비광 호박 ⚡</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#e0a458;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#E0A458</td><td style="padding:6px 8px">불빛·램프·UI 강조 <b>전용</b></td></tr>
+      <tr style="border-bottom:1px solid #d8d0c0"><td style="padding:6px 8px">장비광 시안 ⚡</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#6fc7c9;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#6FC7C9</td><td style="padding:6px 8px">계기 LED·바람 표시 <b>전용</b></td></tr>
+      <tr><td style="padding:6px 8px">혈흔 적갈</td><td style="padding:6px 8px"><span style="display:inline-block;width:34px;height:16px;border-radius:3px;background:#7a1c12;vertical-align:middle"></span></td><td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">#7A1C12</td><td style="padding:6px 8px">혈흔 데칼·부상 표현 (내장 묘사 금지)</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:10px 0 0;color:#57503f;font-size:12px">채도 상한: 자연색 OKLCH C ≤ 0.06, 인공색 C ≤ 0.14. UI 테마 3안(잿불·한랭 우기·재의 새벽)은 배경·강조 축만 다르고 이 자연색 기반은 공유한다 — <b>스프라이트는 테마와 무관하게 한 벌만</b> 만든다.</p>
+
+  <h2 style="font-family:'Song Myung',serif;font-size:17px;margin:22px 0 8px;break-after:avoid">3. 조명·명암 규칙</h2>
+  <ul style="margin:0;padding-left:18px;break-inside:avoid">
+    <li>주광은 <b>좌상단 달빛</b> 단일 광원(차가운 저채도). 그림자는 우하단으로 길게, 8방향 시트 전체에서 동일 각도.</li>
+    <li>모닥불·손전등 등 2차 광원은 개체 스프라이트에 굽지 않는다 — 게임 내 라이팅으로 처리한다.</li>
+    <li>명암은 3단(암부·중간·림라이트)이 기본. 림라이트는 실루엣 판독용이며 상단 윤곽에만.</li>
+    <li>핵심 상호작용 대상은 색이 아니라 <b>형태와 밝은 외곽 림</b>으로 구분되게 그린다 (색각 접근성).</li>
+  </ul>
+
+  <h2 style="font-family:'Song Myung',serif;font-size:17px;margin:22px 0 8px;break-after:avoid">4. 생성 프롬프트 템플릿 (방향성 에셋)</h2>
+  <div style="background:#f2ede1;border:1px solid #d8d0c0;border-radius:4px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.75;color:#3a3428;break-inside:avoid">One character sheet, 8 directions (N, NE, E, SE, S, SW, W, NW) in a single image, plus walk frames per direction if animated. Same single subject in every cell: [체형·복장·장비·팔레트를 문장으로 고정]. High-resolution painted 2D, isometric three-quarter orthographic view, identical camera distance and scale in all cells. Single cool moonlight key light from upper-left, identical shadow angle in all cells. Muted natural palette (list hex values from section 2). Transparent or single flat background, generous cell spacing, no text, no logos, no watermark.</div>
+  <p style="margin:10px 0 0;color:#57503f;font-size:12px">방향을 나눠 요청하는 것은 정책상 금지 — 요청마다 체형·팔레트·조명이 어긋나 회전 시 개체 정합성이 깨진다.</p>
+
+  <h2 style="font-family:'Song Myung',serif;font-size:17px;margin:22px 0 8px;break-after:avoid">5. 반영 전 체크리스트</h2>
+  <ul style="margin:0;padding-left:18px;break-inside:avoid">
+    <li>☐ 8방향(+프레임)이 한 번의 생성 요청에서 나왔다</li>
+    <li>☐ 나란히 놓았을 때 같은 개체로 보인다 (체형·복장·장비·색 고정)</li>
+    <li>☐ 픽셀 스냅 후 목표 해상도에서 흐릿하지 않다 (Nearest 필터 기준)</li>
+    <li>☐ 2장 팔레트로 양자화했고 8방향에 동일 팔레트가 적용됐다</li>
+    <li>☐ 인공색(⚡)이 장비 발광부 외에 쓰이지 않았다</li>
+    <li>☐ 글자·로고·워터마크·타사 IP 없음</li>
+    <li>☐ 게임에서 실제 회전시켜 확인했다</li>
+  </ul>
+
+  <p style="margin:24px 0 0;font-size:11px;color:#8a8070;border-top:1px solid #d8d0c0;padding-top:10px">함께 보기: <a href="디자인 시스템 보드.dc.html" style="color:#8e4438">UI 디자인 시스템 보드</a> · <a href="HUD 목업.dc.html" style="color:#8e4438">인터랙티브 HUD 목업</a></p>
+</div>
+</x-import>
+</x-dc>
+</body>
+</html>
