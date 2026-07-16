@@ -11,6 +11,15 @@ var _event_bus: Node = null
 
 func before_each() -> void:
 	_event_bus = get_node("/root/EventBus")
+	if InputMap.has_action("throw_bait"):
+		Input.action_release("throw_bait")
+	Input.action_release("move_right")
+
+
+func after_each() -> void:
+	if InputMap.has_action("throw_bait"):
+		Input.action_release("throw_bait")
+	Input.action_release("move_right")
 
 
 func _make_config() -> SmellGridConfig:
@@ -124,3 +133,34 @@ func test_throw_beyond_host_validation_distance_is_rejected() -> void:
 	assert_eq(player.inventory.count_of(&"bait"), 1, "사거리 밖 투척 주장은 인벤토리를 소비하지 않는다")
 	assert_null((side.root as Node).get_node_or_null("ThrownBaits"))
 	assert_signal_not_emitted(_event_bus, "noise_emitted")
+
+
+func test_player_throw_bait_input_uses_last_valid_move_direction() -> void:
+	assert_true(InputMap.has_action("throw_bait"), "project.godot 에 throw_bait 입력 액션이 있어야 한다")
+	if not InputMap.has_action("throw_bait"):
+		return
+	var side: Dictionary = _make_side()
+	var player: Player = side.player
+	player.global_position = Vector2(200.0, 200.0)
+	assert_eq(player.inventory.add_item(&"bait", 1), 1)
+
+	Input.action_press("move_right")
+	await wait_physics_frames(2)
+	Input.action_release("move_right")
+	await wait_physics_frames(1)
+	assert_eq(player.inventory.count_of(&"bait"), 1, "throw_bait 입력 전 이동만으로는 미끼가 소비되면 안 된다")
+
+	var origin: Vector2 = player.global_position
+	var expected_direction: Vector2 = Vector2(1.0, 0.5).normalized()
+	Input.action_press("throw_bait")
+	await wait_physics_frames(2)
+
+	var thrown: Node = (side.root as Node).get_node_or_null("ThrownBaits")
+	assert_not_null(thrown)
+	if thrown == null:
+		return
+	assert_eq(player.inventory.count_of(&"bait"), 0, "입력 투척은 호스트 확정 뒤 미끼 1개를 소비해야 한다")
+	assert_almost_eq((thrown.get_child(0) as Node2D).global_position.x,
+		(origin + expected_direction * NetPickup.THROW_MAX_DISTANCE_PX).x, 0.5)
+	assert_almost_eq((thrown.get_child(0) as Node2D).global_position.y,
+		(origin + expected_direction * NetPickup.THROW_MAX_DISTANCE_PX).y, 0.5)

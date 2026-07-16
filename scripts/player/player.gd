@@ -42,6 +42,9 @@ var _noise_radius: float = 0.0
 var _noise_emit_elapsed: float = 0.0
 var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
+var _last_valid_move_direction: Vector2 = Vector2.RIGHT
+var _net_pickup: NetPickup = null
+var _net_pickup_cached: bool = false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -56,6 +59,10 @@ func _physics_process(delta: float) -> void:
 		return
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
+	if moving:
+		_last_valid_move_direction = input_vector
+	if Input.is_action_just_pressed("throw_bait"):
+		_throw_bait()
 	var crouching: bool = Input.is_action_pressed("crouch")
 	# 스태미나가 없으면 run 을 누르고 있어도 달릴 수 없다. 웅크리면 달리지 않는다 (은신 우선).
 	var running: bool = moving and not crouching and Input.is_action_pressed("run") and stamina.can_run()
@@ -113,3 +120,20 @@ func _get_input_vector() -> Vector2:
 
 	var iso: Vector2 = Vector2(raw.x - raw.y, (raw.x + raw.y) * 0.5)
 	return iso.normalized()
+
+func _throw_bait() -> void:
+	var net: NetPickup = _find_net_pickup()
+	if net == null:
+		return
+	net.request_throw_bait_for(self,
+		global_position + _last_valid_move_direction * NetPickup.THROW_MAX_DISTANCE_PX)
+
+func _find_net_pickup() -> NetPickup:
+	if _net_pickup_cached:
+		return _net_pickup
+	_net_pickup_cached = true
+	for node: Node in get_tree().get_nodes_in_group(&"net_pickup"):
+		if (node as NetPickup).owns(self):
+			_net_pickup = node as NetPickup
+			break
+	return _net_pickup

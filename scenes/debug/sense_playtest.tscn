@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=4 uid="uid://senseplaytest"]
+
+[ext_resource type="PackedScene" path="res://scenes/main.tscn" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="2_item"]
+
+[node name="Main" instance=ExtResource("1_main")]
+
+[node name="DebugSenseItems" type="Node2D" parent="."]
+
+[node name="RawMeat" parent="DebugSenseItems" instance=ExtResource("2_item")]
+position = Vector2(-320, 200)
+item_id = &"raw_meat"
+count = 1
+
+[node name="Bait" parent="DebugSenseItems" instance=ExtResource("2_item")]
+position = Vector2(-384, 280)
+item_id = &"bait"
+count = 1
