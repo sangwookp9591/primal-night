@@ -10,6 +10,10 @@ extends Node
 
 const ThrowableBaitScript = preload("res://scripts/items/throwable_bait.gd")
 
+## 호스트가 확정한 미끼 투척. LoopObjective(W5-T2)가 구독해 플레이어 기원 위험 노출로 센다.
+## 전역 EventBus.smell_emitted 는 월드 배경 냄새와 구분되지 않으므로 쓰지 않고 직접 알린다.
+signal bait_thrown(by: Player, position: Vector2)
+
 ## 줍기 검증 거리 (px): 상호작용 손 반경 48 + 아이템 겹침 여유 + 10Hz 위치 스냅샷
 ## 지연 여유. 게임 규칙이 아니라 변조 방지 슬랙이라 프로토콜 상수다 (NetMovement 관례).
 const PICKUP_MAX_DISTANCE_PX: float = 128.0
@@ -153,6 +157,8 @@ func _host_throw_bait(who: Player, target_position: Vector2) -> void:
 		return
 
 	_spawn_landed_bait(target_position, who)
+	# 호스트 권위로 확정된 투척만 알린다 (_host_throw_bait 는 서버 경로에서만 도달).
+	bait_thrown.emit(who, target_position)
 	if multiplayer.get_peers().size() > 0:
 		confirm_throw_bait.rpc(target_position)
 

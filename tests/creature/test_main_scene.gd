@@ -51,3 +51,23 @@ func test_raptor_spawns_away_from_player_sight() -> void:
 
 	assert_gt(distance, raptor.data.sight_radius * 2.0,
 		"랩터는 시작하자마자 플레이어를 지각하지 못할 만큼 멀리 스폰된다")
+
+## W5-T2: 탈출 지점은 보여야 하고(예고 없는 실패 금지, 설계서 3.2) 벽 안이면 안 된다.
+func test_extraction_point_is_visible_and_not_inside_a_wall() -> void:
+	var objective: LoopObjective = _main.get_node_or_null("LoopObjective") as LoopObjective
+	assert_not_null(objective, "루프 목표가 실제 게임 씬에 있어야 한다")
+	assert_true(objective.visible, "탈출 지점 노드가 보여야 한다")
+	assert_true(objective.show_extraction_marker, "보이는 탈출 지점 표식이 켜져 있어야 한다")
+
+	var query: PhysicsPointQueryParameters2D = PhysicsPointQueryParameters2D.new()
+	query.position = objective.global_position
+	query.collision_mask = 1
+	assert_true(objective.get_world_2d().direct_space_state.intersect_point(query).is_empty(),
+		"탈출 표식이 벽 안이면 루프를 완주할 수 없다")
+
+## W5-T2: 포획 반경·유예는 코드가 아니라 데이터(씬 인스펙터)로 둔다 — W5-T5 수치 조정용.
+func test_loop_objective_carries_capture_tuning_data() -> void:
+	var objective: LoopObjective = _main.get_node_or_null("LoopObjective") as LoopObjective
+	assert_not_null(objective, "루프 목표가 실제 게임 씬에 있어야 한다")
+	assert_gt(objective.capture_radius, 0.0, "포획 반경이 데이터로 설정되어 있어야 한다")
+	assert_gt(objective.capture_grace_seconds, 0.0, "포획 유예가 데이터로 설정되어 있어야 한다")

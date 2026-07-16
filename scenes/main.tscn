@@ -93,3 +93,5 @@ phase_duration_seconds = 720.0
 [node name="LoopObjective" type="Node2D" parent="."]
 position = Vector2(640, 700)
 script = ExtResource("17_loopobjective")
+capture_radius = 72.0
+capture_grace_seconds = 2.0
