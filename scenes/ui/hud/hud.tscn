@@ -9,7 +9,7 @@ script = ExtResource("1_hud")
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -168.0
+offset_top = -192.0
 offset_right = 420.0
 grow_vertical = 0
 theme_override_constants/margin_left = 16
@@ -19,6 +19,9 @@ theme_override_constants/margin_bottom = 16
 
 [node name="Column" type="VBoxContainer" parent="Root"]
 theme_override_constants/separation = 4
+
+[node name="SessionTime" type="Label" parent="Root/Column"]
+text = "1일 낮 00:00"
 
 [node name="HealthRow" type="HBoxContainer" parent="Root/Column"]
 theme_override_constants/separation = 8

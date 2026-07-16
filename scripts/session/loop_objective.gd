@@ -48,7 +48,7 @@ func _ready() -> void:
 	_session = get_node(session_path)
 	_host_player = get_node(host_player_path)
 	_container = get_node(players_container_path)
-	_clock.phase_expired.connect(_on_phase_expired)
+	_clock.session_expired.connect(_on_session_expired)
 	if has_node("/root/EventBus"):
 		var event_bus: Node = get_node("/root/EventBus")
 		event_bus.bleeding_started.connect(_on_bleeding_started)
@@ -98,7 +98,7 @@ func _on_smell_emitted(_position: Vector2, strength: float, kind: StringName) ->
 		mark_risk_exposed()
 
 
-func _on_phase_expired() -> void:
+func _on_session_expired() -> void:
 	if not multiplayer.is_server() or outcome != Outcome.PENDING:
 		return
 	_settle(Outcome.FAILED)
@@ -120,7 +120,8 @@ func _settle(result: Outcome) -> void:
 	outcome = result
 	_clock.stop()
 	outcome_changed.emit(outcome)
-	apply_session_snapshot.rpc(_clock.remaining_seconds, _clock.running, int(outcome), risk_exposed)
+	apply_session_snapshot.rpc(_clock.current_day, _clock.time_of_day_seconds,
+		_clock.running, int(outcome), risk_exposed)
 
 
 func _send_snapshot_to(player_id: StringName) -> void:
@@ -129,21 +130,24 @@ func _send_snapshot_to(player_id: StringName) -> void:
 	var peer: int = _session.get_peer_for_player(player_id)
 	if peer <= 0 or peer == RpcGuard.HOST_PEER_ID:
 		return
-	apply_session_snapshot.rpc_id(peer, _clock.remaining_seconds, _clock.running,
-		int(outcome), risk_exposed)
+	apply_session_snapshot.rpc_id(peer, _clock.current_day, _clock.time_of_day_seconds,
+		_clock.running, int(outcome), risk_exposed)
 
 
-## 호스트 → 피어: 세션 상태 스냅샷 (남은 시간·진행 여부·판정·노출).
+## 호스트 → 피어: 세션 상태 스냅샷 (day/time·진행 여부·판정·노출).
 ## 결과 확정 시 브로드캐스트, 참가·재접속 시 그 피어에게만 보낸다.
 @rpc("authority", "call_remote", "reliable")
-func apply_session_snapshot(remaining: float, running: bool, outcome_value: int, exposed: bool) -> void:
+func apply_session_snapshot(day: int, time_of_day: float, running: bool,
+		outcome_value: int, exposed: bool) -> void:
 	if not _guard.check(&"apply_session_snapshot", multiplayer.get_remote_sender_id(),
 			SNAPSHOT_PAYLOAD_BYTES, _now_seconds):
 		return
-	if not is_finite(remaining) or outcome_value < 0 or outcome_value > int(Outcome.FAILED):
+	if day < 1 or day > _clock.total_days or not is_finite(time_of_day) \
+			or time_of_day < 0.0 or time_of_day > _clock.day_duration_seconds() \
+			or outcome_value < 0 or outcome_value > int(Outcome.FAILED):
 		push_warning("LoopObjective: apply_session_snapshot 스키마 위반 — 폐기")
 		return
-	_clock.apply_replicated(remaining, running)
+	_clock.apply_replicated(day, time_of_day, running)
 	risk_exposed = exposed
 	var replicated: Outcome = outcome_value as Outcome
 	if outcome != replicated:

@@ -3,7 +3,7 @@ extends GutTest
 ## LoopObjective — 회색 상자 감지 루프의 세션 판정 (계획서 W3-T2, 설계서 4.x).
 ## 루프: 위험 노출(출혈·냄새) → 랩터 회피 → 지정 지점 도달.
 ## 불변식:
-##   1. phase 시간이 다 되면 세션 실패다.
+##   1. 3일째 시간이 다 되면 세션 실패다.
 ##   2. 위험에 노출된 뒤 지정 지점에 닿으면 세션 성공이다.
 ##   3. 노출 없이 지점만 밟는 것은 이 루프가 아니다 — 판정은 PENDING 으로 남는다.
 ##   4. 시간·판정의 권위는 호스트다. 클라이언트에는 "도달했다"를 주장할 RPC 가 없고,
@@ -11,8 +11,8 @@ extends GutTest
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
-const PORT: int = 8921
-const PHASE_SECONDS: float = 900.0
+const PORT: int = 8926
+const DAY_SECONDS: float = 10.0
 const EXTRACTION: Vector2 = Vector2(600.0, 400.0)
 
 var _sides: Array[Dictionary] = []
@@ -57,7 +57,10 @@ func _make_side(side_name: String) -> Dictionary:
 
 	var clock: SessionClock = SessionClock.new()
 	clock.name = "SessionClock"
-	clock.phase_duration_seconds = PHASE_SECONDS
+	clock.daylight_duration_seconds = 7.0
+	clock.dusk_duration_seconds = 1.0
+	clock.night_duration_seconds = 2.0
+	clock.total_days = 3
 	root.add_child(clock)
 
 	var objective: LoopObjective = LoopObjective.new()
@@ -77,16 +80,16 @@ func _make_side(side_name: String) -> Dictionary:
 	return side
 
 
-func test_phase_time_expiry_fails_the_session() -> void:
+func test_final_day_time_expiry_fails_the_session() -> void:
 	var side: Dictionary = _make_side("Solo")
 	var objective: LoopObjective = side.objective
 	objective.mark_risk_exposed()
 
-	(side.clock as SessionClock).advance(PHASE_SECONDS + 1.0)
+	(side.clock as SessionClock).advance(DAY_SECONDS * 3.0 + 1.0)
 	await wait_physics_frames(8)
 
 	assert_eq(objective.outcome, LoopObjective.Outcome.FAILED,
-		"phase 시간이 다 되면 지점에 못 갔으니 세션 실패다")
+		"3일째 시간이 다 되면 지점에 못 갔으니 세션 실패다")
 
 
 ## 성공 판정은 '노출 뒤 도달'만 인정한다. 지점만 밟는 것은 이 루프가 아니다.
@@ -100,6 +103,7 @@ func test_reaching_extraction_succeeds_only_after_risk_exposure() -> void:
 		"위험에 노출된 적이 없으면 지점을 밟아도 루프 성공이 아니다")
 
 	objective.mark_risk_exposed()
+	(side.clock as SessionClock).advance(DAY_SECONDS * 2.0)
 	await wait_physics_frames(8)
 
 	assert_eq(objective.outcome, LoopObjective.Outcome.SUCCEEDED,
@@ -148,18 +152,19 @@ func test_reconnected_client_restores_session_state_from_host() -> void:
 	var host_objective: LoopObjective = host.objective
 	var client_objective: LoopObjective = client.objective
 
-	host_clock.advance(300.0)
+	host_clock.advance(12.0)
 	assert_eq((host.session as LocalSessionService).host_session(), OK)
 	assert_eq((client.session as LocalSessionService).join_session("127.0.0.1:%d" % PORT), OK)
 	await wait_for_signal((host.session as SessionService).player_joined, 5.0, "호스트가 참가를 관측해야 한다")
 	var client_id: StringName = (client.session as SessionService).get_local_player_id()
 
 	assert_true(await wait_until(func() -> bool:
-		return absf(client_clock.remaining_seconds - host_clock.remaining_seconds) < 5.0, 5.0),
-		"참가한 클라이언트는 호스트의 남은 phase 시간을 받아야 한다")
+		return client_clock.current_day == host_clock.current_day \
+			and absf(client_clock.time_of_day_seconds - host_clock.time_of_day_seconds) < 1.0, 5.0),
+		"참가한 클라이언트는 호스트의 day/time을 받아야 한다")
 
 	# 접속 중에 세션이 더 진행된다: 시간이 흐르고 플레이어가 위험에 노출된다.
-	host_clock.advance(200.0)
+	host_clock.advance(5.0)
 	host_objective.mark_risk_exposed()
 
 	(client.session as SessionService).leave_session()
@@ -173,12 +178,31 @@ func test_reconnected_client_restores_session_state_from_host() -> void:
 	await wait_for_signal((host.session as SessionService).player_reconnected, 5.0, "재접속으로 관측되어야 한다")
 
 	assert_true(await wait_until(func() -> bool:
-		return absf(client_clock.remaining_seconds - host_clock.remaining_seconds) < 5.0, 5.0),
-		"재접속한 클라이언트는 호스트의 남은 phase 시간을 되찾아야 한다")
+		return client_clock.current_day == host_clock.current_day \
+			and absf(client_clock.time_of_day_seconds - host_clock.time_of_day_seconds) < 1.0, 5.0),
+		"재접속한 클라이언트는 호스트의 day/time을 되찾아야 한다")
 	assert_true(client_objective.risk_exposed,
 		"재접속한 클라이언트는 위험 노출 상태를 되찾아야 한다")
 	assert_eq(client_objective.outcome, host_objective.outcome,
 		"세션 판정은 호스트 값 그대로다")
+
+
+func test_client_cannot_claim_a_day() -> void:
+	var host: Dictionary = _make_side("HostSide")
+	var client: Dictionary = _make_side("ClientSide")
+	assert_eq((host.session as LocalSessionService).host_session(), OK)
+	assert_eq((client.session as LocalSessionService).join_session("127.0.0.1:%d" % PORT), OK)
+	await wait_for_signal((host.session as SessionService).player_joined, 5.0)
+	var host_clock: SessionClock = host.clock
+	var original_day: int = host_clock.current_day
+
+	(client.objective as LoopObjective).apply_session_snapshot.rpc(
+		3, 9.0, false, int(LoopObjective.Outcome.SUCCEEDED), true)
+	await wait_physics_frames(10)
+
+	assert_engine_error("!can_call", "authority RPC가 클라이언트 day 주장을 차단해야 한다")
+	assert_eq(host_clock.current_day, original_day, "클라이언트 RPC로 호스트 day를 바꿀 수 없다")
+	assert_eq((host.objective as LoopObjective).outcome, LoopObjective.Outcome.PENDING)
 
 
 ## 가짜 완료 금지 (설계서 15장): 세션 골격이 실제 게임 씬에 있어야 한다.
@@ -190,7 +214,8 @@ func test_main_scene_runs_the_loop_session() -> void:
 
 	assert_not_null(clock, "세션 시계가 실제 게임 씬에 있어야 한다")
 	assert_not_null(objective, "루프 목표가 실제 게임 씬에 있어야 한다")
-	assert_between(clock.phase_duration_seconds, 600.0, 900.0, "10~15분짜리 루프다")
+	assert_almost_eq(clock.day_duration_seconds(), 600.0, 0.01, "하루는 10분이다")
+	assert_eq(clock.total_days, 3, "W6 세션은 3일이다")
 
 	var player: Player = main.get_node("Player")
 	assert_gt(objective.global_position.distance_to(player.global_position), 500.0,
@@ -201,3 +226,21 @@ func test_main_scene_runs_the_loop_session() -> void:
 	query.collision_mask = 1
 	assert_true(objective.get_world_2d().direct_space_state.intersect_point(query).is_empty(),
 		"지정 지점이 벽 안이면 루프를 완주할 수 없다")
+
+
+func test_compressed_days_preserve_campfire_injury_and_inventory() -> void:
+	var main: Node2D = add_child_autofree(MainScene.instantiate())
+	await wait_physics_frames(2)
+	var player: Player = main.get_node("Player")
+	var clock: SessionClock = main.get_node("SessionClock")
+	var site: CampfireSite = main.get_node("SurvivalDemo/CampfireSite")
+	player.inventory.add_item(&"bandage", 2)
+	assert_true(player.injury.apply_replicated(&"leg", &"laceration"))
+	site.build_and_light()
+	clock.speed_multiplier = 1200.0
+
+	assert_true(await wait_until(func() -> bool: return clock.current_day == 3, 3.0))
+
+	assert_true(site.campfire != null and site.campfire.is_lit)
+	assert_true(player.injury.has_leg_laceration())
+	assert_eq(player.inventory.count_of(&"bandage"), 2)

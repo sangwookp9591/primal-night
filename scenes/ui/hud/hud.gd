@@ -27,6 +27,7 @@ const STAT_NAMES: Dictionary = {
 }
 
 @onready var _health_stage: Label = $Root/Column/HealthRow/HealthStage
+@onready var _time_label: Label = $Root/Column/SessionTime
 @onready var _health_bar: ProgressBar = $Root/Column/HealthRow/HealthBar
 @onready var _bleeding: Label = $Root/Column/HealthRow/Bleeding
 @onready var _stamina_bar: ProgressBar = $Root/Column/StaminaRow/StaminaBar
@@ -45,6 +46,10 @@ const STAT_NAMES: Dictionary = {
 ## 마지막으로 그린 단계. 단계가 바뀐 프레임에만 문자열을 만든다 (성능 규칙).
 var _stat_stages: Dictionary = {}
 var _player: Player = null
+var _clock: SessionClock = null
+var _last_clock_day: int = -1
+var _last_clock_second: int = -1
+var _last_clock_phase: int = -1
 var _game_data: Node = null
 var _slot_labels: Array[Label] = []
 var _last_stage: String = ""
@@ -64,6 +69,7 @@ var _raptor_scan_elapsed: float = RAPTOR_SCAN_INTERVAL_SECONDS
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
 	set_process(false)
+	bind_clock(get_parent().get_node_or_null("SessionClock") as SessionClock)
 	# 씬에 그냥 놓았을 때는 스스로 플레이어를 찾는다 (1회 탐색).
 	var found: Node = get_tree().get_first_node_in_group("player")
 	if found != null:
@@ -97,6 +103,36 @@ func bind(player: Player) -> void:
 	_refresh_stage()
 	_refresh_stat_stages()
 	set_process(true)
+
+
+func bind_clock(clock: SessionClock) -> void:
+	if clock == null or _clock == clock:
+		return
+	_clock = clock
+	_clock.time_changed.connect(_on_clock_time_changed)
+	_refresh_time()
+
+
+func time_text() -> String:
+	return _time_label.text
+
+
+func _on_clock_time_changed(_day: int, _time_of_day: float, _phase: int) -> void:
+	_refresh_time()
+
+
+func _refresh_time() -> void:
+	var whole_seconds: int = floori(_clock.time_of_day_seconds)
+	if _last_clock_day == _clock.current_day and _last_clock_second == whole_seconds \
+			and _last_clock_phase == int(_clock.current_phase):
+		return
+	_last_clock_day = _clock.current_day
+	_last_clock_second = whole_seconds
+	_last_clock_phase = int(_clock.current_phase)
+	var minute: int = whole_seconds / 60
+	var second: int = whole_seconds % 60
+	_time_label.text = "%d일 %s %02d:%02d" % [
+		_clock.current_day, _clock.phase_label(), minute, second]
 
 func _process(delta: float) -> void:
 	# 매 프레임 하는 일은 이 두 줄이 전부다. 문자열도 할당도 없다.

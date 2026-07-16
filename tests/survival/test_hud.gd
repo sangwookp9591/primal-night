@@ -14,13 +14,28 @@ func before_each() -> void:
 
 func _spawn() -> Array:
 	var world: Node2D = add_child_autofree(Node2D.new())
+	var clock: SessionClock = SessionClock.new()
+	clock.name = "SessionClock"
+	world.add_child(clock)
+	clock.stop()
 	var player: Player = PlayerScene.instantiate()
 	world.add_child(player)
 	var hud: Hud = HudScene.instantiate()
 	world.add_child(hud)
 	await wait_physics_frames(1)
 	hud.bind(player)
-	return [player, hud]
+	return [player, hud, clock]
+
+
+func test_time_text_follows_session_clock_signal() -> void:
+	var spawned: Array = await _spawn()
+	var hud: Hud = spawned[1]
+	var clock: SessionClock = spawned[2]
+
+	clock.apply_replicated(2, 480.0, false)
+
+	assert_string_contains(hud.time_text(), "2일")
+	assert_string_contains(hud.time_text(), "밤")
 
 func test_shows_sixteen_inventory_slots() -> void:
 	var spawned: Array = await _spawn()

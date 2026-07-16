@@ -80,11 +80,13 @@ script = ExtResource("14_netcampfire")
 [node name="NetResync" type="Node" parent="."]
 script = ExtResource("15_netresync")
 
-; 세션 phase_time — 10~15분짜리 회색 상자 루프 한 판 (설계서 4.x, W3-T2).
-; 7일 구조는 아직 없다. 초 단위 남은 시간만 센다.
+; W6 압축 세션 시계 — 하루 10분(낮 7 + 황혼 1 + 밤 2) × 3일.
 [node name="SessionClock" type="Node" parent="."]
 script = ExtResource("16_sessionclock")
-phase_duration_seconds = 720.0
+daylight_duration_seconds = 420.0
+dusk_duration_seconds = 60.0
+night_duration_seconds = 120.0
+total_days = 3
 
 ; 루프 판정: 위험 노출(출혈) → 랩터 회피 → 이 지점 도달 = 성공 / 시간 만료 = 실패.
 ; 지점은 스폰(-384,200)의 반대편 남동쪽 평지다 — 랩터 스폰(-800,800)을 지나칠 필요는

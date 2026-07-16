@@ -1,50 +1,88 @@
 extends GutTest
 
-## SessionClock — 회색 상자 루프의 초 단위 phase_time (계획서 W3-T2).
-## 7일 세션 구조는 아직 만들지 않는다. 이 시계는 한 phase 의 남은 초만 센다.
-## 시간의 권위는 호스트다 — 클라이언트도 같은 카운트다운을 돌려 화면을 채우지만,
-## 호스트 스냅샷(LoopObjective.apply_session_snapshot)이 오면 그 값으로 덮인다.
-
 var _clock: SessionClock
 
 
 func before_each() -> void:
 	_clock = SessionClock.new()
-	_clock.phase_duration_seconds = 10.0
+	_clock.daylight_duration_seconds = 7.0
+	_clock.dusk_duration_seconds = 1.0
+	_clock.night_duration_seconds = 2.0
+	_clock.total_days = 3
 	add_child_autofree(_clock)
 
 
-func test_clock_starts_running_at_full_phase_duration() -> void:
-	assert_almost_eq(_clock.remaining_seconds, 10.0, 0.2, "시계는 phase 전체 시간에서 시작한다")
-	assert_true(_clock.running, "세션이 시작되면 시계도 돈다")
-
-
-func test_advance_counts_down_and_expires_exactly_once() -> void:
-	watch_signals(_clock)
-
-	_clock.advance(4.0)
-	assert_almost_eq(_clock.remaining_seconds, 6.0, 0.2, "흐른 만큼 줄어든다")
-	assert_false(_clock.is_expired(), "아직 만료가 아니다")
-
-	_clock.advance(6.0)
-	assert_true(_clock.is_expired(), "phase 시간이 다 되면 만료다")
-	assert_false(_clock.running, "만료된 시계는 더 돌지 않는다")
-	assert_signal_emit_count(_clock, "phase_expired", 1)
-
-	_clock.advance(5.0)
-	assert_almost_eq(_clock.remaining_seconds, 0.0, 0.01, "음수로 내려가지 않는다")
-	assert_signal_emit_count(_clock, "phase_expired", 1, "만료 신호는 한 번만 나간다")
-
-
-## 클라이언트 시계는 호스트 값으로 맞춰지되, 스스로 phase 를 늘려 잡을 수 없다.
-func test_apply_replicated_takes_host_value_within_phase_bounds() -> void:
-	_clock.apply_replicated(3.0, true)
-	assert_almost_eq(_clock.remaining_seconds, 3.0, 0.01, "호스트 값으로 맞춘다")
+func test_starts_on_day_one_in_daylight() -> void:
+	assert_eq(_clock.current_day, 1)
+	assert_almost_eq(_clock.time_of_day_seconds, 0.0, 0.01)
+	assert_eq(_clock.current_phase, 0)
 	assert_true(_clock.running)
 
-	_clock.apply_replicated(9999.0, true)
-	assert_almost_eq(_clock.remaining_seconds, 10.0, 0.01, "phase 상한을 넘겨 시간을 벌 수 없다")
 
-	_clock.apply_replicated(-5.0, false)
-	assert_almost_eq(_clock.remaining_seconds, 0.0, 0.01, "음수 시간도 없다")
+func test_advances_day_one_to_two_to_three() -> void:
+	var days: Array[int] = []
+	_clock.day_changed.connect(func(day: int) -> void: days.append(day))
+
+	_clock.advance(10.0)
+	_clock.advance(10.0)
+
+	assert_eq(days, [2, 3])
+	assert_eq(_clock.current_day, 3)
+	assert_almost_eq(_clock.time_of_day_seconds, 0.0, 0.01)
+
+
+func test_day_three_expiration_emits_exactly_once() -> void:
+	watch_signals(_clock)
+
+	_clock.advance(30.0)
+	_clock.advance(10.0)
+
+	assert_eq(_clock.current_day, 3)
+	assert_almost_eq(_clock.time_of_day_seconds, 10.0, 0.01)
+	assert_true(_clock.is_expired())
 	assert_false(_clock.running)
+	assert_signal_emit_count(_clock, "session_expired", 1)
+
+
+func test_speed_multiplier_keeps_the_same_boundary_order() -> void:
+	var normal: SessionClock = _make_clock(1.0)
+	var fast: SessionClock = _make_clock(1.25)
+	var normal_events: Array[String] = _capture_boundaries(normal)
+	var fast_events: Array[String] = _capture_boundaries(fast)
+
+	normal.advance(10.0)
+	fast.advance(8.0)
+
+	assert_eq(fast_events, normal_events)
+	assert_eq(normal_events, ["phase:1", "phase:2", "day:2", "phase:0"])
+
+
+func test_apply_replicated_restores_day_and_time_within_bounds() -> void:
+	_clock.apply_replicated(2, 8.5, true)
+	assert_eq(_clock.current_day, 2)
+	assert_almost_eq(_clock.time_of_day_seconds, 8.5, 0.01)
+	assert_eq(_clock.current_phase, 2)
+
+	_clock.apply_replicated(99, 999.0, true)
+	assert_eq(_clock.current_day, 3)
+	assert_almost_eq(_clock.time_of_day_seconds, 10.0, 0.01)
+	assert_false(_clock.running, "3일 종료 위치의 스냅샷은 다시 달릴 수 없다")
+
+
+func _make_clock(speed: float) -> SessionClock:
+	var clock: SessionClock = SessionClock.new()
+	clock.daylight_duration_seconds = 7.0
+	clock.dusk_duration_seconds = 1.0
+	clock.night_duration_seconds = 2.0
+	clock.total_days = 3
+	clock.speed_multiplier = speed
+	add_child_autofree(clock)
+	return clock
+
+
+func _capture_boundaries(clock: SessionClock) -> Array[String]:
+	var events: Array[String] = []
+	clock.phase_changed.connect(func(phase: int) -> void:
+		events.append("phase:%d" % int(phase)))
+	clock.day_changed.connect(func(day: int) -> void: events.append("day:%d" % day))
+	return events
