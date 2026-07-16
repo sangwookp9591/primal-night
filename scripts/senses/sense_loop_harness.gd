@@ -9,15 +9,15 @@ extends SceneTree
 ##   2) 랩터 상실        — 훑기(search sweep) 소진 후 INVESTIGATE → WANDER
 ##   3) 냄새 조사 진입   — 랩터 WANDER → INVESTIGATE (냄새 단서)
 ##   4) 회피 성공        — CHASE 중 모닥불 보호로 CHASE 이탈(FLEE)
-## 10개 시드가 전부 4개 항목을 만족해야 exit 0. 하나라도 실패하면 exit 1 + 단계별 로그.
+## 10개 시드가 전부 4개 항목과 생산자 필드를 만족해야 exit 0. 하나라도 실패하면 exit 1 + 단계별 로그.
 ##
 ## ★ 게임 코드는 건드리지 않는다. 현재 커밋된 공개 API 만 사용한다:
-##   EventBus.noise_emitted/smell_emitted (NoiseEmitter/SmellSource 가 쓰는 것과 동일 경로),
+##   Player 입력/NoiseEmitter, WorldItem/SmellSource, NetPickup bait throw,
 ##   Raptor.state/State(공개 enum), CampfireSite.interact 계약, Player.inventory/interactor.
 ##   player_config 의 base_*_noise 같은 내부 필드는 참조하지 않는다 — 픽스 커밋으로
 ##   API 가 바뀌어도(예: 필드 제거) 이 하네스가 조용히 깨지지 않게 하기 위함이다.
 
-const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const SensePlaytestScene: PackedScene = preload("res://scenes/debug/sense_playtest.tscn")
 const SEED_COUNT: int = 10
 const SEED_BASE: int = 4001
 
@@ -46,9 +46,11 @@ func _run() -> void:
 	for result: Dictionary in _results:
 		if not result.ok:
 			all_ok = false
-		_log("seed %d: 소리조사=%s 상실=%s 냄새조사=%s 회피=%s -> %s%s" % [
+		_log("seed %d: 소리조사=%s 상실=%s 냄새조사=%s 회피=%s 생산자=[noise:%s smell:%s choice:%s objective:%s] -> %s%s" % [
 			result.seed, result.sound_investigate, result.lost_interest,
 			result.smell_investigate, result.evasion,
+			result.noise_producer, result.smell_producer, result.player_choice,
+			result.objective_completed,
 			"PASS" if result.ok else "FAIL",
 			"" if result.ok else " (%s)" % result.reason])
 
@@ -60,20 +62,24 @@ func _run() -> void:
 		quit(1)
 
 
-## 시드 하나를 처음부터 끝까지 실행한다. main.tscn 을 새로 인스턴스화해 이전 시드와
+## 시드 하나를 처음부터 끝까지 실행한다. sense_playtest.tscn 을 새로 인스턴스화해 이전 시드와
 ## 상태를 공유하지 않는다. 실패해도 예외를 던지지 않고 사유를 담아 반환한다.
 func _run_seed(seed_value: int) -> Dictionary:
 	var result: Dictionary = {
 		seed = seed_value, sound_investigate = false, lost_interest = false,
-		smell_investigate = false, evasion = false, ok = false, reason = "",
+		smell_investigate = false, evasion = false,
+		noise_producer = false, smell_producer = false, player_choice = "",
+		objective_completed = false, ok = false, reason = "",
 	}
 
-	var main: Node2D = MainScene.instantiate()
+	var main: Node2D = SensePlaytestScene.instantiate()
 	get_root().add_child(main)
 	var player: Player = main.get_node("Player")
 	var raptor: Raptor = main.get_node("Raptor")
 	var campfire_site: CampfireSite = main.get_node("SurvivalDemo/CampfireSite")
-	var event_bus: Node = get_root().get_node("EventBus")
+	var objective: LoopObjective = main.get_node("LoopObjective")
+	var raw_meat: WorldItem = main.get_node("DebugSenseItems/RawMeat")
+	var bait: WorldItem = main.get_node("DebugSenseItems/Bait")
 
 	raptor.rng.seed = seed_value
 	raptor.state_changed.connect(func(prev: int, next: int) -> void:
@@ -91,15 +97,18 @@ func _run_seed(seed_value: int) -> Dictionary:
 		await _teardown(main)
 		return result
 
-	# ── 1) 소리 조사 진입 — 직접 지각 반경 밖, 청취 반경 안에 소리를 놓는다 ──
-	var noise_position: Vector2 = raptor.global_position + Vector2(0.0, -250.0)
-	event_bus.noise_emitted.emit(noise_position, 400.0, null)
+	# ── 1) 소리 조사 진입 — 직접 지각 반경 밖에서 플레이어 입력 소음을 낸다 ──
+	await _produce_player_noise(seed_value, player, raptor, result)
 	if not await _wait_until(func() -> bool: return raptor.state != Raptor.State.WANDER, 5.0):
 		result.reason = "소리로 조사에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
 		await _teardown(main)
 		return result
 	if raptor.state != Raptor.State.INVESTIGATE:
 		result.reason = "소리 뒤 상태가 조사가 아니다 (state=%s)" % raptor.get_state_name()
+		await _teardown(main)
+		return result
+	if not result.noise_producer:
+		result.reason = "소리 조사가 실제 생산자 경로를 쓰지 않았다"
 		await _teardown(main)
 		return result
 	result.sound_investigate = true
@@ -117,8 +126,8 @@ func _run_seed(seed_value: int) -> Dictionary:
 	result.lost_interest = true
 	_log("  [seed %d] 랩터 상실(배회 복귀) 확인" % seed_value)
 
-	# ── 3) 냄새 조사 진입 — 랩터의 현재 위치에 직접 냄새를 놓는다 ──
-	event_bus.smell_emitted.emit(raptor.global_position, 60.0, &"blood")
+	# ── 3) 냄새 조사 진입 — 디버그 판 raw_meat 의 SmellSource 를 실제로 틱시킨다 ──
+	await _produce_world_raw_meat_smell(seed_value, raw_meat, raptor, result)
 	if not await _wait_until(func() -> bool: return raptor.state != Raptor.State.WANDER, 5.0):
 		result.reason = "냄새로 조사에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
 		await _teardown(main)
@@ -130,10 +139,28 @@ func _run_seed(seed_value: int) -> Dictionary:
 	result.smell_investigate = true
 	_log("  [seed %d] 냄새 조사 진입 확인 (raptor=%s)" % [
 		seed_value, raptor.global_position.snapped(Vector2.ONE)])
+	raw_meat.queue_free()
+	await physics_frame
 
-	# ── 4) 회피 성공 — 모닥불 보호로 CHASE 이탈 ──
+	# ── 4) 플레이어 선택 — 디버그 bait 를 주워 실제 throw_bait 입력으로 투척한다 ──
+	if not await _throw_bait_at_raptor(seed_value, player, bait, raptor, result):
+		await _teardown(main)
+		return result
+
+	# ── 5) 회피 성공 — 모닥불 보호로 CHASE 이탈 ──
 	result.evasion = await _run_evasion(seed_value, player, raptor, campfire_site, result)
 	if not result.evasion:
+		await _teardown(main)
+		return result
+
+	# ── 6) 목표 성공 — 노출→교전→회피 뒤 탈출 지점 도달 ──
+	result.objective_completed = await _complete_objective(player, objective)
+	if not result.objective_completed:
+		result.reason = "회피 뒤 탈출 지점에 도달해도 목표가 완료되지 않았다"
+		await _teardown(main)
+		return result
+	if not result.noise_producer or not result.smell_producer or String(result.player_choice).is_empty():
+		result.reason = "필수 생산자 결과 필드가 비었다"
 		await _teardown(main)
 		return result
 
@@ -141,6 +168,79 @@ func _run_seed(seed_value: int) -> Dictionary:
 	result.reason = "전부 통과"
 	await _teardown(main)
 	return result
+
+
+func _produce_player_noise(seed_value: int, player: Player, raptor: Raptor,
+		result: Dictionary) -> void:
+	var event_bus: Node = get_root().get_node("EventBus")
+	var on_noise: Callable = func(_position: Vector2, _radius: float, source: Node) -> void:
+		if source == player:
+			result.noise_producer = true
+	event_bus.noise_emitted.connect(on_noise)
+
+	player.global_position = raptor.global_position + Vector2(190.0, 0.0)
+	player.in_bush = true
+	Input.action_press("run")
+	Input.action_press("move_right")
+	for _frame_index: int in range(90):
+		if result.noise_producer:
+			break
+		await physics_frame
+	_release_inputs()
+	player.in_bush = false
+	player.global_position = raptor.global_position + Vector2(20000.0, 20000.0)
+	if event_bus.noise_emitted.is_connected(on_noise):
+		event_bus.noise_emitted.disconnect(on_noise)
+	_log("  [seed %d] 플레이어 입력 소음 생산자=%s" % [seed_value, result.noise_producer])
+
+
+func _produce_world_raw_meat_smell(seed_value: int, raw_meat: WorldItem, raptor: Raptor,
+		result: Dictionary) -> void:
+	var grid: SmellGrid = SmellGrid.find_in(raw_meat.get_tree())
+	for _frame_index: int in range(180):
+		raw_meat.global_position = raptor.global_position
+		if grid != null and grid.get_smell_at(raptor.global_position) > 0.0:
+			result.smell_producer = true
+		if result.smell_producer and raptor.state != Raptor.State.WANDER:
+			break
+		await physics_frame
+	_log("  [seed %d] raw_meat SmellSource 생산자=%s" % [seed_value, result.smell_producer])
+
+
+func _throw_bait_at_raptor(seed_value: int, player: Player, bait: WorldItem, raptor: Raptor,
+		result: Dictionary) -> bool:
+	player.global_position = bait.global_position
+	await physics_frame
+	await physics_frame
+	player.interactor.begin()
+	await physics_frame
+	if player.inventory.count_of(&"bait") <= 0:
+		result.reason = "디버그 bait 를 줍지 못했다"
+		return false
+
+	var throw_direction: Vector2 = Vector2(1.0, 0.5).normalized()
+	player.global_position = raptor.global_position - throw_direction * NetPickup.THROW_MAX_DISTANCE_PX
+	Input.action_press("move_right")
+	await physics_frame
+	Input.action_release("move_right")
+	Input.action_press("throw_bait")
+	await physics_frame
+	Input.action_release("throw_bait")
+	await physics_frame
+
+	var thrown: Node = player.get_parent().get_node_or_null("ThrownBaits")
+	if thrown == null or thrown.get_child_count() <= 0:
+		result.reason = "throw_bait 입력이 착지 미끼를 만들지 못했다"
+		return false
+	result.player_choice = "throw_bait"
+	_log("  [seed %d] 플레이어 선택 확인: %s" % [seed_value, result.player_choice])
+	return true
+
+
+func _complete_objective(player: Player, objective: LoopObjective) -> bool:
+	player.global_position = objective.global_position
+	return await _wait_until(
+		func() -> bool: return objective.outcome == LoopObjective.Outcome.SUCCEEDED, 2.0)
 
 
 ## CHASE 로 끌어들인 뒤, 근처에 모닥불을 지어 보호받는 곳으로 실제로 걸어 들어가게 한다.
@@ -215,9 +315,16 @@ func _walk_until_fleeing(mover: Node2D, target: Vector2, raptor: Raptor,
 
 
 func _teardown(main: Node) -> void:
+	_release_inputs()
 	main.queue_free()
 	await physics_frame
 	await physics_frame
+
+
+func _release_inputs() -> void:
+	for action: StringName in [&"move_right", &"move_left", &"move_up", &"move_down", &"run", &"throw_bait"]:
+		if InputMap.has_action(action):
+			Input.action_release(action)
 
 
 ## condition 이 참이 될 때까지 대기한다. report 는 1초마다 호출한다(생략 가능).
