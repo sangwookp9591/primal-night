@@ -34,7 +34,7 @@ func test_sprite_frames_contain_all_directional_idle_and_walk_animations() -> vo
 func test_real_player_scene_loads_runtime_sheet_and_uses_foot_anchor() -> void:
 	var player: Player = add_child_autofree(PlayerScene.instantiate())
 	await wait_physics_frames(1)
-	var animator: PlayerSpriteAnimator = player.get_node("SpriteAnimator") as PlayerSpriteAnimator
+	var animator: PlayerSpriteAnimator = player.get_node("VisualRig/BaseBody") as PlayerSpriteAnimator
 	var body: ColorRect = player.get_node("Body") as ColorRect
 
 	assert_not_null(animator)

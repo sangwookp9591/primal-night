@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/survival/survival_stats.gd" id="9_stats"]
 [ext_resource type="Script" path="res://scripts/player/player_sprite_animator.gd" id="10_spriteanimator"]
 [ext_resource type="Script" path="res://scripts/equipment/equipment_component.gd" id="11_equipment"]
+[ext_resource type="Script" path="res://scripts/player/player_visual_rig.gd" id="12_visualrig"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -27,9 +28,33 @@ collision_mask = 1
 script = ExtResource("1_player")
 config = ExtResource("2_config")
 
-[node name="SpriteAnimator" type="AnimatedSprite2D" parent="."]
+[node name="VisualRig" type="Node2D" parent="."]
+script = ExtResource("12_visualrig")
+
+[node name="BaseBody" type="AnimatedSprite2D" parent="VisualRig"]
+unique_name_in_owner = true
 texture_filter = 1
 script = ExtResource("10_spriteanimator")
+
+[node name="Outfit" type="AnimatedSprite2D" parent="VisualRig"]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+
+[node name="Back" type="AnimatedSprite2D" parent="VisualRig"]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+
+[node name="MainHand" type="AnimatedSprite2D" parent="VisualRig"]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+
+[node name="StateOverlay" type="AnimatedSprite2D" parent="VisualRig"]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
 
 [node name="Body" type="ColorRect" parent="."]
 visible = false
