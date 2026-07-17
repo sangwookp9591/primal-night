@@ -2,6 +2,13 @@ class_name Player
 extends CharacterBody2D
 
 const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_config.tres")
+const QUICK_CRAFT_PRIORITY: Array[StringName] = [
+	&"craft_stone_knife",
+	&"craft_torch",
+	&"craft_bone_scraper",
+	&"craft_noise_lure",
+	&"craft_bait",
+]
 
 ## 이동 자세 — 소음 프로필 선택과 호스트 교차검증의 공통 어휘 (설계서 5.6/7.4).
 ## 세기 순서: CROUCH < WALK < RUN. NetMovement 가 이 순서로 위조 주장을 강등한다.
@@ -63,7 +70,9 @@ func _physics_process(delta: float) -> void:
 	if controller_peer_id != multiplayer.get_unique_id():
 		return
 	if Input.is_action_just_pressed("quick_craft"):
-		_request_quick_craft(&"craft_bait")
+		var recipe_id: StringName = select_quick_craft_recipe()
+		if recipe_id != &"":
+			_request_quick_craft(recipe_id)
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -130,3 +139,21 @@ func _request_quick_craft(recipe_id: StringName) -> void:
 		if node.has_method("request"):
 			node.request(recipe_id, self)
 			return
+
+
+## 로컬 입력 편의를 위한 후보 선택만 한다. 최종 재료·무게·슬롯 판정과 소비는
+## 기존 NetCrafting 호스트 권위 경로가 담당한다.
+func select_quick_craft_recipe() -> StringName:
+	var game_data: Node = get_node("/root/GameData")
+	for recipe_id: StringName in QUICK_CRAFT_PRIORITY:
+		var recipe: RecipeData = game_data.get_recipe(recipe_id)
+		if recipe == null:
+			continue
+		var has_all_ingredients := true
+		for item_id: Variant in recipe.ingredients:
+			if not inventory.has_item(StringName(item_id), int(recipe.ingredients[item_id])):
+				has_all_ingredients = false
+				break
+		if has_all_ingredients:
+			return recipe_id
+	return &""

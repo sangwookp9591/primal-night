@@ -5,7 +5,8 @@
 [ext_resource type="Script" path="res://scripts/survival/debug_hurt.gd" id="3_debughurt"]
 
 ; 목표 장면을 손으로 재현하기 위한 배치.
-; H 로 다친다 -> 출혈/피 냄새 -> 붕대로 치료 -> 돌·나무 주워 모닥불 설치·점화.
+; H 로 다친다 -> 출혈/피 냄새 -> 붕대로 치료 -> 재료를 주워 C 퀵 제작
+; -> 원시 도구와 원격 소음 미끼 제작 -> 돌·나무로 모닥불 설치·점화.
 [node name="SurvivalDemo" type="Node2D"]
 
 [node name="DebugHurt" type="Node" parent="."]
@@ -33,6 +34,26 @@ count = 1
 position = Vector2(-130, 280)
 item_id = &"wood"
 count = 2
+
+[node name="Fiber" parent="." instance=ExtResource("1_item")]
+position = Vector2(-250, 170)
+item_id = &"fiber"
+count = 3
+
+[node name="Bone" parent="." instance=ExtResource("1_item")]
+position = Vector2(-230, 260)
+item_id = &"bone"
+count = 2
+
+[node name="Smartphone" parent="." instance=ExtResource("1_item")]
+position = Vector2(-80, 240)
+item_id = &"smartphone"
+count = 1
+
+[node name="RawMeat" parent="." instance=ExtResource("1_item")]
+position = Vector2(-70, 310)
+item_id = &"raw_meat"
+count = 1
 
 [node name="CampfireSite" parent="." instance=ExtResource("2_site")]
 position = Vector2(-190, 330)
