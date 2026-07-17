@@ -14,6 +14,7 @@ var _event_bus: Node = null
 
 func before_each() -> void:
 	_event_bus = get_node("/root/EventBus")
+	get_node("/root/CampfireRegistry").clear_for_test()
 
 func _make_data() -> CreatureData:
 	var data: CreatureData = CreatureDataScript.new()
@@ -59,7 +60,9 @@ func test_flees_only_when_every_visible_player_is_protected() -> void:
 	assert_eq(raptor.state, Raptor.State.CHASE, "전제: 추격 상태여야 한다")
 
 	# 첫 플레이어 위치에 모닥불이 켜진다 (반경 60) — 그는 보호, 동료는 노출.
-	_event_bus.campfire_lit.emit(autofree(Node.new()), protected_player.global_position, 60.0)
+	var fire: Node = autofree(Node.new())
+	get_node("/root/CampfireRegistry").register_fire(
+		fire, protected_player.global_position, 60.0)
 	raptor._ai_tick()
 
 	assert_eq(raptor.state, Raptor.State.CHASE,

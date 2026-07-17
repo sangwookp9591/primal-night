@@ -45,8 +45,7 @@ var _pending_noise_position: Vector2 = Vector2.ZERO
 var _pending_noise_radius: float = 0.0
 var _has_pending_noise: bool = false
 
-## 켜진 모닥불 목록: [{node, position, radius}] (campfire_lit 로 등록·해제).
-var _campfires: Array[Dictionary] = []
+var _campfire_registry: Node = null
 
 var _ai_elapsed: float = 0.0
 var _snapshot_elapsed: float = 0.0
@@ -78,8 +77,8 @@ func _ready() -> void:
 	if has_node("/root/EventBus"):
 		var event_bus: Node = get_node("/root/EventBus")
 		event_bus.noise_emitted.connect(_on_noise_emitted)
-		event_bus.campfire_lit.connect(_on_campfire_lit)
-		event_bus.campfire_extinguished.connect(_on_campfire_extinguished)
+	if has_node("/root/CampfireRegistry"):
+		_campfire_registry = get_node("/root/CampfireRegistry")
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -232,7 +231,7 @@ func _ai_tick() -> void:
 				# 이탈 반경 밖 — 히스테리시스 해제, 배회 복귀.
 				_change_state(State.WANDER)
 			else:
-				move_target = _flee_target_from(_campfires[fire_index])
+				move_target = _flee_target_from(_active_fires()[fire_index])
 	_heard_news = false
 
 ## 반경 안 플레이어 지각 한 번에: { nearest_unprotected: Node2D(불 밖 최근접), any_visible: bool }.
@@ -349,23 +348,14 @@ func _pick_wander_target() -> void:
 	var distance: float = rng.randf_range(data.wander_range * 0.4, data.wander_range)
 	move_target = _clamp_outside_fires(global_position + Vector2.from_angle(angle) * distance)
 
-func _on_campfire_lit(campfire: Node, position: Vector2, radius: float) -> void:
-	_on_campfire_extinguished(campfire)
-	_campfires.append({node = campfire, position = position, radius = radius})
-
-func _on_campfire_extinguished(campfire: Node) -> void:
-	for index: int in range(_campfires.size()):
-		if _campfires[index].node == campfire:
-			_campfires.remove_at(index)
-			return
-
 ## pos 가 (반경 * ratio) 안에 드는 가장 가까운 불의 인덱스. 없으면 -1.
 ## ratio 1.0 은 진입 판정, fire_exit_ratio 는 이탈 판정 — 이 간극이 히스테리시스다.
 func _fire_index_containing(pos: Vector2, ratio: float) -> int:
 	var best_index: int = -1
 	var best_distance: float = INF
-	for index: int in range(_campfires.size()):
-		var fire: Dictionary = _campfires[index]
+	var active_fires: Array[Dictionary] = _active_fires()
+	for index: int in range(active_fires.size()):
+		var fire: Dictionary = active_fires[index]
 		var distance: float = pos.distance_to(fire.position)
 		if distance <= fire.radius * ratio and distance < best_distance:
 			best_distance = distance
@@ -378,7 +368,7 @@ func _is_protected_by_fire(player: Node2D) -> bool:
 func _start_flee() -> void:
 	var fire_index: int = _fire_index_containing(global_position, INF)
 	if fire_index >= 0:
-		move_target = _flee_target_from(_campfires[fire_index])
+		move_target = _flee_target_from(_active_fires()[fire_index])
 	_change_state(State.FLEE)
 
 ## 불에서 멀어지는 방향으로 이탈 반경 바깥 지점.
@@ -390,7 +380,7 @@ func _flee_target_from(fire: Dictionary) -> Vector2:
 
 ## 목표 지점이 불 반경 안이면 반경 밖으로 밀어낸다 (불 안으로 들어오지 않는다).
 func _clamp_outside_fires(target: Vector2) -> Vector2:
-	for fire: Dictionary in _campfires:
+	for fire: Dictionary in _active_fires():
 		if target.distance_to(fire.position) < fire.radius:
 			var away: Vector2 = target - fire.position
 			if away.is_zero_approx():
@@ -399,6 +389,13 @@ func _clamp_outside_fires(target: Vector2) -> Vector2:
 				away = Vector2.RIGHT
 			target = fire.position + away.normalized() * fire.radius * 1.05
 	return target
+
+
+func _active_fires() -> Array[Dictionary]:
+	if _campfire_registry != null:
+		return _campfire_registry.get_active_fires()
+	var empty: Array[Dictionary] = []
+	return empty
 
 func get_state_name() -> StringName:
 	return STATE_NAMES[state]

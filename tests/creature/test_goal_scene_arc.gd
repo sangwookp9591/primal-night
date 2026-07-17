@@ -18,6 +18,7 @@ var _observed: Array[StringName] = []
 
 func before_each() -> void:
 	_event_bus = get_node("/root/EventBus")
+	get_node("/root/CampfireRegistry").clear_for_test()
 	_observed.clear()
 
 func _on_state_changed(_previous_state: int, new_state: int) -> void:
@@ -75,7 +76,8 @@ func test_goal_scene_arc_investigate_chase_flee_with_fixed_seed() -> void:
 
 	# 4) 플레이어가 모닥불 곁으로 — 랩터는 추격을 포기하고 물러난다.
 	var campfire: Node = add_child_autofree(Node.new())
-	_event_bus.campfire_lit.emit(campfire, player.position, 220.0)
+	get_node("/root/CampfireRegistry").register_fire(
+		campfire, player.position, 220.0)
 	raptor._ai_tick()
 	assert_eq(raptor.state, Raptor.State.FLEE, "플레이어가 불 곁이면 추격을 포기한다")
 	assert_gt(raptor.move_target.distance_to(player.position), 220.0,

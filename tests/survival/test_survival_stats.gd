@@ -14,10 +14,13 @@ const StaminaComponentScript = preload("res://scripts/survival/stamina_component
 const PORT: int = 8922
 
 var _event_bus: Node = null
+var _campfire_registry: Node = null
 
 
 func before_each() -> void:
 	_event_bus = get_node("/root/EventBus")
+	_campfire_registry = get_node("/root/CampfireRegistry")
+	_campfire_registry.clear_for_test()
 
 
 func _make_config() -> SurvivalConfig:
@@ -219,15 +222,15 @@ func test_temperature_falls_but_recovers_near_a_lit_campfire() -> void:
 	stats.simulate(1.0)
 	assert_almost_eq(stats.temperature, 49.0, 0.01, "불이 없으면 체온이 떨어진다")
 
-	# 모닥불이 켜졌다 — 랩터와 같은 EventBus 경로다 (시그널 서명 변경 없음).
+	# 모닥불이 켜졌다 — 늦게 생성된 소비자도 단일 레지스트리에서 읽는다.
 	var campfire: Node2D = add_child_autofree(Node2D.new())
-	_event_bus.campfire_lit.emit(campfire, Vector2.ZERO, 200.0)
+	_campfire_registry.register_fire(campfire, Vector2.ZERO, 200.0)
 	stats.simulate(1.0)
 	assert_gt(stats.temperature, 49.0, "불 곁에서는 체온이 회복된다")
 
 	# 불이 꺼지면 다시 떨어진다.
 	var warmed: float = stats.temperature
-	_event_bus.campfire_extinguished.emit(campfire)
+	_campfire_registry.unregister_fire(campfire)
 	stats.simulate(1.0)
 	assert_lt(stats.temperature, warmed, "불이 꺼지면 다시 식는다")
 
@@ -238,7 +241,7 @@ func test_temperature_does_not_recover_outside_the_fire_radius() -> void:
 	var stats: SurvivalStats = _make_stats(config)
 	stats.temperature = 50.0
 	var campfire: Node2D = add_child_autofree(Node2D.new())
-	_event_bus.campfire_lit.emit(campfire, Vector2(1000.0, 0.0), 200.0)
+	_campfire_registry.register_fire(campfire, Vector2(1000.0, 0.0), 200.0)
 
 	stats.simulate(1.0)
 

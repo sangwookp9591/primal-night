@@ -12,9 +12,12 @@ const FIRE_POSITION: Vector2 = Vector2(400.0, 0.0)
 const FIRE_RADIUS: float = 200.0
 
 var _event_bus: Node = null
+var _campfire_registry: Node = null
 
 func before_each() -> void:
 	_event_bus = get_node("/root/EventBus")
+	_campfire_registry = get_node("/root/CampfireRegistry")
+	_campfire_registry.clear_for_test()
 
 func _make_data() -> CreatureData:
 	var data: CreatureData = CreatureDataScript.new()
@@ -41,7 +44,7 @@ func _spawn_player(at: Vector2) -> Node2D:
 func _light_fire() -> Node2D:
 	var campfire: Node2D = add_child_autofree(Node2D.new())
 	campfire.position = FIRE_POSITION
-	_event_bus.campfire_lit.emit(campfire, FIRE_POSITION, FIRE_RADIUS)
+	_campfire_registry.register_fire(campfire, FIRE_POSITION, FIRE_RADIUS)
 	return campfire
 
 func test_chase_is_abandoned_when_player_reaches_the_fire() -> void:
@@ -79,6 +82,18 @@ func test_raptor_caught_inside_a_new_fire_radius_retreats() -> void:
 	raptor._ai_tick()
 
 	assert_eq(raptor.state, Raptor.State.FLEE, "불 반경 안에 있으면 물러난다")
+
+
+func test_raptor_spawned_after_fire_reads_existing_registry_state() -> void:
+	_light_fire()
+	var raptor: Raptor = _spawn_raptor(
+		_make_data(), FIRE_POSITION + Vector2(100.0, 0.0))
+
+	raptor._ai_tick()
+
+	assert_eq(raptor.state, Raptor.State.FLEE,
+		"늦게 스폰된 랩터도 이미 켜진 불을 즉시 피해야 한다")
+
 
 func test_no_state_oscillation_at_the_fire_boundary() -> void:
 	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2(150.0, 0.0))
@@ -128,7 +143,7 @@ func test_extinguished_fire_no_longer_protects_the_player() -> void:
 	raptor._ai_tick()
 	assert_eq(raptor.state, Raptor.State.WANDER, "전제: 배회로 복귀했다")
 
-	_event_bus.campfire_extinguished.emit(campfire)
+	_campfire_registry.unregister_fire(campfire)
 	raptor._ai_tick()
 
 	assert_eq(raptor.state, Raptor.State.CHASE, "불이 꺼지면 더 이상 보호받지 못한다")

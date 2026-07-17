@@ -34,8 +34,7 @@ var food: float = STAT_MAX
 var fatigue: float = 0.0
 
 var _body: Node2D = null
-## 켜진 모닥불: [{node, position, radius}] — 랩터와 같은 EventBus 경로다 (Raptor._campfires).
-var _campfires: Array[Dictionary] = []
+var _campfire_registry: Node = null
 ## 이동 거리로 피로를 쌓는다. 입력을 읽지 않으므로 원격 아바타에도 똑같이 적용된다
 ## (호스트는 남의 입력을 모르지만 남의 좌표는 안다).
 var _last_position: Vector2 = Vector2.ZERO
@@ -45,10 +44,8 @@ func _ready() -> void:
 	_body = get_parent() as Node2D
 	if _body != null:
 		_last_position = _body.global_position
-	if has_node("/root/EventBus"):
-		var event_bus: Node = get_node("/root/EventBus")
-		event_bus.campfire_lit.connect(_on_campfire_lit)
-		event_bus.campfire_extinguished.connect(_on_campfire_extinguished)
+	if has_node("/root/CampfireRegistry"):
+		_campfire_registry = get_node("/root/CampfireRegistry")
 
 
 func _physics_process(delta: float) -> void:
@@ -163,21 +160,5 @@ func reset_motion_baseline() -> void:
 func _near_fire() -> bool:
 	if _body == null:
 		return false
-	# 60Hz 경로 — sqrt 대신 제곱 비교.
-	for fire: Dictionary in _campfires:
-		var radius: float = fire.radius
-		if _body.global_position.distance_squared_to(fire.position) <= radius * radius:
-			return true
-	return false
-
-
-func _on_campfire_lit(campfire: Node, position: Vector2, radius: float) -> void:
-	_on_campfire_extinguished(campfire)
-	_campfires.append({node = campfire, position = position, radius = radius})
-
-
-func _on_campfire_extinguished(campfire: Node) -> void:
-	for index: int in range(_campfires.size()):
-		if _campfires[index].node == campfire:
-			_campfires.remove_at(index)
-			return
+	return _campfire_registry != null \
+		and _campfire_registry.is_position_protected(_body.global_position)

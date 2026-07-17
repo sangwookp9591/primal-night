@@ -15,11 +15,14 @@ var is_lit: bool = false
 var fuel_remaining: float = 0.0
 
 var _event_bus: Node = null
+var _registry: Node = null
 
 func _ready() -> void:
 	_configure_visual()
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
+	if has_node("/root/CampfireRegistry"):
+		_registry = get_node("/root/CampfireRegistry")
 	set_process(false)
 
 func _configure_visual() -> void:
@@ -64,6 +67,8 @@ func light() -> void:
 	# 연료 소진 타이머는 호스트 소유 (설계서 7.2). 클라이언트 복제본은 타이머를
 	# 돌리지 않고 NetCampfire 의 소등 복제만 받는다 (W2-T5).
 	set_process(multiplayer.is_server())
+	if _registry != null and multiplayer.is_server():
+		_registry.register_fire(self, global_position, config.light_radius)
 	# campfire_lit/extinguished 는 호스트에서만 발신한다 — 클라이언트 복제본도
 	# 발신하면 랩터(호스트 소유 AI)가 불을 2개로 인식한다 (tests/props/test_net_campfire.gd).
 	if _event_bus != null and multiplayer.is_server():
@@ -79,8 +84,15 @@ func extinguish() -> void:
 	if sprite != null:
 		sprite.play(&"unlit")
 	set_process(false)
+	if _registry != null:
+		_registry.unregister_fire(self)
 	if _event_bus != null and multiplayer.is_server():
 		_event_bus.campfire_extinguished.emit(self)
 
 func get_radius() -> float:
 	return config.light_radius
+
+
+func _exit_tree() -> void:
+	if _registry != null:
+		_registry.unregister_fire(self)
