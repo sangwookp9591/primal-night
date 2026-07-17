@@ -6,6 +6,7 @@ extends GutTest
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const HudScene: PackedScene = preload("res://scenes/ui/hud/hud.tscn")
+const WorldItemScene: PackedScene = preload("res://scenes/items/world_item.tscn")
 
 var _game_data: Node = null
 
@@ -45,6 +46,26 @@ func test_shows_sixteen_inventory_slots() -> void:
 	assert_eq(player.inventory.slot_count, 16, "전제: 인벤토리는 16칸")
 	for i: int in range(16):
 		assert_eq(hud.slot_text(i), "", "빈 슬롯은 비어 보여야 한다")
+
+func test_target_prompt_follows_current_world_item_and_hides_out_of_range() -> void:
+	var spawned: Array = await _spawn()
+	var player: Player = spawned[0]
+	var hud: Hud = spawned[1]
+	var item: WorldItem = WorldItemScene.instantiate()
+	item.item_id = &"wood"
+	item.count = 2
+	item.position = Vector2(16.0, 0.0)
+	player.get_parent().add_child(item)
+	await wait_physics_frames(2)
+
+	assert_eq(hud.target_prompt_text(), item.get_prompt())
+	assert_not_null(item.get_node_or_null("InteractionTargetMarker"),
+		"선택된 월드 아이템 위에 단순 마커가 붙어야 한다")
+
+	item.position = Vector2(400.0, 0.0)
+	await wait_physics_frames(2)
+
+	assert_eq(hud.target_prompt_text(), "")
 
 ## ★ 슬롯 표시는 ItemData.display_name 에서 생성된다. HUD 에 이름을 적어두지 않는다.
 func test_slot_text_comes_from_item_data_not_from_the_hud() -> void:
