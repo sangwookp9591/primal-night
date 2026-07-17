@@ -6,14 +6,16 @@ extends GutTest
 ## 변조든 NetMovement 는 아바타의 현재 위치를 의도로 전송하기 때문이다.
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
-const PORT: int = 8912
+const NetTestPortsScript = preload("res://tests/net/net_test_ports.gd")
 const STEAM_PLAYER_ID: StringName = &"76561198000000001"
 
+var port: int
 var host: Dictionary
 var client: Dictionary
 
 
 func before_each() -> void:
+	port = NetTestPortsScript.pick_available_port(1)
 	host = _make_side("HostSide")
 	client = _make_side("ClientSide")
 
@@ -34,7 +36,7 @@ func _make_side(side_name: String) -> Dictionary:
 	var session: LocalSessionService = LocalSessionService.new()
 	session.name = "NetSession"
 	session.config = NetConfig.new()
-	session.config.port = PORT
+	session.config.port = port
 	root.add_child(session)
 
 	var host_player: Player = PlayerScene.instantiate()
@@ -59,11 +61,11 @@ func _make_side(side_name: String) -> Dictionary:
 
 func _join_and_spawn(player_id: StringName = &"") -> StringName:
 	assert_eq(host.session.host_session(), OK)
-	var invite: Variant = "127.0.0.1:%d" % PORT
+	var invite: Variant = "127.0.0.1:%d" % port
 	if not String(player_id).is_empty():
 		invite = {
 			address = "127.0.0.1",
-			port = PORT,
+			port = port,
 			player_id = player_id,
 			host_build_number = "dev",
 		}
@@ -172,7 +174,7 @@ func test_reconnect_restores_existing_avatar_state_by_player_id() -> void:
 	client = _make_side("ReconnectClientSide")
 	assert_eq(client.session.join_session({
 		address = "127.0.0.1",
-		port = PORT,
+		port = port,
 		player_id = STEAM_PLAYER_ID,
 		host_build_number = "dev",
 	}), OK)

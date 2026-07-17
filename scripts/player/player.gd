@@ -14,9 +14,8 @@ enum Stance { WALK, RUN, CROUCH }
 @onready var stamina: StaminaComponent = $StaminaComponent
 @onready var inventory: Inventory = $Inventory
 @onready var interactor: Interactor = $Interactor
-## 체온·수분·포만·피로 (설계서 5.1). 코드로 붙인다 — 수치가 하나 늘 때마다
-## player.tscn 을 고치지 않는다. 시뮬은 이 노드가 호스트에서만 스스로 돌린다.
-var stats: SurvivalStats = SurvivalStats.new()
+## 체온·수분·포만·피로 (설계서 5.1). player.tscn 에 노출하되, 코드 생성 경로도 유지한다.
+@onready var stats: SurvivalStats = get_node_or_null("SurvivalStats") as SurvivalStats
 var injury: InjuryComponent = InjuryComponent.new()
 var actions: ActionController = ActionController.new()
 
@@ -47,9 +46,11 @@ var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
 	add_to_group("player")
-	stats.name = "SurvivalStats"
+	if stats == null:
+		stats = SurvivalStats.new()
+		stats.name = "SurvivalStats"
+		add_child(stats)
 	stats.config = health.config
-	add_child(stats)
 	injury.name = "InjuryComponent"
 	injury.config = health.config
 	add_child(injury)

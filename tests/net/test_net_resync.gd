@@ -11,13 +11,15 @@ extends GutTest
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const WorldItemScene: PackedScene = preload("res://scenes/items/world_item.tscn")
-const PORT: int = 8919
+const NetTestPortsScript = preload("res://tests/net/net_test_ports.gd")
 
+var port: int
 var host: Dictionary
 var client: Dictionary
 
 
 func before_each() -> void:
+	port = NetTestPortsScript.pick_available_port(2)
 	host = _make_side("HostSide")
 	client = _make_side("ClientSide")
 
@@ -38,7 +40,7 @@ func _make_side(side_name: String) -> Dictionary:
 	var session: LocalSessionService = LocalSessionService.new()
 	session.name = "NetSession"
 	session.config = NetConfig.new()
-	session.config.port = PORT
+	session.config.port = port
 	root.add_child(session)
 
 	var host_player: Player = PlayerScene.instantiate()
@@ -93,7 +95,7 @@ func _make_side(side_name: String) -> Dictionary:
 
 func _join_and_spawn() -> StringName:
 	assert_eq(host.session.host_session(), OK)
-	assert_eq(client.session.join_session("127.0.0.1:%d" % PORT), OK)
+	assert_eq(client.session.join_session("127.0.0.1:%d" % port), OK)
 	await wait_for_signal(host.session.player_joined, 5.0, "호스트가 참가를 관측해야 한다")
 	var client_id: StringName = client.session.get_local_player_id()
 	assert_true(await wait_until(func() -> bool:
@@ -106,7 +108,7 @@ func _join_and_spawn() -> StringName:
 ## 같은 PlayerId 로 로컬 세션에 다시 참가한다 (설계서 6.3: 동일 계정 복귀).
 func _rejoin(client_id: StringName) -> void:
 	assert_eq(client.session.join_session({
-		address = "127.0.0.1", port = PORT, player_id = client_id,
+		address = "127.0.0.1", port = port, player_id = client_id,
 	}), OK, "재참가가 시작되어야 한다")
 
 

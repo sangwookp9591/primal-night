@@ -4,9 +4,10 @@ extends GutTest
 ## 한 프로세스에서 SceneTree.set_multiplayer 브랜치 2개로 실제 ENet 루프백을 쓴다.
 ## 게임 코드가 보는 것은 SessionService 인터페이스뿐이다.
 
-const PORT: int = 8911
+const NetTestPortsScript = preload("res://tests/net/net_test_ports.gd")
 const STEAM_PLAYER_ID: StringName = &"76561198000000001"
 
+var port: int
 var host_root: Node
 var client_root: Node
 var host_service: SessionService
@@ -14,6 +15,7 @@ var client_service: SessionService
 
 
 func before_each() -> void:
+	port = NetTestPortsScript.pick_available_port(0)
 	host_root = _make_branch("HostRoot")
 	client_root = _make_branch("ClientRoot")
 	host_service = _make_service(host_root)
@@ -39,18 +41,18 @@ func _make_service(parent: Node) -> SessionService:
 	var service: LocalSessionService = LocalSessionService.new()
 	service.name = "NetSession"
 	service.config = NetConfig.new()
-	service.config.port = PORT
+	service.config.port = port
 	parent.add_child(service)
 	return service
 
 
 func _join(player_id: StringName = &"") -> void:
 	assert_eq(host_service.host_session(), OK)
-	var invite: Variant = "127.0.0.1:%d" % PORT
+	var invite: Variant = "127.0.0.1:%d" % port
 	if not String(player_id).is_empty():
 		invite = {
 			address = "127.0.0.1",
-			port = PORT,
+			port = port,
 			player_id = player_id,
 			host_build_number = "dev",
 		}
@@ -133,7 +135,7 @@ func test_reconnect_uses_same_player_id_even_when_peer_changes() -> void:
 	watch_signals(host_service)
 	assert_eq(client_service.join_session({
 		address = "127.0.0.1",
-		port = PORT,
+		port = port,
 		player_id = STEAM_PLAYER_ID,
 		host_build_number = "dev",
 	}), OK)
@@ -150,7 +152,7 @@ func test_version_mismatch_is_blocked_before_connect_with_build_numbers() -> voi
 	client_service.build_number = "client-older"
 	var error: Error = client_service.join_session({
 		address = "127.0.0.1",
-		port = PORT,
+		port = port,
 		player_id = STEAM_PLAYER_ID,
 		host_build_number = "host-2026.07.14",
 	})

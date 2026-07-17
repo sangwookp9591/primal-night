@@ -16,14 +16,16 @@ const CROUCH_PROFILE: NoiseProfile = preload("res://data/senses/noise_sneak.tres
 const WALK_PROFILE: NoiseProfile = preload("res://data/senses/noise_walk.tres")
 const RUN_PROFILE: NoiseProfile = preload("res://data/senses/noise_run.tres")
 const BUSH_RUN_PROFILE: NoiseProfile = preload("res://data/senses/noise_bush_run.tres")
-const PORT: int = 8930
+const NetTestPortsScript = preload("res://tests/net/net_test_ports.gd")
 
+var port: int
 var host: Dictionary
 var client: Dictionary
 var _event_bus: Node = null
 
 
 func before_each() -> void:
+	port = NetTestPortsScript.pick_available_port(3)
 	_event_bus = get_node("/root/EventBus")
 	host = _make_side("HostSide")
 	client = _make_side("ClientSide")
@@ -49,7 +51,7 @@ func _make_side(side_name: String) -> Dictionary:
 	var session: LocalSessionService = LocalSessionService.new()
 	session.name = "NetSession"
 	session.config = NetConfig.new()
-	session.config.port = PORT
+	session.config.port = port
 	root.add_child(session)
 
 	var host_player: Player = PlayerScene.instantiate()
@@ -88,7 +90,7 @@ func _make_side(side_name: String) -> Dictionary:
 
 func _join_and_spawn() -> StringName:
 	assert_eq(host.session.host_session(), OK)
-	assert_eq(client.session.join_session("127.0.0.1:%d" % PORT), OK)
+	assert_eq(client.session.join_session("127.0.0.1:%d" % port), OK)
 	await wait_for_signal(host.session.player_joined, 5.0, "호스트가 참가를 관측해야 한다")
 	var client_id: StringName = client.session.get_local_player_id()
 	assert_true(await wait_until(func() -> bool:

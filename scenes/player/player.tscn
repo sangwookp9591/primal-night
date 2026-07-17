@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=4 uid="uid://playerscene"]
+[gd_scene load_steps=13 format=4 uid="uid://playerscene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/inventory/inventory.gd" id="6_inventory"]
 [ext_resource type="Script" path="res://scripts/survival/interactor.gd" id="7_interactor"]
 [ext_resource type="Script" path="res://scripts/survival/heal_target.gd" id="8_healtarget"]
+[ext_resource type="Script" path="res://scripts/survival/survival_stats.gd" id="9_stats"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -45,6 +46,10 @@ config = ExtResource("5_survival")
 
 [node name="StaminaComponent" type="Node" parent="."]
 script = ExtResource("4_stamina")
+config = ExtResource("5_survival")
+
+[node name="SurvivalStats" type="Node" parent="."]
+script = ExtResource("9_stats")
 config = ExtResource("5_survival")
 
 [node name="Inventory" type="Node" parent="."]
