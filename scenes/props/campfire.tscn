@@ -7,7 +7,12 @@
 script = ExtResource("1_campfire")
 config = ExtResource("2_config")
 
+[node name="CampfireSprite" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -16)
+scale = Vector2(0.5, 0.5)
+
 [node name="Flame" type="ColorRect" parent="."]
+visible = false
 offset_left = -10.0
 offset_top = -18.0
 offset_right = 10.0

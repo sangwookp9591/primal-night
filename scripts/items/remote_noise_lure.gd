@@ -5,6 +5,7 @@ extends Node2D
 ## 설치와 발동은 권위 노드만 확정하며, 클라이언트 복제본은 시각 상태만 따른다.
 
 const LURE_NOISE: NoiseProfile = preload("res://data/senses/noise_lure.tres")
+const LURE_TEXTURE: Texture2D = preload("res://assets/sprites/props/remote_noise_lure.png")
 
 @export_range(0.0, 60.0, 0.1) var trigger_delay_seconds: float = 2.0
 
@@ -17,9 +18,15 @@ var _auto_trigger_remaining: float = -1.0
 
 
 func _ready() -> void:
+	var sprite := Sprite2D.new()
+	sprite.name = "LureSprite"
+	sprite.texture = LURE_TEXTURE
+	sprite.position = Vector2(0.0, -16.0)
+	sprite.scale = Vector2(0.5, 0.5)
+	add_child(sprite)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
-	queue_redraw()
+	_update_visual()
 
 
 ## auto_trigger는 설치 지연 뒤 울리는 타이머 방식이다. false면 권위 측
@@ -32,7 +39,7 @@ func install_at(target_position: Vector2, source: Node, auto_trigger: bool = fal
 	installed = true
 	if auto_trigger:
 		_auto_trigger_remaining = maxf(trigger_delay_seconds, 0.0)
-	queue_redraw()
+	_update_visual()
 	return true
 
 
@@ -42,7 +49,7 @@ func install_replica_at(target_position: Vector2) -> bool:
 	global_position = target_position
 	installed = true
 	_auto_trigger_remaining = -1.0
-	queue_redraw()
+	_update_visual()
 	return true
 
 
@@ -50,7 +57,7 @@ func remote_trigger(source: Node) -> bool:
 	if not installed or spent or source != _installer or not _has_authority(source):
 		return false
 	spent = true
-	queue_redraw()
+	_update_visual()
 	return _noise_emitter.emit_profile(_event_bus, LURE_NOISE, global_position, source)
 
 
@@ -68,7 +75,9 @@ func _has_authority(source: Node) -> bool:
 	return multiplayer.is_server() and source != null and source.is_multiplayer_authority()
 
 
-func _draw() -> void:
-	var color := Color(0.45, 0.45, 0.45, 1.0) if not spent else Color(0.25, 0.25, 0.25, 0.8)
-	draw_rect(Rect2(Vector2(-6.0, -4.0), Vector2(12.0, 8.0)), color)
-	draw_rect(Rect2(Vector2(-6.0, -4.0), Vector2(12.0, 8.0)), Color(0.12, 0.12, 0.12, 1.0), false, 1.0)
+func _update_visual() -> void:
+	var sprite := get_node_or_null("LureSprite") as Sprite2D
+	if sprite == null:
+		return
+	sprite.visible = installed
+	sprite.modulate = Color(0.45, 0.45, 0.45, 0.8) if spent else Color.WHITE

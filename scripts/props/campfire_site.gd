@@ -7,6 +7,7 @@ extends Area2D
 const CampfireScene: PackedScene = preload("res://scenes/props/campfire.tscn")
 const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config.tres")
 const BUILD_NOISE: NoiseProfile = preload("res://data/senses/noise_campfire_build.tres")
+const STATE_SHEET: Texture2D = preload("res://assets/sprites/props/campfire_states_sheet.png")
 
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
@@ -16,6 +17,10 @@ var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = STATE_SHEET
+	atlas.region = Rect2(Vector2.ZERO, Vector2(128.0, 128.0))
+	$SiteSprite.texture = atlas
 	_game_data = get_node("/root/GameData")
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")

@@ -14,6 +14,7 @@ const SLOT_SIZE: Vector2 = Vector2(120.0, 42.0)
 var _player: Player = null
 var _game_data: Node = null
 var _slot_labels: Array[Label] = []
+var _slot_icons: Array[TextureRect] = []
 var _was_paused_by_screen: bool = false
 var _previous_movement_locked: bool = false
 
@@ -94,6 +95,12 @@ func slot_text(index: int) -> String:
 	return _slot_labels[index].text
 
 
+func slot_icon(index: int) -> Texture2D:
+	if index < 0 or index >= _slot_icons.size():
+		return null
+	return _slot_icons[index].texture
+
+
 func notes_text() -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	for child: Node in _notes.get_children():
@@ -107,14 +114,24 @@ func _rebuild_slot_labels() -> void:
 	for child: Node in _slot_grid.get_children():
 		child.queue_free()
 	_slot_labels.clear()
+	_slot_icons.clear()
 	_slot_grid.columns = mini(_player.inventory.slot_count, 4)
 	for index: int in range(_player.inventory.slot_count):
+		var slot_view := HBoxContainer.new()
+		slot_view.custom_minimum_size = SLOT_SIZE
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(28.0, 36.0)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		var label := Label.new()
-		label.custom_minimum_size = SLOT_SIZE
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_slot_grid.add_child(label)
+		slot_view.add_child(icon)
+		slot_view.add_child(label)
+		_slot_grid.add_child(slot_view)
+		_slot_icons.append(icon)
 		_slot_labels.append(label)
 
 
@@ -127,7 +144,9 @@ func _refresh() -> void:
 		var slot: Dictionary = _player.inventory.get_slot(index)
 		if slot.is_empty():
 			_slot_labels[index].text = "%02d -" % (index + 1)
+			_slot_icons[index].texture = null
 			continue
+		_slot_icons[index].texture = WorldItem.icon_texture(slot["id"])
 		var item: ItemData = _game_data.get_item(slot["id"])
 		var display_name: String = item.display_name if item != null else String(slot["id"])
 		_slot_labels[index].text = "%02d %s x%d" % [index + 1, display_name, int(slot["count"])]

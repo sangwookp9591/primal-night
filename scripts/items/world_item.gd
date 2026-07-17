@@ -5,6 +5,23 @@ extends Area2D
 ## 자리가 부족하면 들어간 만큼만 줄이고 나머지는 월드에 남긴다 (복제·소실 금지).
 
 const PICKUP_NOISE: NoiseProfile = preload("res://data/senses/noise_harvest.tres")
+const ITEM_SHEET: Texture2D = preload("res://assets/sprites/items/world_items_13_sheet.png")
+const ITEM_CELL_SIZE := Vector2(64.0, 128.0)
+const ITEM_ATLAS_INDICES := {
+	&"stone": 0,
+	&"wood": 1,
+	&"fiber": 2,
+	&"bone": 3,
+	&"sinew": 4,
+	&"raw_meat": 5,
+	&"bandage": 6,
+	&"bait": 7,
+	&"smartphone": 8,
+	&"stone_knife": 9,
+	&"torch": 10,
+	&"bone_scraper": 11,
+	&"noise_lure": 12,
+}
 
 @export var item_id: StringName = &"stone"
 @export var count: int = 1
@@ -16,6 +33,7 @@ var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 var _floor_smell_source: SmellSource = null
 
 func _ready() -> void:
+	$ItemSprite.texture = icon_texture(item_id)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	var item: ItemData = get_node("/root/GameData").get_item(item_id)
@@ -25,6 +43,18 @@ func _ready() -> void:
 		_floor_smell_source.strength = item.smell_strength
 		_floor_smell_source.interval_seconds = item.smell_interval_seconds
 		add_child(_floor_smell_source)
+
+static func atlas_index_for(id: StringName) -> int:
+	return int(ITEM_ATLAS_INDICES.get(id, -1))
+
+static func icon_texture(id: StringName) -> AtlasTexture:
+	var index := atlas_index_for(id)
+	if index < 0:
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = ITEM_SHEET
+	atlas.region = Rect2(Vector2(index * ITEM_CELL_SIZE.x, 0.0), ITEM_CELL_SIZE)
+	return atlas
 
 func can_interact(who: Node) -> bool:
 	return count > 0 and who is Player

@@ -18,7 +18,12 @@ func test_authority_can_install_and_remote_trigger_large_noise_once() -> void:
 	watch_signals(_event_bus)
 
 	assert_true(lure.install_at(Vector2(320.0, 240.0), source))
+	var sprite := lure.get_node("LureSprite") as Sprite2D
+	assert_not_null(sprite)
+	assert_true(sprite.visible)
+	assert_eq(sprite.texture.resource_path, "res://assets/sprites/props/remote_noise_lure.png")
 	assert_true(lure.remote_trigger(source))
+	assert_ne(sprite.modulate, Color.WHITE, "소진 상태를 같은 스프라이트의 톤으로 표시해야 한다")
 	assert_signal_emit_count(_event_bus, "noise_emitted", 1)
 	var params: Array = get_signal_parameters(_event_bus, "noise_emitted", 0)
 	assert_eq(params[0], Vector2(320.0, 240.0))

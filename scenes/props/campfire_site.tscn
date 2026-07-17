@@ -16,7 +16,12 @@ config = ExtResource("2_config")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_site")
 
+[node name="SiteSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -16)
+scale = Vector2(0.5, 0.5)
+
 [node name="Ring" type="ColorRect" parent="."]
+visible = false
 offset_left = -14.0
 offset_top = -6.0
 offset_right = 14.0

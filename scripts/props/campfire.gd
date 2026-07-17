@@ -6,6 +6,8 @@ extends Node2D
 ## 타는 동안에만 _process 를 켠다 (성능문서 6.1).
 
 const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config.tres")
+const STATE_SHEET: Texture2D = preload("res://assets/sprites/props/campfire_states_sheet.png")
+const CELL_SIZE := Vector2(128.0, 128.0)
 
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
@@ -15,9 +17,29 @@ var fuel_remaining: float = 0.0
 var _event_bus: Node = null
 
 func _ready() -> void:
+	_configure_visual()
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	set_process(false)
+
+func _configure_visual() -> void:
+	var frames := SpriteFrames.new()
+	frames.remove_animation(&"default")
+	frames.add_animation(&"unlit")
+	frames.add_frame(&"unlit", _frame_texture(0))
+	frames.add_animation(&"lit")
+	frames.set_animation_loop(&"lit", true)
+	frames.set_animation_speed(&"lit", 6.0)
+	for index: int in range(1, 4):
+		frames.add_frame(&"lit", _frame_texture(index))
+	$CampfireSprite.sprite_frames = frames
+	$CampfireSprite.play(&"lit" if is_lit else &"unlit")
+
+static func _frame_texture(index: int) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = STATE_SHEET
+	atlas.region = Rect2(Vector2(index * CELL_SIZE.x, 0.0), CELL_SIZE)
+	return atlas
 
 func _process(delta: float) -> void:
 	if not is_lit:
@@ -33,6 +55,7 @@ func light() -> void:
 
 	is_lit = true
 	fuel_remaining = config.fuel_seconds
+	$CampfireSprite.play(&"lit")
 	# 연료 소진 타이머는 호스트 소유 (설계서 7.2). 클라이언트 복제본은 타이머를
 	# 돌리지 않고 NetCampfire 의 소등 복제만 받는다 (W2-T5).
 	set_process(multiplayer.is_server())
@@ -47,6 +70,7 @@ func extinguish() -> void:
 
 	is_lit = false
 	fuel_remaining = 0.0
+	$CampfireSprite.play(&"unlit")
 	set_process(false)
 	if _event_bus != null and multiplayer.is_server():
 		_event_bus.campfire_extinguished.emit(self)
