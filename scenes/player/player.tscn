@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=4 uid="uid://playerscene"]
+[gd_scene load_steps=15 format=4 uid="uid://playerscene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/survival/heal_target.gd" id="8_healtarget"]
 [ext_resource type="Script" path="res://scripts/survival/survival_stats.gd" id="9_stats"]
 [ext_resource type="Script" path="res://scripts/player/player_sprite_animator.gd" id="10_spriteanimator"]
+[ext_resource type="Script" path="res://scripts/equipment/equipment_component.gd" id="11_equipment"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -62,6 +63,10 @@ config = ExtResource("5_survival")
 script = ExtResource("6_inventory")
 slot_count = 16
 max_weight = 20.0
+
+[node name="EquipmentComponent" type="Node" parent="."]
+script = ExtResource("11_equipment")
+starting_item_id = &"white_underwear"
 
 ; 상호작용 손. layer 0 / mask 4 — interactable(layer 4) 만 감지한다.
 [node name="Interactor" type="Area2D" parent="."]

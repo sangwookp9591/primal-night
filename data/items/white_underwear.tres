@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WearableData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/wearable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"white_underwear"
+display_name = "흰 나시 + 흰 반바지"
+weight = 0.4
+equip_slot = &"outfit"
+visual_id = &"white_underwear"
+modifiers = {
+"warmth": 0.05
+}
+wetness_modifier = 0.15

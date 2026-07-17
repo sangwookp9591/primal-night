@@ -20,6 +20,7 @@ enum Stance { WALK, RUN, CROUCH }
 @onready var health: HealthComponent = $HealthComponent
 @onready var stamina: StaminaComponent = $StaminaComponent
 @onready var inventory: Inventory = $Inventory
+@onready var equipment: EquipmentComponent = $EquipmentComponent
 @onready var interactor: Interactor = $Interactor
 @onready var sprite_animator: PlayerSpriteAnimator = get_node_or_null("SpriteAnimator") as PlayerSpriteAnimator
 ## 체온·수분·포만·피로 (설계서 5.1). player.tscn 에 노출하되, 코드 생성 경로도 유지한다.

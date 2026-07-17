@@ -43,7 +43,14 @@ custom_minimum_size = Vector2(520, 0)
 theme_override_constants/separation = 10
 
 [node name="InventoryTitle" type="Label" parent="Root/Panel/Layout/Columns/Inventory"]
-text = "16칸"
+text = "장비 (←→ 슬롯 / ↑↓ 소지품 / Enter 장착 / Esc 해제)"
+theme_override_colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
+
+[node name="EquipmentSlots" type="HBoxContainer" parent="Root/Panel/Layout/Columns/Inventory"]
+theme_override_constants/separation = 8
+
+[node name="InventorySubtitle" type="Label" parent="Root/Panel/Layout/Columns/Inventory"]
+text = "16칸 소지품"
 theme_override_colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
 
 [node name="Slots" type="GridContainer" parent="Root/Panel/Layout/Columns/Inventory"]

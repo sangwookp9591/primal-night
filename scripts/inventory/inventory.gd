@@ -124,6 +124,24 @@ func get_slot(index: int) -> Dictionary:
 		return {}
 	return _slots[index]
 
+## EquipmentComponent 의 동기식 원자 교환 전용 복사본. 저장/네트워크 표현이 아니다.
+func get_transaction_snapshot() -> Array[Dictionary]:
+	var snapshot: Array[Dictionary] = []
+	for slot: Dictionary in _slots:
+		snapshot.append(slot.duplicate())
+	return snapshot
+
+## 장비 교환 중간 실패 시 정확히 이전 슬롯 배열로 되돌린다.
+func restore_transaction_snapshot(snapshot: Array[Dictionary]) -> bool:
+	if snapshot.size() != _slots.size():
+		push_error("Inventory: invalid transaction snapshot size")
+		return false
+	for index: int in range(_slots.size()):
+		_slots[index].clear()
+		_slots[index].merge(snapshot[index], true)
+	changed.emit()
+	return true
+
 func used_slots() -> int:
 	var used: int = 0
 	for slot: Dictionary in _slots:

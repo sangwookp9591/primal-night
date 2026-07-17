@@ -91,6 +91,26 @@ func test_inventory_screen_displays_slots_weight_and_accumulated_notes() -> void
 	assert_true(screen.notes_text().contains("미끼 제작 성공."))
 
 
+func test_equipment_slots_and_keyboard_equip_unequip_are_available() -> void:
+	var made: Dictionary = await _make_player_and_screen()
+	var player: Player = made.player
+	var screen: InventoryScreen = made.screen
+	screen.open()
+	_opened_screen = screen
+
+	assert_true(screen.equipment_text(&"outfit").contains("흰 나시"))
+	assert_true(screen.equipment_text(&"back").contains("-"))
+	assert_true(screen.equipment_text(&"main_hand").contains("-"))
+
+	_press_key(KEY_ESCAPE)
+	assert_eq(player.equipment.get_equipped(&"outfit"), &"")
+	assert_eq(player.inventory.count_of(&"white_underwear"), 1)
+
+	_press_key(KEY_ENTER)
+	assert_eq(player.equipment.get_equipped(&"outfit"), &"white_underwear")
+	assert_eq(player.inventory.count_of(&"white_underwear"), 0)
+
+
 func test_open_screen_pauses_single_player_and_blocks_movement() -> void:
 	var made: Dictionary = await _make_player_and_screen()
 	var player: Player = made.player
