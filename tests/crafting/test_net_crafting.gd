@@ -82,6 +82,35 @@ func test_client_quick_craft_replicates_to_both_machines() -> void:
 		return client_avatar.inventory.count_of(&"bait") == 1 \
 			and client_avatar.inventory.count_of(&"raw_meat") == 0, 5.0),
 		"클라이언트 복제본도 같은 제작 결과여야 한다")
+	var authority_knowledge: CraftingKnowledge = CraftingKnowledge.ensure_on(host_view_client)
+	var replica_knowledge: CraftingKnowledge = CraftingKnowledge.ensure_on(client_avatar)
+	assert_true(authority_knowledge.has_discovered(&"craft_bait"),
+		"최초 제작은 호스트에서 레시피를 발견해야 한다")
+	assert_true(await wait_until(func() -> bool:
+		return replica_knowledge.has_discovered(&"craft_bait"), 5.0),
+		"호스트가 확정한 발견 상태가 클라이언트에 복제되어야 한다")
+	assert_eq(authority_knowledge.observations().size(), 2,
+		"재료 힌트와 최초 성공 관찰문이 각각 한 번 기록되어야 한다")
+
+
+func test_repeated_success_does_not_duplicate_discovery_observations() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var host_view_client: Player = host.container.get_node(String(client_id))
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	host_view_client.inventory.add_item(&"raw_meat", 2)
+	client_avatar.inventory.add_item(&"raw_meat", 2)
+
+	client.crafting.request(&"craft_bait", client_avatar)
+	assert_true(await wait_until(func() -> bool:
+		return host_view_client.inventory.count_of(&"bait") == 1, 5.0))
+	client.crafting.request(&"craft_bait", client_avatar)
+	assert_true(await wait_until(func() -> bool:
+		return host_view_client.inventory.count_of(&"bait") == 2, 5.0))
+
+	var knowledge: CraftingKnowledge = CraftingKnowledge.ensure_on(host_view_client)
+	assert_eq(knowledge.discovered_recipe_ids(), [&"craft_bait"])
+	assert_eq(knowledge.observations().size(), 2,
+		"반복 제작은 같은 힌트/성공 관찰문을 중복 기록하지 않아야 한다")
 
 func test_material_slot_weight_fail_without_remote_mutation() -> void:
 	var client_id: StringName = await _join_and_spawn()
@@ -109,6 +138,10 @@ func test_material_slot_weight_fail_without_remote_mutation() -> void:
 	await wait_physics_frames(30)
 	assert_eq(host_view_client.inventory.count_of(&"raw_meat"), 2, "슬롯 부족 거부도 재료를 보존한다")
 	assert_eq(host_view_client.inventory.count_of(&"bait"), 0)
+	var knowledge: CraftingKnowledge = CraftingKnowledge.ensure_on(host_view_client)
+	assert_true(knowledge.has_discovered(&"craft_bait"),
+		"재료를 모두 갖춘 실험은 결과를 담지 못해도 힌트를 발견해야 한다")
+	assert_eq(knowledge.observations().size(), 1, "실패한 실험에는 재료 힌트만 기록되어야 한다")
 
 func test_duplicate_requests_consume_material_exactly_once() -> void:
 	var client_id: StringName = await _join_and_spawn()

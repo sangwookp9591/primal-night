@@ -17,3 +17,5 @@ ingredients = {&"wood": 1, &"fiber": 1}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
+observation_hint = "마른 섬유는 나무 끝에 잘 감긴다."
+observation_success = "젖으면 붙지 않음. 마른 재료를 써야 한다."

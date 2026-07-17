@@ -17,3 +17,5 @@ ingredients = {&"smartphone": 1, &"fiber": 2}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
+observation_hint = "휴대전화는 전원이 없어도 금속음을 낸다."
+observation_success = "섬유로 고정하니 흔들릴 때 큰 소리가 난다."

@@ -8,6 +8,7 @@ const RECIPE_ID_MAX_LENGTH: int = 48
 const PLAYER_ID_MAX_LENGTH: int = 32
 const REQUEST_MAX_PER_SECOND: int = 6
 const CONFIRM_MAX_PER_SECOND: int = 12
+const OBSERVATION_MAX_LENGTH: int = 160
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -33,8 +34,11 @@ func _ready() -> void:
 	_guard.register_rule(&"request_quick_craft", false, REQUEST_MAX_PER_SECOND, RECIPE_ID_MAX_LENGTH)
 	_guard.register_rule(&"confirm_quick_craft", true, CONFIRM_MAX_PER_SECOND,
 		RECIPE_ID_MAX_LENGTH + PLAYER_ID_MAX_LENGTH)
+	_guard.register_rule(&"confirm_crafting_observation", true, CONFIRM_MAX_PER_SECOND * 2,
+		RECIPE_ID_MAX_LENGTH + PLAYER_ID_MAX_LENGTH + OBSERVATION_MAX_LENGTH + 16)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_guard.watch_session(_session)
+	CraftingKnowledge.ensure_on(_host_player)
 
 
 func _physics_process(delta: float) -> void:
@@ -65,8 +69,13 @@ func _host_craft(who: Player, recipe_id: StringName) -> void:
 	if who == null or not is_instance_valid(who):
 		return
 	var recipe: RecipeData = _game_data.get_recipe(recipe_id)
+	if recipe == null:
+		return
+	if _has_all_ingredients(who.inventory, recipe):
+		_host_record_observation(who, recipe, &"hint", recipe.observation_hint)
 	if not _crafting.craft(who, recipe):
 		return
+	_host_record_observation(who, recipe, &"success", recipe.observation_success)
 	if multiplayer.get_peers().size() > 0:
 		confirm_quick_craft.rpc(String(recipe_id), String(_player_id_of(who)))
 
@@ -81,6 +90,53 @@ func confirm_quick_craft(recipe_id: String, player_id: String) -> void:
 		push_warning("NetCrafting: confirm_quick_craft 스키마 위반 — 폐기")
 		return
 	_crafting.craft(_avatar_of(StringName(player_id)), _game_data.get_recipe(StringName(recipe_id)))
+
+
+func _host_record_observation(who: Player, recipe: RecipeData, kind: StringName, text: String) -> void:
+	if text.is_empty():
+		return
+	var timestamp := _session_time()
+	var knowledge := CraftingKnowledge.ensure_on(who)
+	if not knowledge.apply_observation(recipe.id, kind, text, timestamp):
+		return
+	if multiplayer.get_peers().size() > 0:
+		confirm_crafting_observation.rpc(String(recipe.id), String(_player_id_of(who)),
+			String(kind), text, timestamp)
+
+
+@rpc("authority", "call_remote", "reliable")
+func confirm_crafting_observation(recipe_id: String, player_id: String, kind: String,
+		text: String, session_time: float) -> void:
+	var payload := recipe_id.length() + player_id.length() + kind.length() + text.length() + 8
+	if not _guard.check(&"confirm_crafting_observation", multiplayer.get_remote_sender_id(),
+			payload, _now_seconds):
+		return
+	if recipe_id.is_empty() or recipe_id.length() > RECIPE_ID_MAX_LENGTH \
+			or player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
+			or (kind != "hint" and kind != "success") \
+			or text.is_empty() or text.length() > OBSERVATION_MAX_LENGTH \
+			or not is_finite(session_time):
+		push_warning("NetCrafting: confirm_crafting_observation 스키마 위반 — 폐기")
+		return
+	var avatar := _avatar_of(StringName(player_id))
+	if avatar == null:
+		return
+	CraftingKnowledge.ensure_on(avatar).apply_observation(
+		StringName(recipe_id), StringName(kind), text, session_time)
+
+
+func _has_all_ingredients(inventory: Inventory, recipe: RecipeData) -> bool:
+	for item_id: Variant in recipe.ingredients:
+		if not inventory.has_item(StringName(item_id), int(recipe.ingredients[item_id])):
+			return false
+	return true
+
+
+func _session_time() -> float:
+	var clock := get_parent().get_node_or_null("SessionClock") as SessionClock
+	if clock == null:
+		return _now_seconds
+	return float(clock.current_day - 1) * clock.day_duration_seconds() + clock.time_of_day_seconds
 
 
 func _host_id() -> StringName:

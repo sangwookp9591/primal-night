@@ -123,6 +123,8 @@ func test_reconnect_within_grace_restores_client_replica() -> void:
 	var authority_avatar: Player = _avatar_on(host, client_id)
 	authority_avatar.inventory.add_item(&"stone", 5)
 	authority_avatar.inventory.add_item(&"bandage", 2)
+	CraftingKnowledge.ensure_on(authority_avatar).apply_observation(
+		&"craft_torch", &"success", "젖으면 붙지 않음.", 37.0)
 	authority_avatar.health.take_damage(30.0, &"debug")
 	authority_avatar.injury.apply_host_leg_laceration(0.0)
 
@@ -147,6 +149,11 @@ func test_reconnect_within_grace_restores_client_replica() -> void:
 		return restored_replica.health.is_bleeding, 5.0), "출혈 상태를 되찾아야 한다")
 	assert_true(restored_replica.injury.has_leg_laceration(), "동일한 다리 열상 상태를 되찾아야 한다")
 	assert_true(restored_replica.health.current_health < 100.0, "체력 손실도 복원되어야 한다")
+	var restored_knowledge := CraftingKnowledge.ensure_on(restored_replica)
+	assert_true(restored_knowledge.has_discovered(&"craft_torch"),
+		"재접속 스냅샷이 제작 발견 상태를 복원해야 한다")
+	assert_eq(restored_knowledge.observations().size(), 1,
+		"재접속 스냅샷이 관찰문 로그를 복원해야 한다")
 
 	# ★ 총합 불변식: 호스트 권위 인벤토리는 재접속으로 늘지도 줄지도 않는다.
 	assert_eq(authority_avatar.inventory.count_of(&"stone"), 5, "재접속으로 아이템이 복제·소실되면 안 된다")

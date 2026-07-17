@@ -27,6 +27,8 @@ func test_primitive_recipe_resources_define_mvp_chain() -> void:
 		assert_not_null(recipe.action)
 		assert_gt(recipe.action.duration, 0.0)
 		assert_gt(recipe.action.noise, 0.0, "제작은 감각 비용을 가져야 한다")
+		assert_false(recipe.observation_hint.is_empty(), "재료 관찰문이 있어야 한다")
+		assert_false(recipe.observation_success.is_empty(), "성공 관찰문이 있어야 한다")
 
 
 func test_crafting_each_recipe_consumes_exact_ingredients() -> void:

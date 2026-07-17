@@ -34,6 +34,7 @@ const STAT_NAMES: Dictionary = {
 @onready var _slots: GridContainer = $Root/Column/Slots
 @onready var _prompt: Label = $Root/Column/Prompt
 @onready var _target_prompt: Label = $Root/Column/TargetPrompt
+@onready var _knowledge_notice: Label = $Root/Column/KnowledgeNotice
 @onready var _wind_arrow: Label = $Root/Column/SenseRow/WindArrow
 @onready var _sound_arrow: Label = $Root/Column/SenseRow/SoundArrow
 @onready var _raptor_alert: Label = $Root/Column/SenseRow/RaptorAlert
@@ -95,6 +96,7 @@ func bind(player: Player) -> void:
 	player.inventory.changed.connect(_refresh_slots)
 	player.interactor.hold_changed.connect(_on_hold_changed)
 	player.interactor.target_changed.connect(_on_target_changed)
+	CraftingKnowledge.ensure_on(player).observation_added.connect(_on_crafting_observation)
 
 	var event_bus: Node = get_node("/root/EventBus")
 	event_bus.bleeding_started.connect(_on_bleeding_changed.bind(true))
@@ -229,6 +231,13 @@ func _on_target_changed(_target: Node, label: String) -> void:
 
 func target_prompt_text() -> String:
 	return _target_prompt.text if _target_prompt.visible else ""
+
+func _on_crafting_observation(text: String) -> void:
+	_knowledge_notice.text = text
+	_knowledge_notice.visible = not text.is_empty()
+
+func knowledge_notice_text() -> String:
+	return _knowledge_notice.text if _knowledge_notice.visible else ""
 
 func _on_noise_emitted(position: Vector2, _radius: float, source: Node) -> void:
 	if _player == null or source == _player:

@@ -2,7 +2,7 @@ class_name NetResync
 extends Node
 
 ## 재접속 전체 상태 재동기화 (설계서 6.3/7.3, W2-T5).
-## 이탈 시 호스트가 그 PlayerId 의 상태(인벤토리·체력·출혈·위치)를 보관하고,
+## 이탈 시 호스트가 그 PlayerId 의 상태(인벤토리·체력·출혈·위치·제작 지식)를 보관하고,
 ## 재접속 슬롯(120초, LocalSessionService) 안에 돌아오면:
 ##   - 아바타가 살아 있으면(30초 유예 안) 현재 권위 상태를 그대로,
 ##   - 아바타가 제거됐으면(30~120초 창) 보관 상태를 새 아바타에 복원한 뒤,
@@ -12,8 +12,9 @@ extends Node
 
 const SNAPSHOT_MAX_PER_SECOND: int = 10
 const SNAPSHOT_MAX_ITEMS: int = 16
-const SNAPSHOT_PAYLOAD_BYTES: int = 1024
+const SNAPSHOT_PAYLOAD_BYTES: int = 8192
 const PLAYER_ID_MAX_LENGTH: int = 32
+const SNAPSHOT_MAX_RECIPES: int = 64
 ## 만료 청소 주기 (틱). 초당 1회면 충분하다 — 슬롯 만료 해상도는 초 단위다.
 const SWEEP_INTERVAL_TICKS: int = 60
 
@@ -71,6 +72,7 @@ func _on_player_left(player_id: StringName) -> void:
 		stats = _collect_stats(avatar),
 		position = avatar.global_position,
 		avatar_id = avatar.get_instance_id(),
+		knowledge = CraftingKnowledge.ensure_on(avatar).snapshot(),
 	}
 
 
@@ -104,6 +106,8 @@ func _restore_into(avatar: Player, saved: Dictionary) -> void:
 	avatar.health.apply_replicated(float(saved.health), bool(saved.bleeding))
 	avatar.injury.apply_replicated(StringName(saved.body_part), StringName(saved.injury_kind))
 	_restore_stats(avatar, saved.stats)
+	if saved.has("knowledge"):
+		_restore_knowledge(avatar, saved.knowledge)
 	# 위치는 이동 검증 기준과 함께 옮긴다 — 아니면 복원 직후 클라이언트의 이동
 	# 의도가 텔레포트로 오판되어 스폰 위치로 되돌아간다 (NetMovement.teleport_avatar).
 	var player_id: StringName = StringName(avatar.name)
@@ -122,10 +126,13 @@ func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 		ids.append(String(item_id))
 		counts.append(int(items[item_id]))
 	var stats: Dictionary = _collect_stats(avatar)
+	var knowledge: Dictionary = CraftingKnowledge.ensure_on(avatar).snapshot()
 	apply_player_snapshot.rpc_id(peer, String(player_id), ids, counts,
 		avatar.health.current_health, avatar.health.is_bleeding, avatar.global_position,
 		float(stats.temperature), float(stats.water), float(stats.food), float(stats.fatigue),
-		String(avatar.injury.body_part), String(avatar.injury.injury_kind))
+		String(avatar.injury.body_part), String(avatar.injury.injury_kind),
+		knowledge.discovered, knowledge.observation_recipe_ids, knowledge.kinds,
+		knowledge.texts, knowledge.times)
 
 
 ## 호스트 → 재접속 피어: 전체 상태 스냅샷. 복제본을 비우고 권위 상태로 다시 채운다
@@ -134,16 +141,24 @@ func _send_snapshot_to(player_id: StringName, avatar: Player) -> void:
 func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
 		item_counts: PackedInt32Array, health: float, bleeding: bool, position: Vector2,
 		temperature: float, water: float, food: float, fatigue: float,
-		body_part: String, injury_kind: String) -> void:
+		body_part: String, injury_kind: String, discovered_recipe_ids: PackedStringArray,
+		observation_recipe_ids: PackedStringArray, observation_kinds: PackedStringArray,
+		observation_texts: PackedStringArray, observation_times: PackedFloat32Array) -> void:
 	var payload: int = player_id.length() + body_part.length() + injury_kind.length() \
-		+ item_ids.size() * 24 + 64
+		+ item_ids.size() * 24 + discovered_recipe_ids.size() * 48 \
+		+ observation_texts.size() * 208 + 64
 	if not _guard.check(&"apply_player_snapshot", multiplayer.get_remote_sender_id(), payload, _now_seconds):
 		return
 	if player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
 			or item_ids.size() != item_counts.size() or item_ids.size() > SNAPSHOT_MAX_ITEMS \
 			or not is_finite(health) or not position.is_finite() \
 			or not is_finite(temperature) or not is_finite(water) \
-			or not is_finite(food) or not is_finite(fatigue):
+			or not is_finite(food) or not is_finite(fatigue) \
+			or discovered_recipe_ids.size() > SNAPSHOT_MAX_RECIPES \
+			or observation_texts.size() > CraftingKnowledge.MAX_OBSERVATIONS \
+			or observation_recipe_ids.size() != observation_kinds.size() \
+			or observation_kinds.size() != observation_texts.size() \
+			or observation_texts.size() != observation_times.size():
 		push_warning("NetResync: apply_player_snapshot 스키마 위반 — 폐기")
 		return
 	var avatar: Player = _avatar_of(StringName(player_id))
@@ -159,6 +174,10 @@ func apply_player_snapshot(player_id: String, item_ids: PackedStringArray,
 	avatar.health.apply_replicated(health, bleeding)
 	avatar.stats.apply_replicated(temperature, water, food, fatigue)
 	avatar.injury.apply_replicated(StringName(body_part), StringName(injury_kind))
+	if not CraftingKnowledge.ensure_on(avatar).replace_snapshot(discovered_recipe_ids,
+			observation_recipe_ids, observation_kinds, observation_texts, observation_times):
+		push_warning("NetResync: 제작 지식 스냅샷 스키마 위반 — 폐기")
+		return
 	avatar.global_position = position
 	avatar.stats.reset_motion_baseline()
 
@@ -193,6 +212,11 @@ func _collect_stats(avatar: Player) -> Dictionary:
 func _restore_stats(avatar: Player, stats: Dictionary) -> void:
 	avatar.stats.apply_replicated(float(stats.temperature), float(stats.water),
 		float(stats.food), float(stats.fatigue))
+
+
+func _restore_knowledge(avatar: Player, snapshot: Dictionary) -> void:
+	CraftingKnowledge.ensure_on(avatar).replace_snapshot(snapshot.discovered,
+		snapshot.observation_recipe_ids, snapshot.kinds, snapshot.texts, snapshot.times)
 
 
 func _clear_inventory(avatar: Player) -> void:

@@ -17,3 +17,5 @@ ingredients = {&"stone": 2, &"fiber": 1}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
+observation_hint = "돌 조각은 섬유를 자르지만 맨손도 벤다."
+observation_success = "섬유로 손잡이를 감으니 돌날을 쓸 수 있다."

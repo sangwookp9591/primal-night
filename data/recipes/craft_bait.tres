@@ -16,3 +16,5 @@ ingredients = {"raw_meat": 1}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
+observation_hint = "고기 냄새는 멀리서도 흔적을 남긴다."
+observation_success = "작게 묶어 두면 냄새 미끼로 쓸 수 있다."
