@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=4 uid="uid://inventoryscreenw5t7"]
+[gd_scene load_steps=3 format=4 uid="uid://inventoryscreenw5t7"]
 
 [ext_resource type="Script" path="res://scenes/ui/inventory/inventory_screen.gd" id="1_inventory"]
+[ext_resource type="Theme" path="res://scenes/ui/theme/primal_night_theme.tres" id="2_theme"]
 
 [node name="InventoryScreen" type="CanvasLayer"]
 script = ExtResource("1_inventory")
@@ -11,10 +12,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 72
+theme_override_constants/margin_top = 64
 theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 72
+theme_override_constants/margin_bottom = 64
 
 [node name="Panel" type="PanelContainer" parent="Root"]
 focus_mode = 2
@@ -27,19 +29,22 @@ theme_override_constants/separation = 16
 
 [node name="Title" type="Label" parent="Root/Panel/Layout/Header"]
 text = "인벤토리 / 노트"
+theme_override_font_sizes/font_size = 18
 
 [node name="Weight" type="Label" parent="Root/Panel/Layout/Header"]
 text = "무게 0.0 / 0.0"
+theme_override_colors/font_color = Color(0.878431, 0.643137, 0.345098, 1)
 
 [node name="Columns" type="HBoxContainer" parent="Root/Panel/Layout"]
 theme_override_constants/separation = 24
 
 [node name="Inventory" type="VBoxContainer" parent="Root/Panel/Layout/Columns"]
 custom_minimum_size = Vector2(520, 0)
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="InventoryTitle" type="Label" parent="Root/Panel/Layout/Columns/Inventory"]
 text = "16칸"
+theme_override_colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
 
 [node name="Slots" type="GridContainer" parent="Root/Panel/Layout/Columns/Inventory"]
 columns = 4
@@ -48,10 +53,11 @@ theme_override_constants/v_separation = 6
 
 [node name="Notebook" type="VBoxContainer" parent="Root/Panel/Layout/Columns"]
 custom_minimum_size = Vector2(520, 0)
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="NotebookTitle" type="Label" parent="Root/Panel/Layout/Columns/Notebook"]
 text = "관찰 노트"
+theme_override_colors/font_color = Color(0.435294, 0.780392, 0.788235, 1)
 
 [node name="Notes" type="VBoxContainer" parent="Root/Panel/Layout/Columns/Notebook"]
 theme_override_constants/separation = 6

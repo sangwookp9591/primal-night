@@ -25,24 +25,35 @@ const STAGE_CRITICAL: String = "위독"
 const STAT_NAMES: Dictionary = {
 	&"temperature": "체온", &"water": "수분", &"food": "포만", &"fatigue": "피로",
 }
+const STAGE_COLORS: Dictionary = {
+	SurvivalStats.STAGE_GOOD: Color("#8FA974"),
+	SurvivalStats.STAGE_WARN: Color("#D9A441"),
+	SurvivalStats.STAGE_DANGER: Color("#D96A5C"),
+}
+const HEALTH_STAGE_COLORS: Dictionary = {
+	STAGE_HEALTHY: Color("#8FA974"),
+	STAGE_HURT: Color("#D9A441"),
+	STAGE_CRITICAL: Color("#D96A5C"),
+}
 
-@onready var _health_stage: Label = $Root/Column/HealthRow/HealthStage
-@onready var _time_label: Label = $Root/Column/SessionTime
-@onready var _health_bar: ProgressBar = $Root/Column/HealthRow/HealthBar
-@onready var _bleeding: Label = $Root/Column/HealthRow/Bleeding
-@onready var _stamina_bar: ProgressBar = $Root/Column/StaminaRow/StaminaBar
-@onready var _slots: GridContainer = $Root/Column/Slots
-@onready var _prompt: Label = $Root/Column/Prompt
-@onready var _target_prompt: Label = $Root/Column/TargetPrompt
-@onready var _knowledge_notice: Label = $Root/Column/KnowledgeNotice
-@onready var _wind_arrow: Label = $Root/Column/SenseRow/WindArrow
-@onready var _sound_arrow: Label = $Root/Column/SenseRow/SoundArrow
-@onready var _raptor_alert: Label = $Root/Column/SenseRow/RaptorAlert
+@onready var _health_stage: Label = $Root/StatusPanel/Column/HealthRow/HealthStage
+@onready var _time_label: Label = $Root/TopBar/Readouts/SessionTime
+@onready var _backpack_weight: Label = $Root/TopBar/Readouts/BackpackWeight
+@onready var _health_bar: ProgressBar = $Root/StatusPanel/Column/HealthRow/HealthBar
+@onready var _bleeding: Label = $Root/StatusPanel/Column/HealthRow/Bleeding
+@onready var _stamina_bar: ProgressBar = $Root/StatusPanel/Column/StaminaRow/StaminaBar
+@onready var _slots: GridContainer = $Root/QuickSlots/Slots
+@onready var _prompt: Label = $Root/NoticeStack/Prompt
+@onready var _target_prompt: Label = $Root/NoticeStack/TargetPrompt
+@onready var _knowledge_notice: Label = $Root/NoticeStack/KnowledgeNotice
+@onready var _wind_arrow: Label = $Root/SenseRow/WindArrow
+@onready var _sound_arrow: Label = $Root/SenseRow/SoundArrow
+@onready var _raptor_alert: Label = $Root/SenseRow/RaptorAlert
 @onready var _stat_labels: Dictionary = {
-	&"temperature": $Root/Column/StatsRow/Temperature,
-	&"water": $Root/Column/StatsRow/Water,
-	&"food": $Root/Column/StatsRow/Food,
-	&"fatigue": $Root/Column/StatsRow/Fatigue,
+	&"temperature": $Root/StatusPanel/Column/StatsRow/Temperature,
+	&"water": $Root/StatusPanel/Column/StatsRow/Water,
+	&"food": $Root/StatusPanel/Column/StatsRow/Food,
+	&"fatigue": $Root/StatusPanel/Column/StatsRow/Fatigue,
 }
 
 ## 마지막으로 그린 단계. 단계가 바뀐 프레임에만 문자열을 만든다 (성능 규칙).
@@ -85,8 +96,11 @@ func bind(player: Player) -> void:
 	_slots.columns = mini(player.inventory.slot_count, 8)
 	for i: int in range(player.inventory.slot_count):
 		var label: Label = Label.new()
-		label.custom_minimum_size = Vector2(48.0, 24.0)
+		label.custom_minimum_size = Vector2(46.0, 46.0)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.theme_type_variation = &"SlotFrame"
 		_slots.add_child(label)
 		_slot_labels.append(label)
 
@@ -122,6 +136,10 @@ func time_text() -> String:
 	return _time_label.text
 
 
+func backpack_weight_text() -> String:
+	return _backpack_weight.text
+
+
 func _on_clock_time_changed(_day: int, _time_of_day: float, _phase: int) -> void:
 	_refresh_time()
 
@@ -149,6 +167,7 @@ func _process(delta: float) -> void:
 	if stage != _last_stage:
 		_last_stage = stage
 		_health_stage.text = stage
+		_health_stage.add_theme_color_override(&"font_color", _health_stage_color(stage))
 
 	# 4수치도 단계가 바뀐 프레임에만 문자열을 만진다 (float 비교 4번이 전부다).
 	_refresh_stat_stages()
@@ -186,7 +205,9 @@ func _refresh_stat_stages() -> void:
 		if _stat_stages.get(stat, &"") == stage:
 			continue
 		_stat_stages[stat] = stage
-		(_stat_labels[stat] as Label).text = "%s %s" % [STAT_NAMES[stat], stage]
+		var label: Label = _stat_labels[stat] as Label
+		label.text = "%s %s" % [STAT_NAMES[stat], stage]
+		label.add_theme_color_override(&"font_color", _stage_color(stage))
 
 
 func slot_text(index: int) -> String:
@@ -198,6 +219,7 @@ func bleeding_visible() -> bool:
 	return _bleeding.visible
 
 func _refresh_slots() -> void:
+	_refresh_backpack_weight()
 	for i: int in range(_slot_labels.size()):
 		var slot: Dictionary = _player.inventory.get_slot(i)
 		if slot.is_empty():
@@ -213,6 +235,22 @@ func _refresh_slots() -> void:
 func _refresh_stage() -> void:
 	_last_stage = stage_label_for_health()
 	_health_stage.text = _last_stage
+	_health_stage.add_theme_color_override(&"font_color", _health_stage_color(_last_stage))
+
+
+func _refresh_backpack_weight() -> void:
+	if _player == null:
+		return
+	_backpack_weight.text = "배낭 %.1f / %.0f" % [
+		_player.inventory.total_weight(), _player.inventory.max_weight]
+
+
+func _stage_color(stage: StringName) -> Color:
+	return STAGE_COLORS.get(stage, Color("#ECE3D2"))
+
+
+func _health_stage_color(stage: String) -> Color:
+	return HEALTH_STAGE_COLORS.get(stage, Color("#ECE3D2"))
 
 func _on_bleeding_changed(target: Node, bleeding: bool) -> void:
 	if target != _player:

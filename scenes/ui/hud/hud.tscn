@@ -1,112 +1,253 @@
-[gd_scene load_steps=2 format=4 uid="uid://primalhud"]
+[gd_scene load_steps=3 format=4 uid="uid://primalhud"]
 
 [ext_resource type="Script" path="res://scenes/ui/hud/hud.gd" id="1_hud"]
+[ext_resource type="Theme" path="res://scenes/ui/theme/primal_night_theme.tres" id="2_theme"]
 
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
 
-[node name="Root" type="MarginContainer" parent="."]
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="TopBar" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 28.0
+grow_horizontal = 2
+theme_type_variation = &"TopReadout"
+
+[node name="Readouts" type="HBoxContainer" parent="Root/TopBar"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 18
+
+[node name="BackpackWeight" type="Label" parent="Root/TopBar/Readouts"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+text = "배낭 0.0 / 0"
+theme_override_colors/font_color = Color(0.92549, 0.890196, 0.823529, 1)
+
+[node name="BagDivider" type="VSeparator" parent="Root/TopBar/Readouts"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Parts" type="Label" parent="Root/TopBar/Readouts"]
+layout_mode = 2
+text = "신호기 부품 0 / 5"
+theme_override_colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
+
+[node name="PartsDivider" type="VSeparator" parent="Root/TopBar/Readouts"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DayMarker" type="Label" parent="Root/TopBar/Readouts"]
+layout_mode = 2
+text = "D-7"
+theme_override_colors/font_color = Color(0.878431, 0.643137, 0.345098, 1)
+
+[node name="DayDivider" type="VSeparator" parent="Root/TopBar/Readouts"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SessionTime" type="Label" parent="Root/TopBar/Readouts"]
+custom_minimum_size = Vector2(112, 0)
+layout_mode = 2
+text = "1일 낮 00:00"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.92549, 0.890196, 0.823529, 1)
+
+[node name="StatusPanel" type="PanelContainer" parent="Root"]
+layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -224.0
-offset_right = 420.0
+offset_left = 16.0
+offset_top = -178.0
+offset_right = 318.0
+offset_bottom = -16.0
 grow_vertical = 0
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
 
-[node name="Column" type="VBoxContainer" parent="Root"]
-theme_override_constants/separation = 4
+[node name="Column" type="VBoxContainer" parent="Root/StatusPanel"]
+layout_mode = 2
+theme_override_constants/separation = 7
 
-[node name="SessionTime" type="Label" parent="Root/Column"]
-text = "1일 낮 00:00"
+[node name="Title" type="Label" parent="Root/StatusPanel/Column"]
+layout_mode = 2
+text = "생존자 상태"
+theme_override_colors/font_color = Color(0.92549, 0.890196, 0.823529, 1)
+theme_override_font_sizes/font_size = 12
 
-[node name="HealthRow" type="HBoxContainer" parent="Root/Column"]
+[node name="HealthRow" type="HBoxContainer" parent="Root/StatusPanel/Column"]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HealthStage" type="Label" parent="Root/Column/HealthRow"]
-custom_minimum_size = Vector2(64, 0)
+[node name="HealthStage" type="Label" parent="Root/StatusPanel/Column/HealthRow"]
+custom_minimum_size = Vector2(46, 0)
+layout_mode = 2
 text = "양호"
+theme_override_colors/font_color = Color(0.560784, 0.662745, 0.454902, 1)
 
-[node name="HealthBar" type="ProgressBar" parent="Root/Column/HealthRow"]
-custom_minimum_size = Vector2(220, 18)
+[node name="HealthBar" type="ProgressBar" parent="Root/StatusPanel/Column/HealthRow"]
+custom_minimum_size = Vector2(176, 12)
+layout_mode = 2
 max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="Bleeding" type="Label" parent="Root/Column/HealthRow"]
+[node name="Bleeding" type="Label" parent="Root/StatusPanel/Column/HealthRow"]
 visible = false
+layout_mode = 2
 text = "출혈"
-theme_override_colors/font_color = Color(0.9, 0.18, 0.18, 1)
+theme_override_colors/font_color = Color(0.85098, 0.415686, 0.360784, 1)
 
-[node name="StaminaRow" type="HBoxContainer" parent="Root/Column"]
+[node name="StaminaRow" type="HBoxContainer" parent="Root/StatusPanel/Column"]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="StaminaLabel" type="Label" parent="Root/Column/StaminaRow"]
-custom_minimum_size = Vector2(64, 0)
+[node name="StaminaLabel" type="Label" parent="Root/StatusPanel/Column/StaminaRow"]
+custom_minimum_size = Vector2(46, 0)
+layout_mode = 2
 text = "기력"
+theme_override_colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
 
-[node name="StaminaBar" type="ProgressBar" parent="Root/Column/StaminaRow"]
-custom_minimum_size = Vector2(220, 12)
+[node name="StaminaBar" type="ProgressBar" parent="Root/StatusPanel/Column/StaminaRow"]
+custom_minimum_size = Vector2(176, 10)
+layout_mode = 2
+theme_type_variation = &"DimProgressBar"
 max_value = 100.0
 value = 100.0
 show_percentage = false
 
 ; 생존 수치 4종의 단계 표시 (설계서 5.1/10.1, W4-T3).
-; 숫자 게이지가 아니라 양호/주의/위험 세 단계 텍스트다 — 회색 상자에는 이걸로 충분하다.
-[node name="StatsRow" type="HBoxContainer" parent="Root/Column"]
-theme_override_constants/separation = 10
+; 숫자 게이지가 아니라 양호/주의/위험 세 단계 텍스트다.
+[node name="StatsRow" type="GridContainer" parent="Root/StatusPanel/Column"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 4
 
-[node name="Temperature" type="Label" parent="Root/Column/StatsRow"]
+[node name="Temperature" type="Label" parent="Root/StatusPanel/Column/StatsRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
 text = "체온 양호"
+theme_override_colors/font_color = Color(0.560784, 0.662745, 0.454902, 1)
 
-[node name="Water" type="Label" parent="Root/Column/StatsRow"]
+[node name="Water" type="Label" parent="Root/StatusPanel/Column/StatsRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
 text = "수분 양호"
+theme_override_colors/font_color = Color(0.560784, 0.662745, 0.454902, 1)
 
-[node name="Food" type="Label" parent="Root/Column/StatsRow"]
+[node name="Food" type="Label" parent="Root/StatusPanel/Column/StatsRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
 text = "포만 양호"
+theme_override_colors/font_color = Color(0.560784, 0.662745, 0.454902, 1)
 
-[node name="Fatigue" type="Label" parent="Root/Column/StatsRow"]
+[node name="Fatigue" type="Label" parent="Root/StatusPanel/Column/StatsRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
 text = "피로 양호"
+theme_override_colors/font_color = Color(0.560784, 0.662745, 0.454902, 1)
 
-[node name="Slots" type="GridContainer" parent="Root/Column"]
-columns = 8
-theme_override_constants/h_separation = 4
+[node name="NoticeStack" type="VBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -130.0
+offset_right = 220.0
+offset_bottom = -42.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 6
 
-[node name="Prompt" type="Label" parent="Root/Column"]
+[node name="TargetPrompt" type="Label" parent="Root/NoticeStack"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.878431, 0.643137, 0.345098, 1)
+theme_override_font_sizes/font_size = 14
 text = ""
 
-[node name="TargetPrompt" type="Label" parent="Root/Column"]
-visible = false
-theme_override_colors/font_color = Color(1, 0.9, 0.2, 1)
+[node name="Prompt" type="Label" parent="Root/NoticeStack"]
+layout_mode = 2
+horizontal_alignment = 1
 text = ""
+theme_override_colors/font_color = Color(0.92549, 0.890196, 0.823529, 1)
 
-[node name="KnowledgeNotice" type="Label" parent="Root/Column"]
+[node name="KnowledgeNotice" type="Label" parent="Root/NoticeStack"]
 visible = false
-theme_override_colors/font_color = Color(0.65, 0.9, 1, 1)
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 2
+theme_override_colors/font_color = Color(0.435294, 0.780392, 0.788235, 1)
 text = ""
 
 ; 감각 피드백 (설계서 5.4/12장): 바람 화살표 / 최근 큰 소리 방향 / 랩터 추격 경보.
-; 회전으로 방향을 표시하는 회색 상자 수준 — 렌더 픽셀 검증은 하지 않는다 (W3-T5).
-[node name="SenseRow" type="HBoxContainer" parent="Root/Column"]
+[node name="SenseRow" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -176.0
+offset_top = -92.0
+offset_right = -18.0
+offset_bottom = -58.0
+grow_horizontal = 0
+grow_vertical = 0
+alignment = 2
 theme_override_constants/separation = 12
 
-[node name="WindArrow" type="Label" parent="Root/Column/SenseRow"]
+[node name="WindArrow" type="Label" parent="Root/SenseRow"]
 visible = false
-theme_override_colors/font_color = Color(0.3, 0.9, 0.9, 1)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.435294, 0.780392, 0.788235, 1)
 theme_override_font_sizes/font_size = 20
 text = "➤"
 
-[node name="SoundArrow" type="Label" parent="Root/Column/SenseRow"]
+[node name="SoundArrow" type="Label" parent="Root/SenseRow"]
 visible = false
-theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85098, 0.643137, 0.254902, 1)
 theme_override_font_sizes/font_size = 20
 text = "➤"
 
-[node name="RaptorAlert" type="Label" parent="Root/Column/SenseRow"]
+[node name="RaptorAlert" type="Label" parent="Root/SenseRow"]
 visible = false
-theme_override_colors/font_color = Color(0.9, 0.15, 0.15, 1)
-theme_override_font_sizes/font_size = 20
-text = "⚠ 추격!"
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85098, 0.415686, 0.360784, 1)
+theme_override_font_sizes/font_size = 18
+text = "추격"
+
+[node name="QuickSlots" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -426.0
+offset_top = -62.0
+offset_right = -18.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+alignment = 2
+
+[node name="Slots" type="GridContainer" parent="Root/QuickSlots"]
+layout_mode = 2
+columns = 8
+theme_override_constants/h_separation = 5
