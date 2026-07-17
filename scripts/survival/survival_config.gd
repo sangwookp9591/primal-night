@@ -50,6 +50,13 @@ extends Resource
 @export var fatigue_run_drain_bonus: float = 0.6
 ## 탈진 시 스태미나 회복이 이 비율만큼 깎인다 — 0.6 이면 40% 속도.
 @export var fatigue_regen_penalty: float = 0.6
+## 수분 0일 때 스태미나 회복 감소 비율.
+@export_range(0.0, 1.0) var water_stamina_regen_penalty: float = 0.6
+## 피로+탈수 회복 페널티 합산 상한. 바닥에서도 회복이 완전히 멎지 않게 한다.
+@export_range(0.0, 1.0) var stamina_regen_combined_penalty_cap: float = 0.9
+## 출혈 중이 아닐 때의 자연 체력 회복과 포만 0에서의 감소 비율.
+@export var natural_health_regen_per_second: float = 0.2
+@export_range(0.0, 1.0) var food_health_regen_penalty: float = 1.0
 
 @export_group("Bleeding")
 ## 출혈 중 초당 피해.

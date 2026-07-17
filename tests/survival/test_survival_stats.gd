@@ -3,10 +3,9 @@ extends GutTest
 ## 생존 수치 4종 최소 모델 (설계서 5.1, 계획서 W4-T3): 체온 / 수분 / 포만 / 피로.
 ## 불변식:
 ##   1. 수치가 바닥나도 죽지 않는다 — 단계적 악화만 있다 (설계서 5.1).
-##   2. 피로만 실제 행동에 붙는다: 달리기 소모가 커지고 스태미나 회복이 느려진다.
+##   2. 피로·수분은 스태미나, 포만은 자연 체력 회복에 붙는다.
 ##   3. 체온은 모닥불 곁에서만 회복한다.
-##   4. 수분·포만은 아직 행동에 붙이지 않는다 — 단계 표시까지만 (W3~4 범위).
-##   5. 시뮬레이션은 호스트 권위다. 클라이언트는 스냅샷만 받는다.
+##   4. 시뮬레이션은 호스트 권위다. 클라이언트는 스냅샷만 받는다.
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const SurvivalStatsScript = preload("res://scripts/survival/survival_stats.gd")
@@ -38,6 +37,10 @@ func _make_config() -> SurvivalConfig:
 	config.stat_danger_ratio = 0.25
 	config.fatigue_run_drain_bonus = 1.0
 	config.fatigue_regen_penalty = 0.8
+	config.water_stamina_regen_penalty = 0.7
+	config.stamina_regen_combined_penalty_cap = 0.9
+	config.natural_health_regen_per_second = 2.0
+	config.food_health_regen_penalty = 1.0
 	return config
 
 
@@ -151,6 +154,60 @@ func test_fatigue_costs_more_stamina_to_run_and_slows_regen() -> void:
 	legacy.update(true, true, 1.0)
 	assert_almost_eq(legacy.current_stamina, rested_run.current_stamina, 0.01,
 		"피로 인자를 넘기지 않으면 기존 동작 그대로다")
+
+
+func test_dehydration_reduces_stamina_regeneration_without_stopping_it() -> void:
+	var config: SurvivalConfig = _make_config()
+	var hydrated: StaminaComponent = _make_stamina(config)
+	var dehydrated: StaminaComponent = _make_stamina(config)
+	hydrated.current_stamina = 0.0
+	dehydrated.current_stamina = 0.0
+
+	hydrated.update(false, false, 1.0, 0.0, 1.0)
+	dehydrated.update(false, false, 1.0, 0.0, 0.0)
+
+	assert_lt(dehydrated.current_stamina, hydrated.current_stamina)
+	assert_gt(dehydrated.current_stamina, 0.0,
+		"수분 0도 즉사·완전 정지가 아니라 스태미나 회복 저하다")
+
+
+func test_fatigue_and_dehydration_regen_penalties_have_a_combined_cap() -> void:
+	var config: SurvivalConfig = _make_config()
+	var pressured: StaminaComponent = _make_stamina(config)
+	pressured.current_stamina = 0.0
+
+	pressured.update(false, false, 1.0, 1.0, 0.0)
+
+	assert_almost_eq(pressured.current_stamina,
+		config.stamina_regen_idle * (1.0 - config.stamina_regen_combined_penalty_cap),
+		0.001, "피로와 탈수 페널티는 합산 상한을 넘어 폭주하지 않아야 한다")
+
+
+func test_hunger_reduces_natural_health_regeneration() -> void:
+	var config: SurvivalConfig = _make_config()
+	var fed: SurvivalStats = _make_stats(config)
+	var hungry: SurvivalStats = _make_stats(config)
+
+	assert_almost_eq(fed.natural_health_regen_multiplier(), 1.0, 0.001)
+	hungry.food = 0.0
+	assert_almost_eq(hungry.natural_health_regen_multiplier(), 0.0, 0.001,
+		"포만 0은 자연 체력 회복을 먼저 막되 직접 피해를 주지 않는다")
+
+
+func test_player_natural_health_regen_uses_food_multiplier() -> void:
+	var fed: Player = add_child_autofree(PlayerScene.instantiate())
+	var hungry: Player = add_child_autofree(PlayerScene.instantiate())
+	await wait_physics_frames(1)
+	fed.health.take_damage(10.0)
+	hungry.health.take_damage(10.0)
+	fed.stats.food = SurvivalStats.STAT_MAX
+	hungry.stats.food = 0.0
+
+	fed.stats.simulate(1.0)
+	hungry.stats.simulate(1.0)
+
+	assert_gt(fed.health.current_health, hungry.health.current_health,
+		"포만한 플레이어만 자연 체력 회복 효과를 받아야 한다")
 
 
 ## 4. 체온은 모닥불 곁에서만 회복한다 (설계서 5.1: 불의 영향).

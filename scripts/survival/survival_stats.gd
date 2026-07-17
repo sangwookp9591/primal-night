@@ -7,10 +7,11 @@ extends Node
 ## ★ 수치가 바닥나도 죽지 않는다 (설계서 5.1: "낮아졌다는 이유만으로 즉시 사망시키지 않는다").
 ##   체력을 직접 깎는 경로가 없다 — 악화는 단계 표시와 행동 효율로만 나타난다.
 ##
-## W3~4 범위에서 실제 행동에 붙는 것은 둘뿐이다 (계획서 W4-T3):
+## 행동 효과:
 ##   피로 — 달리기 소모를 키우고 스태미나 회복을 늦춘다 (StaminaComponent).
 ##   체온 — 모닥불 곁에서만 회복한다.
-## 수분·포만은 아직 단계 표시까지다. 굶주림·탈수의 행동 효과는 W5 이후다.
+##   수분 — 스태미나 회복을 늦춘다.
+##   포만 — 자연 체력 회복을 늦춘다.
 ##
 ## 시뮬레이션은 호스트 권위다 (설계서 7.2). 클라이언트 복제본은 스스로 굴리지 않고
 ## NetSurvival 스냅샷으로만 맞춘다 — 양쪽이 각자 굴리면 값이 갈라진다.
@@ -65,6 +66,11 @@ func simulate(delta: float) -> void:
 
 	water = maxf(water - config.water_drain_per_second * delta, 0.0)
 	food = maxf(food - config.food_drain_per_second * delta, 0.0)
+	if _body is Player:
+		var player := _body as Player
+		if player.health.is_alive() and not player.health.is_bleeding:
+			player.health.heal(config.natural_health_regen_per_second
+				* natural_health_regen_multiplier() * delta)
 
 	if _near_fire():
 		temperature = minf(temperature + config.temperature_regen_near_fire * delta, STAT_MAX)
@@ -106,6 +112,25 @@ func stage_of(stat: StringName) -> StringName:
 ## 0(쌩쌩) .. 1(탈진). StaminaComponent 가 달리기 소모·회복에 곱한다.
 func fatigue_ratio() -> float:
 	return fatigue / STAT_MAX
+
+
+func water_wellness() -> float:
+	return water / STAT_MAX
+
+
+func natural_health_regen_multiplier() -> float:
+	var hunger: float = 1.0 - food / STAT_MAX
+	return clampf(1.0 - hunger * config.food_health_regen_penalty, 0.0, 1.0)
+
+
+func restore_food(amount: float) -> void:
+	if amount > 0.0 and is_finite(amount):
+		food = minf(food + amount, STAT_MAX)
+
+
+func restore_water(amount: float) -> void:
+	if amount > 0.0 and is_finite(amount):
+		water = minf(water + amount, STAT_MAX)
 
 
 ## 호스트 확정 수치를 복제본에 적용한다 (NetSurvival 스냅샷 경로).

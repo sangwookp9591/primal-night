@@ -13,9 +13,9 @@ noise = 160.0
 [resource]
 script = ExtResource("1")
 id = &"craft_bone_scraper"
-ingredients = {&"bone": 1, &"fiber": 1}
+ingredients = {&"bone": 2, &"sinew": 1}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
 observation_hint = "뼈의 깨진 모서리는 생각보다 날카롭다."
-observation_success = "섬유로 감으니 뼈날을 손에 쥘 수 있다."
+observation_success = "힘줄로 감으니 뼈날을 손에 쥘 수 있다."

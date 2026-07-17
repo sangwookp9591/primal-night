@@ -14,6 +14,9 @@ extends Resource
 @export var smell_strength: float = 0.0
 @export var smell_interval_seconds: float = 0.5
 @export var smell_kind: StringName = &""
+## 섭취 시 회복량. 둘 다 0이면 소비할 수 없는 아이템이다.
+@export var nutrition: float = 0.0
+@export var hydration: float = 0.0
 
 ## 스택 상한. stackable 과 max_stack 이 어긋나도 인벤토리는 이 값 하나만 믿는다.
 func get_stack_limit() -> int:

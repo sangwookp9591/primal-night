@@ -14,6 +14,7 @@ const SNAPSHOT_MAX_PER_SECOND: int = 30
 const SNAPSHOT_MAX_ENTRIES: int = 8
 const SNAPSHOT_ENTRY_BYTES: int = 64
 const HURT_PAYLOAD_BYTES: int = 8
+const CONSUME_ITEM_ID_MAX_LENGTH: int = 48
 ## 스냅샷 한 명분 생존 수치 개수: [체온, 수분, 포만, 피로] (설계서 5.1).
 const STATS_PER_ENTRY: int = 4
 
@@ -52,6 +53,10 @@ func _ready() -> void:
 	_guard.register_rule(&"request_heal_commit", false, REQUEST_MAX_PER_SECOND, HEAL_PAYLOAD_BYTES)
 	_guard.register_rule(&"apply_heal_lock", true, SNAPSHOT_MAX_PER_SECOND, HEAL_PAYLOAD_BYTES)
 	_guard.register_rule(&"apply_heal_result", true, SNAPSHOT_MAX_PER_SECOND, HEAL_PAYLOAD_BYTES)
+	_guard.register_rule(&"request_consume", false, REQUEST_MAX_PER_SECOND,
+		CONSUME_ITEM_ID_MAX_LENGTH)
+	_guard.register_rule(&"apply_consume_result", true, SNAPSHOT_MAX_PER_SECOND,
+		CONSUME_ITEM_ID_MAX_LENGTH + PLAYER_ID_MAX_LENGTH)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
 	_guard.watch_session(_session)
@@ -104,6 +109,51 @@ func _host_hurt(player: Player, claimed_damage: float) -> void:
 		return
 	var amount: float = minf(claimed_damage, player.health.config.remote_hurt_max_damage)
 	player.injury.apply_host_leg_laceration(amount)
+
+
+## 섭취 의도. 클라이언트는 item_id만 보내며 수량·회복량은 호스트 ItemData가 정한다.
+func request_consume_for(player: Player, item_id: StringName) -> void:
+	if multiplayer.is_server():
+		_host_consume(player, item_id)
+		return
+	request_consume.rpc_id(RpcGuard.HOST_PEER_ID, String(item_id))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_consume(item_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_consume", sender, item_id.length(), _now_seconds):
+		return
+	if item_id.is_empty() or item_id.length() > CONSUME_ITEM_ID_MAX_LENGTH:
+		push_warning("NetSurvival: request_consume 스키마 위반 — 폐기")
+		return
+	_host_consume(_avatar_of(_session.get_player_id_for_peer(sender)), StringName(item_id))
+
+
+func _host_consume(player: Player, item_id: StringName) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var item: ItemData = get_node("/root/GameData").get_item(item_id)
+	if not ConsumeAction.consume(player, item):
+		return
+	if multiplayer.get_peers().size() > 0:
+		apply_consume_result.rpc(String(_player_id_of(player)), String(item_id))
+
+
+@rpc("authority", "call_remote", "reliable")
+func apply_consume_result(player_id: String, item_id: String) -> void:
+	if not _guard.check(&"apply_consume_result", multiplayer.get_remote_sender_id(),
+			player_id.length() + item_id.length(), _now_seconds):
+		return
+	if player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
+			or item_id.is_empty() or item_id.length() > CONSUME_ITEM_ID_MAX_LENGTH:
+		push_warning("NetSurvival: apply_consume_result 스키마 위반 — 폐기")
+		return
+	var player: Player = _avatar_of(StringName(player_id))
+	var item: ItemData = get_node("/root/GameData").get_item(StringName(item_id))
+	ConsumeAction.consume(player, item)
 
 
 ## 호스트 → 클라이언트: 체력·출혈·생존 수치 스냅샷 (비신뢰 최신값, 설계서 7.2).

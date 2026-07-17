@@ -151,6 +151,44 @@ func test_survival_state_replicates_to_client() -> void:
 	assert_true(client_avatar.injury.has_leg_laceration(), "호스트 확정 다리 열상이 복제되어야 한다")
 
 
+func test_client_consume_is_host_validated_and_replicated() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+	host_view.inventory.add_item(&"raw_meat", 2)
+	client_avatar.inventory.add_item(&"raw_meat", 2)
+	host_view.stats.food = 20.0
+	client_avatar.stats.food = 20.0
+	var nutrition: float = (get_node("/root/GameData").get_item(&"raw_meat") as ItemData).nutrition
+
+	(client.survival as NetSurvival).request_consume_for(client_avatar, &"raw_meat")
+
+	assert_true(await wait_until(func() -> bool:
+		return host_view.inventory.count_of(&"raw_meat") == 1 \
+			and client_avatar.inventory.count_of(&"raw_meat") == 1, 5.0),
+		"호스트가 정확히 1개 소비를 확정해 양쪽에 복제해야 한다")
+	assert_almost_eq(host_view.stats.food, 20.0 + nutrition, 1.0,
+		"회복량은 호스트 ItemData에서 와야 한다")
+	assert_almost_eq(client_avatar.stats.food, host_view.stats.food, 2.0,
+		"클라이언트 포만도도 호스트 확정값으로 수렴해야 한다")
+
+
+func test_consume_without_authority_inventory_is_rejected() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+	client_avatar.inventory.add_item(&"raw_meat", 1)
+	host_view.stats.food = 20.0
+
+	(client.survival as NetSurvival).request_consume_for(client_avatar, &"raw_meat")
+	await wait_physics_frames(30)
+
+	assert_eq(host_view.inventory.count_of(&"raw_meat"), 0)
+	assert_eq(client_avatar.inventory.count_of(&"raw_meat"), 1,
+		"클라이언트 복제본만 가진 아이템 주장은 소비 확정되면 안 된다")
+	assert_lt(host_view.stats.food, 21.0, "호스트 포만 회복도 없어야 한다")
+
+
 func _host_id() -> StringName:
 	return host.session.get_local_player_id()
 

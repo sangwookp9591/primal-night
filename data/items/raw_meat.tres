@@ -13,3 +13,4 @@ emits_smell = true
 smell_strength = 45.0
 smell_interval_seconds = 0.5
 smell_kind = &"raw_meat"
+nutrition = 30.0

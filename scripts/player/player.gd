@@ -84,7 +84,7 @@ func _physics_process(delta: float) -> void:
 	var speed: float = (config.crouch_speed if crouching else \
 		(config.run_speed if running else config.walk_speed)) * injury.movement_multiplier()
 
-	stamina.update(running, moving, delta, stats.fatigue_ratio())
+	stamina.update(running, moving, delta, stats.fatigue_ratio(), stats.water_wellness())
 
 	velocity = input_vector * speed
 	move_and_slide()
@@ -147,6 +147,13 @@ func _request_place_lure() -> void:
 	for node in get_tree().get_nodes_in_group(&"net_pickup"):
 		if node.has_method("request_place_noise_lure_for"):
 			node.request_place_noise_lure_for(self)
+			return
+
+
+func request_consume(item_id: StringName) -> void:
+	for node in get_tree().get_nodes_in_group(&"net_survival"):
+		if node.has_method("request_consume_for") and node.owns(self):
+			node.request_consume_for(self, item_id)
 			return
 
 
