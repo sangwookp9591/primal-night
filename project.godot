@@ -72,10 +72,17 @@ interact={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":69,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+; 대상 순환은 R 이다. Tab 이 아닌 이유가 두 가지 있다.
+;   1. Tab 은 Godot 내장 ui_focus_next 의 기본 키다. 지금은 포커스를 받는 Control 이
+;      없어서 Tab 이 _unhandled_input 까지 내려오지만, 포커스 가능한 UI(예정된 인벤토리
+;      화면)가 생기는 순간 Viewport 가 포커스 이동으로 먹어버려 조용히 다시 깨진다.
+;   2. HUD 목업(docs/design/07-16)이 Tab 을 이미 인벤토리 열기로 예약해 뒀다.
+; 참고: 최초 구현은 Tab 을 의도했지만 keycode 4194308 을 적었고, 그건 Tab(4194306)이
+; 아니라 BACKSPACE 다. 그래서 어떤 키를 눌러도 순환이 되지 않았다.
+; 이동/제작 키와 같이 physical_keycode 를 쓴다 — 비QWERTY 배열에서도 같은 자리다.
 cycle_target={
 "deadzone": 0.5,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194308,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
-]
+"events": [Object(InputEventKey,"physical_keycode":82)]
 }
 debug_hurt={
 "deadzone": 0.5,
