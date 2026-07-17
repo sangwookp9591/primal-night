@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=4 uid="uid://valleyworld"]
+
+[ext_resource type="Script" path="res://scripts/world/valley_map.gd" id="1_valleymap"]
+[ext_resource type="TileSet" uid="uid://valleytileset" path="res://resources/tiles/valley_tileset.tres" id="2_valleytileset"]
+
+; 40청크 계곡 회색 상자 (MAP_DESIGN_DRAFT §2). 청크·랜드마크·충돌은 valley_map.gd 가
+; _ready 에서 프로그램으로 칠한다 — 40960+ 타일을 .tscn 에 굽지 않는다 (§8.6 회색 상자 우선).
+[node name="World" type="Node2D"]
+script = ExtResource("1_valleymap")
+
+[node name="Ground" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+tile_set = ExtResource("2_valleytileset")
+
+[node name="Collision" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+tile_set = ExtResource("2_valleytileset")
+
+[node name="Occlusion" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+tile_set = ExtResource("2_valleytileset")
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+
+[node name="Landmarks" type="Node2D" parent="."]

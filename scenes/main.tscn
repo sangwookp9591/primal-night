@@ -1,6 +1,6 @@
 [gd_scene load_steps=22 format=4 uid="uid://primalnightmain"]
 
-[ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
+[ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/props/survival_demo.tscn" id="3_survivaldemo"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud/hud.tscn" id="4_hud"]

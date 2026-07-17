@@ -1,0 +1,21 @@
+[gd_resource type="TileSet" load_steps=3 format=3 uid="uid://valleytileset"]
+
+[ext_resource type="Texture2D" uid="uid://c4oqap4d6umxp" path="res://assets/tiles/valley_tiles.png" id="1_valleytiles"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_valley"]
+texture = ExtResource("1_valleytiles")
+texture_region_size = Vector2i(64, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+5:0/0 = 0
+5:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-28, 0, 0, -14, 28, 0, 0, 14)
+
+[resource]
+tile_shape = 1
+tile_size = Vector2i(64, 32)
+physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 2
+sources/0 = SubResource("TileSetAtlasSource_valley")
