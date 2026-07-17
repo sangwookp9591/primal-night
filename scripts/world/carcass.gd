@@ -24,6 +24,7 @@ const BUTCHER_MAX_DISTANCE_PX: float = 72.0
 signal stage_committed(stage: int, granted: Dictionary)
 
 @export var profile: CarcassProfile
+@export_range(0, 7, 1) var visual_direction: int = 4
 
 ## 확정된 산출 구간 비트마스크. 정본 §14.4 의 `yield_mask` 다.
 ## 호스트 권위 상태이며 재접속 스냅샷 대상이다 (W5-T2).
@@ -39,10 +40,12 @@ var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 var _grid: SmellGrid = null
 var _net_butcher: Node = null
 var _net_butcher_cached: bool = false
+var _sprite_visual: Node = null
 
 
 func _ready() -> void:
 	set_process(false)
+	_sprite_visual = get_node_or_null(^"SpriteVisual")
 	# 재접속 월드 스냅샷이 이 그룹만 훑는다 (NetButcher.send_world_snapshot_to) —
 	# 매번 씬 트리를 재귀 탐색하지 않는다 (성능문서 6.1).
 	add_to_group(&"carcass")
@@ -55,6 +58,7 @@ func _ready() -> void:
 	# 가입하는데, main.tscn 은 SurvivalDemo(사체)를 SmellGrid 앞에 둔다. 여기서 바로
 	# 찾으면 그룹이 비어 있어 신선한 사체가 실기에서 무취가 된다.
 	# 씬의 노드 순서에 기대지 않으려면 모든 _ready 가 끝난 뒤에 찾아야 한다.
+	_refresh_visual_stage()
 	_refresh_smell_source.call_deferred()
 
 
@@ -138,6 +142,7 @@ func apply_stage(who: Player) -> bool:
 	yield_mask |= 1 << stage
 	_stage_elapsed = 0.0
 	_emit_butcher_noise(who)
+	_refresh_visual_stage()
 	_refresh_smell_source()
 	stage_committed.emit(stage, profile.yields_for_stage(stage))
 	return true
@@ -197,6 +202,7 @@ func apply_replicated_stage(stage: int, mask: int, who: Player) -> void:
 		return
 	yield_mask = mask
 	_stage_elapsed = 0.0
+	_refresh_visual_stage()
 	if who != null and is_instance_valid(who):
 		var granted: Dictionary = profile.yields_for_stage(stage)
 		for item_id: StringName in granted:
@@ -210,6 +216,7 @@ func apply_replicated_stage(stage: int, mask: int, who: Player) -> void:
 func apply_replicated_mask(mask: int) -> void:
 	yield_mask = mask
 	_stage_elapsed = 0.0
+	_refresh_visual_stage()
 	_refresh_smell_source()
 
 
@@ -221,6 +228,23 @@ func stages_done() -> int:
 		if yield_mask & (1 << stage):
 			done += 1
 	return done
+
+
+func visual_stage() -> int:
+	var done: int = stages_done()
+	var total: int = profile.stage_count if profile != null else 4
+	if done <= 0:
+		return 0
+	if done >= total:
+		return 3
+	if done == 1:
+		return 1
+	return 2
+
+
+func _refresh_visual_stage() -> void:
+	if _sprite_visual != null and _sprite_visual.has_method("apply_visual"):
+		_sprite_visual.apply_visual(visual_direction, visual_stage())
 
 
 func next_stage() -> int:

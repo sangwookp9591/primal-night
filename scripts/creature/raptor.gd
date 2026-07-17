@@ -55,6 +55,7 @@ var _perf: Node = null
 var _smell_grid: SmellGrid = null
 var _pack_coordinator: Node = null
 var _nav_agent: NavigationAgent2D = null
+var _sprite_animator: Node = null
 var _alert_label: Label = null
 var _alert_remaining: float = 0.0
 
@@ -70,6 +71,7 @@ func _ready() -> void:
 	_replicated_position = global_position
 	rng.randomize()
 	_nav_agent = get_node_or_null(^"NavigationAgent2D")
+	_sprite_animator = get_node_or_null(^"SpriteAnimator")
 	_alert_label = get_node_or_null(^"AlertLabel")
 	if has_node("/root/PerfMonitor"):
 		_perf = get_node("/root/PerfMonitor")
@@ -81,8 +83,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
+		var visual_velocity: Vector2 = _replicated_position - global_position
 		global_position = global_position.lerp(_replicated_position,
 			clampf(delta * CLIENT_INTERPOLATION_SPEED, 0.0, 1.0))
+		_refresh_visual_animation(visual_velocity)
 		_tick_alert(delta)
 		if debug_enabled:
 			queue_redraw()
@@ -103,6 +107,7 @@ func _physics_process(delta: float) -> void:
 	_tick_alert(delta)
 
 	_move_along_path()
+	_refresh_visual_animation(velocity)
 	_snapshot_elapsed += delta
 	if _snapshot_elapsed >= SNAPSHOT_INTERVAL_SECONDS:
 		_snapshot_elapsed = 0.0
@@ -118,6 +123,11 @@ func _tick_alert(delta: float) -> void:
 	_alert_remaining -= delta
 	if _alert_remaining <= 0.0 and _alert_label != null:
 		_alert_label.visible = false
+
+
+func _refresh_visual_animation(visual_velocity: Vector2) -> void:
+	if _sprite_animator != null and _sprite_animator.has_method("update_from_velocity"):
+		_sprite_animator.update_from_velocity(visual_velocity, state)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
