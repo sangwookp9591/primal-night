@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=4 uid="uid://playerscene"]
+[gd_scene load_steps=14 format=4 uid="uid://playerscene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/survival/interactor.gd" id="7_interactor"]
 [ext_resource type="Script" path="res://scripts/survival/heal_target.gd" id="8_healtarget"]
 [ext_resource type="Script" path="res://scripts/survival/survival_stats.gd" id="9_stats"]
+[ext_resource type="Script" path="res://scripts/player/player_sprite_animator.gd" id="10_spriteanimator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -25,7 +26,12 @@ collision_mask = 1
 script = ExtResource("1_player")
 config = ExtResource("2_config")
 
+[node name="SpriteAnimator" type="AnimatedSprite2D" parent="."]
+texture_filter = 1
+script = ExtResource("10_spriteanimator")
+
 [node name="Body" type="ColorRect" parent="."]
+visible = false
 offset_left = -16.0
 offset_top = -48.0
 offset_right = 16.0

@@ -21,6 +21,7 @@ enum Stance { WALK, RUN, CROUCH }
 @onready var stamina: StaminaComponent = $StaminaComponent
 @onready var inventory: Inventory = $Inventory
 @onready var interactor: Interactor = $Interactor
+@onready var sprite_animator: PlayerSpriteAnimator = get_node_or_null("SpriteAnimator") as PlayerSpriteAnimator
 ## 체온·수분·포만·피로 (설계서 5.1). player.tscn 에 노출하되, 코드 생성 경로도 유지한다.
 @onready var stats: SurvivalStats = get_node_or_null("SurvivalStats") as SurvivalStats
 var injury: InjuryComponent = InjuryComponent.new()
@@ -88,6 +89,7 @@ func _physics_process(delta: float) -> void:
 
 	velocity = input_vector * speed
 	move_and_slide()
+	_refresh_visual_animation()
 
 	if not moving:
 		_noise_radius = 0.0
@@ -101,6 +103,11 @@ func _physics_process(delta: float) -> void:
 		_noise_emit_elapsed = 0.0
 		if _event_bus != null:
 			_noise_emitter.emit_profile(_event_bus, profile, global_position, self)
+
+
+func _refresh_visual_animation() -> void:
+	if sprite_animator != null:
+		sprite_animator.update_from_velocity(velocity, stance)
 
 func get_noise_radius() -> float:
 	return _noise_radius
