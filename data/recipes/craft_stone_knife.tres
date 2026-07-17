@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/stone_knife.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_stone_knife"
+duration = 3.0
+noise = 140.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_stone_knife"
+ingredients = {&"stone": 2, &"fiber": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")

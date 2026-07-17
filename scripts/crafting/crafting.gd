@@ -3,6 +3,9 @@ extends Node
 
 signal crafted(recipe_id)
 
+var _noise_emitter := NoiseEmitter.new()
+
+
 func craft(actor: Node, recipe: RecipeData) -> bool:
 	if actor == null or recipe == null or recipe.result == null or recipe.result_count <= 0: return false
 	var inv: Inventory = actor.inventory
@@ -11,8 +14,21 @@ func craft(actor: Node, recipe: RecipeData) -> bool:
 	if not _can_fit_result(inv, recipe): return false
 	for id in recipe.ingredients: inv.remove_item(StringName(id), int(recipe.ingredients[id]))
 	assert(inv.add_item(recipe.result.id, recipe.result_count) == recipe.result_count)
+	_emit_crafting_noise(actor, recipe)
 	crafted.emit(recipe.id)
 	return true
+
+
+func _emit_crafting_noise(actor: Node, recipe: RecipeData) -> void:
+	if recipe.action == null or recipe.action.noise <= 0.0 or not actor is Node2D:
+		return
+	var event_bus: Node = get_node_or_null("/root/EventBus")
+	if event_bus == null:
+		return
+	var profile := NoiseProfile.new()
+	profile.id = recipe.action.id
+	profile.radius = recipe.action.noise
+	_noise_emitter.emit_profile(event_bus, profile, (actor as Node2D).global_position, actor)
 
 func _can_fit_result(inv: Inventory, recipe: RecipeData) -> bool:
 	var weight: float = inv.total_weight() + recipe.result.weight * recipe.result_count
