@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="NoiseProfile" load_steps=2 format=3 uid="uid://noisebutcherw5t3"]
+
+[ext_resource type="Script" path="res://scripts/senses/noise_profile.gd" id="1_noiseprofile"]
+
+; 절단 소음 (정본 §14.4: "구간 완료마다 240px, 0.5초 안 반복은 병합").
+; 사체는 움직이지 않으므로 병합 거리는 좁아도 된다 — 같은 사체를 두 명이 동시에
+; 해체해 구간이 겹쳐 끝날 때가 실제 병합 대상이다.
+[resource]
+script = ExtResource("1_noiseprofile")
+id = &"butcher"
+radius = 240.0
+merge_window_seconds = 0.5
+merge_distance_px = 16.0

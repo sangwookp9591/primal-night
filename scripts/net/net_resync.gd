@@ -9,6 +9,11 @@ extends Node
 ## 전체 스냅샷을 그 피어에게 보낸다. 인벤토리는 주기 동기화가 없어 이 스냅샷이
 ## 유일한 복구 경로다 — tests/net/test_net_resync.gd 가 총합 불변식을 지킨다.
 ## 슬롯이 만료되면 보관 상태를 폐기한다 (설계서 6.3: 미복귀 연결 종료 = 새 플레이어).
+##
+## 범위: 이 노드는 **플레이어 상태**만 복원한다. 월드 오브젝트 상태는 그 오브젝트의
+## 권위 노드가 각자 소유한다 — 사체 `yield_mask` 는 `NetButcher` 가 같은
+## `player_reconnected` 신호를 직접 받아 보낸다 (W5-T2, WEEK5_6_PLAN.md §6).
+## 여기로 끌어오지 않은 이유는 아바타 스폰 순서에 기대지 않아도 되기 때문이다.
 
 const SNAPSHOT_MAX_PER_SECOND: int = 10
 const SNAPSHOT_MAX_ITEMS: int = 16

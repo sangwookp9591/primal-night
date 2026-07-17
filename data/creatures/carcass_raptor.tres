@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="CarcassProfile" load_steps=2 format=3 uid="uid://carcassraptorw5t1"]
+
+[ext_resource type="Script" path="res://scripts/world/carcass_profile.gd" id="1_carcassprofile"]
+
+; 회색깃 랩터 사체 (정본 §14.4).
+;
+; 시간: 4구간 × 8초 = 돌칼 32초, 뼈 긁개 24초. 둘 다 정본의
+; "완전 해체 = 20~40초 노출" 안이다.
+;
+; 산출: 완전 해체하면 뼈 2 + 힘줄 1 로 뼈 긁개(craft_bone_scraper)를 정확히 하나
+; 만들 수 있다 — 해체가 다음 해체를 25% 빠르게 만드는 고리다. 날고기 4는 포만 회복분.
+; 총 3슬롯(날고기/뼈/힘줄) 5.0kg 으로 정본의 "인벤토리 3~6칸" 안이다.
+;
+; 가죽은 이번 범위 밖이다 (WEEK5_6_PLAN.md §7): 유일한 소비처인 가죽 망토가
+; 건조대 설비를 함께 요구해서 설비 마일스톤으로 미뤘다.
+[resource]
+script = ExtResource("1_carcassprofile")
+id = &"carcass_raptor"
+display_name = "랩터 사체"
+stage_count = 4
+base_butcher_seconds = 8.0
+tool_time_multipliers = {
+&"bone_scraper": 0.75,
+&"stone_knife": 1.0
+}
+stage_yields = [{
+&"raw_meat": 2
+}, {
+&"bone": 2
+}, {
+&"sinew": 1
+}, {
+&"raw_meat": 2
+}]
+fresh_smell_strength = 80.0
+partial_smell_strength = 55.0
+smell_interval_seconds = 0.5
+smell_kind = &"carcass"

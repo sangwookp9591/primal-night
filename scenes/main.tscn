@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=22 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -20,6 +20,7 @@
 [ext_resource type="Script" path="res://scripts/crafting/net_crafting.gd" id="18_netcrafting"]
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory/inventory_screen.tscn" id="19_inventoryscreen"]
 [ext_resource type="Script" path="res://scripts/creature/pack_coordinator.gd" id="20_packcoordinator"]
+[ext_resource type="Script" path="res://scripts/world/net_butcher.gd" id="21_netbutcher"]
 
 [node name="Main" type="Node2D"]
 
@@ -89,6 +90,12 @@ script = ExtResource("14_netcampfire")
 ; 퀵 제작 호스트 권위 — recipe_id 의도만 받고 재료·결과는 호스트 데이터로 확정.
 [node name="NetCrafting" type="Node" parent="."]
 script = ExtResource("18_netcrafting")
+
+; 사체 해체 호스트 권위 — 사체 경로 의도만 받고 홀드 시간·거리·yield_mask 는
+; 호스트가 확정한다 (W5-T2, 정본 §14.4). 이 노드가 없으면 해체가 로컬 경로로
+; 떨어져 클라이언트가 즉시 완료를 주장할 수 있다.
+[node name="NetButcher" type="Node" parent="."]
+script = ExtResource("21_netbutcher")
 
 ; 재접속 전체 상태 재동기화 — 인벤토리·체력·출혈·위치 스냅샷 (설계서 6.3/7.3, W2-T5).
 ; ★ NetMovement 뒤에 있어야 한다: 재접속 처리 순서 = 아바타 스폰 → 상태 복원·스냅샷.

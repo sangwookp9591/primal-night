@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=4 uid="uid://carcass"]
+
+[ext_resource type="Script" path="res://scripts/world/carcass.gd" id="1_carcass"]
+[ext_resource type="Resource" path="res://data/creatures/carcass_raptor.tres" id="2_carcassprofile"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_carcass"]
+radius = 20.0
+
+; interactable 이므로 layer 4 (Interactor 의 mask 4 와 짝). 사체는 남을 감지하지
+; 않으므로 mask 0 / monitoring false — 겹침 조회는 Interactor 쪽에서만 한다.
+[node name="Carcass" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_carcass")
+profile = ExtResource("2_carcassprofile")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_carcass")
+
+; 회색 상자 표시 (에셋 정책: 완성 에셋은 범위 밖).
+[node name="Marker" type="ColorRect" parent="."]
+offset_left = -14.0
+offset_top = -10.0
+offset_right = 14.0
+offset_bottom = 10.0
+color = Color(0.42, 0.2, 0.18, 1)

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=4 uid="uid://survivaldemo"]
+[gd_scene load_steps=5 format=4 uid="uid://survivaldemo"]
 
 [ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="1_item"]
 [ext_resource type="PackedScene" path="res://scenes/props/campfire_site.tscn" id="2_site"]
 [ext_resource type="Script" path="res://scripts/survival/debug_hurt.gd" id="3_debughurt"]
+[ext_resource type="PackedScene" path="res://scenes/props/carcass.tscn" id="4_carcass"]
 
 ; 목표 장면을 손으로 재현하기 위한 배치.
 ; H 로 다친다 -> 출혈/피 냄새 -> 붕대로 치료 -> 재료를 주워 C 퀵 제작
@@ -57,3 +58,9 @@ count = 1
 
 [node name="CampfireSite" parent="." instance=ExtResource("2_site")]
 position = Vector2(-190, 330)
+
+; 시드 배치 사체 (정본 §14.5: 사체는 SpawnTable 월드 오브젝트지 개체를 죽인 산물이 아니다).
+; 모닥불 자리에서 떨어뜨려 뒀다 — 해체 중 피 냄새 80 이 불 회피 반경에 가려지면
+; 해체의 대가가 사라져 위험·보상 루프가 성립하지 않는다.
+[node name="RaptorCarcass" parent="." instance=ExtResource("4_carcass")]
+position = Vector2(-300, 300)
