@@ -19,6 +19,7 @@ var _auto_trigger_remaining: float = -1.0
 func _ready() -> void:
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
+	queue_redraw()
 
 
 ## auto_trigger는 설치 지연 뒤 울리는 타이머 방식이다. false면 권위 측
@@ -31,6 +32,17 @@ func install_at(target_position: Vector2, source: Node, auto_trigger: bool = fal
 	installed = true
 	if auto_trigger:
 		_auto_trigger_remaining = maxf(trigger_delay_seconds, 0.0)
+	queue_redraw()
+	return true
+
+
+func install_replica_at(target_position: Vector2) -> bool:
+	if installed or spent or not target_position.is_finite():
+		return false
+	global_position = target_position
+	installed = true
+	_auto_trigger_remaining = -1.0
+	queue_redraw()
 	return true
 
 
@@ -38,6 +50,7 @@ func remote_trigger(source: Node) -> bool:
 	if not installed or spent or source != _installer or not _has_authority(source):
 		return false
 	spent = true
+	queue_redraw()
 	return _noise_emitter.emit_profile(_event_bus, LURE_NOISE, global_position, source)
 
 
@@ -53,3 +66,9 @@ func _physics_process(delta: float) -> void:
 
 func _has_authority(source: Node) -> bool:
 	return multiplayer.is_server() and source != null and source.is_multiplayer_authority()
+
+
+func _draw() -> void:
+	var color := Color(0.45, 0.45, 0.45, 1.0) if not spent else Color(0.25, 0.25, 0.25, 0.8)
+	draw_rect(Rect2(Vector2(-6.0, -4.0), Vector2(12.0, 8.0)), color)
+	draw_rect(Rect2(Vector2(-6.0, -4.0), Vector2(12.0, 8.0)), Color(0.12, 0.12, 0.12, 1.0), false, 1.0)

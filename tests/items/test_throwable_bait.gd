@@ -5,6 +5,7 @@ const NetPickupScript = preload("res://scripts/items/net_pickup.gd")
 const SmellGridScript = preload("res://scripts/senses/smell_grid.gd")
 const SmellGridConfigScript = preload("res://scripts/senses/smell_grid_config.gd")
 const ThrowProfile: NoiseProfile = preload("res://data/senses/noise_throw.tres")
+const LureNoise: NoiseProfile = preload("res://data/senses/noise_lure.tres")
 
 var _event_bus: Node = null
 
@@ -124,3 +125,53 @@ func test_throw_beyond_host_validation_distance_is_rejected() -> void:
 	assert_eq(player.inventory.count_of(&"bait"), 1, "사거리 밖 투척 주장은 인벤토리를 소비하지 않는다")
 	assert_null((side.root as Node).get_node_or_null("ThrownBaits"))
 	assert_signal_not_emitted(_event_bus, "noise_emitted")
+
+
+func test_place_noise_lure_consumes_item_and_installs_at_player_position() -> void:
+	var side: Dictionary = _make_side()
+	var player: Player = side.player
+	player.global_position = Vector2(410.0, 310.0)
+	assert_eq(player.inventory.add_item(&"noise_lure", 1), 1)
+
+	(side.pickup as NetPickup).request_place_noise_lure_for(player)
+	await wait_physics_frames(1)
+
+	assert_eq(player.inventory.count_of(&"noise_lure"), 0, "설치가 확정되면 소음 미끼 1개를 소비해야 한다")
+	var placed: Node = (side.root as Node).get_node_or_null("PlacedLures")
+	assert_not_null(placed, "설치된 소음 미끼 컨테이너가 생성되어야 한다")
+	assert_eq(placed.get_child_count(), 1, "소음 미끼 노드가 1개 생성되어야 한다")
+	var lure: Node2D = placed.get_child(0) as Node2D
+	assert_eq(lure.global_position, Vector2(410.0, 310.0))
+	assert_true(lure is RemoteNoiseLure)
+	assert_true((lure as RemoteNoiseLure).installed)
+
+
+func test_place_noise_lure_without_item_is_noop() -> void:
+	var side: Dictionary = _make_side()
+	var player: Player = side.player
+	player.global_position = Vector2(260.0, 180.0)
+	watch_signals(_event_bus)
+
+	(side.pickup as NetPickup).request_place_noise_lure_for(player)
+	await wait_physics_frames(1)
+
+	assert_eq(player.inventory.count_of(&"noise_lure"), 0)
+	assert_null((side.root as Node).get_node_or_null("PlacedLures"), "보유 미끼가 없으면 설치하지 않는다")
+	assert_signal_not_emitted(_event_bus, "noise_emitted")
+
+
+func test_placed_noise_lure_emits_noise_after_default_delay() -> void:
+	var side: Dictionary = _make_side()
+	var player: Player = side.player
+	player.global_position = Vector2(180.0, 140.0)
+	assert_eq(player.inventory.add_item(&"noise_lure", 1), 1)
+	watch_signals(_event_bus)
+
+	(side.pickup as NetPickup).request_place_noise_lure_for(player)
+
+	assert_true(await wait_until(func() -> bool:
+		return get_signal_emit_count(_event_bus, "noise_emitted") == 1, 3.0),
+		"기본 지연 뒤 소음 이벤트가 발생해야 한다")
+	var params: Array = get_signal_parameters(_event_bus, "noise_emitted", 0)
+	assert_eq(params[0], Vector2(180.0, 140.0), "원격 소음은 설치 지점에서 나야 한다")
+	assert_eq(params[1], LureNoise.radius)

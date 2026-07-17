@@ -9,6 +9,7 @@ extends Node
 ## 정확히 한 명만 획득한다 (복제 0, 소실 0) — tests/inventory/test_net_pickup.gd.
 
 const ThrowableBaitScript = preload("res://scripts/items/throwable_bait.gd")
+const RemoteNoiseLureScript = preload("res://scripts/items/remote_noise_lure.gd")
 
 ## 줍기 검증 거리 (px): 상호작용 손 반경 48 + 아이템 겹침 여유 + 10Hz 위치 스냅샷
 ## 지연 여유. 게임 규칙이 아니라 변조 방지 슬랙이라 프로토콜 상수다 (NetMovement 관례).
@@ -19,8 +20,11 @@ const REQUEST_MAX_PER_SECOND: int = 10
 const CONFIRM_MAX_PER_SECOND: int = 30
 const CONFIRM_PAYLOAD_BYTES: int = 512
 const THROW_PAYLOAD_BYTES: int = 32
+const PLACE_LURE_PAYLOAD_BYTES: int = 32
 const BAIT_ID: StringName = &"bait"
+const NOISE_LURE_ID: StringName = &"noise_lure"
 const THROWN_BAITS_CONTAINER: StringName = &"ThrownBaits"
+const PLACED_LURES_CONTAINER: StringName = &"PlacedLures"
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -50,6 +54,9 @@ func _ready() -> void:
 	_guard.register_rule(&"confirm_pickup", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.register_rule(&"request_throw_bait", false, REQUEST_MAX_PER_SECOND, THROW_PAYLOAD_BYTES)
 	_guard.register_rule(&"confirm_throw_bait", true, CONFIRM_MAX_PER_SECOND, THROW_PAYLOAD_BYTES)
+	_guard.register_rule(&"request_place_noise_lure", false, REQUEST_MAX_PER_SECOND, PLACE_LURE_PAYLOAD_BYTES)
+	_guard.register_rule(&"confirm_place_noise_lure", true, CONFIRM_MAX_PER_SECOND,
+		PLACE_LURE_PAYLOAD_BYTES + 32)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
 	_guard.watch_session(_session)
@@ -83,6 +90,15 @@ func request_throw_bait_for(who: Player, target_position: Vector2) -> void:
 		_host_throw_bait(who, target_position)
 		return
 	request_throw_bait.rpc_id(RpcGuard.HOST_PEER_ID, target_position)
+
+
+## 플레이어 현재 위치에 원격 소음 미끼 설치를 요청한다. 클라이언트 페이로드는
+## 비어 있고, 설치 위치·소비 수량은 호스트 아바타 상태에서만 결정한다.
+func request_place_noise_lure_for(who: Player) -> void:
+	if multiplayer.is_server():
+		_host_place_noise_lure(who)
+		return
+	request_place_noise_lure.rpc_id(RpcGuard.HOST_PEER_ID)
 
 
 ## 클라이언트 → 호스트: 줍기 의도. 경로만 받고 모든 사실은 호스트 월드에서 조회한다.
@@ -121,6 +137,19 @@ func request_throw_bait(target_position: Vector2) -> void:
 	_host_throw_bait(avatar, target_position)
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func request_place_noise_lure() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_place_noise_lure", sender, 0, _now_seconds):
+		return
+	var avatar: Player = _avatar_of(_session.get_player_id_for_peer(sender))
+	if avatar == null:
+		return
+	_host_place_noise_lure(avatar)
+
+
 ## 호스트 권위 판정: 존재·수량·거리를 검증하고 적용한 뒤 결과를 복제한다.
 func _host_pickup(who: Player, item: WorldItem) -> void:
 	if item == null or item.is_queued_for_deletion() or item.count <= 0:
@@ -155,6 +184,22 @@ func _host_throw_bait(who: Player, target_position: Vector2) -> void:
 	_spawn_landed_bait(target_position, who)
 	if multiplayer.get_peers().size() > 0:
 		confirm_throw_bait.rpc(target_position)
+
+
+func _host_place_noise_lure(who: Player) -> void:
+	if who == null or not is_instance_valid(who):
+		return
+	var target_position: Vector2 = who.global_position
+	if not target_position.is_finite():
+		return
+	if not who.inventory.has_item(NOISE_LURE_ID, 1):
+		return
+
+	if not _spawn_remote_noise_lure(target_position, who, true):
+		return
+	who.inventory.remove_item(NOISE_LURE_ID, 1)
+	if multiplayer.get_peers().size() > 0:
+		confirm_place_noise_lure.rpc(String(_player_id_of(who)), target_position)
 
 
 ## 호스트 → 클라이언트: 획득 확정 복제. 월드 잔량과 인벤토리 복제본을 맞춘다.
@@ -193,6 +238,20 @@ func confirm_throw_bait(target_position: Vector2) -> void:
 	_spawn_landed_bait(target_position, null)
 
 
+@rpc("authority", "call_remote", "reliable")
+func confirm_place_noise_lure(player_id: String, target_position: Vector2) -> void:
+	if not _guard.check(&"confirm_place_noise_lure", multiplayer.get_remote_sender_id(),
+			player_id.length() + PLACE_LURE_PAYLOAD_BYTES, _now_seconds):
+		return
+	if player_id.is_empty() or player_id.length() > 32 or not target_position.is_finite():
+		push_warning("NetPickup: confirm_place_noise_lure 스키마 위반 — 폐기")
+		return
+	var avatar: Player = _avatar_of(StringName(player_id))
+	if avatar != null:
+		avatar.inventory.remove_item(NOISE_LURE_ID, 1)
+	_spawn_remote_noise_lure(target_position, avatar, false)
+
+
 func _spawn_landed_bait(target_position: Vector2, source: Node) -> void:
 	var container: Node2D = _world_root.get_node_or_null(NodePath(String(THROWN_BAITS_CONTAINER))) as Node2D
 	if container == null:
@@ -204,6 +263,27 @@ func _spawn_landed_bait(target_position: Vector2, source: Node) -> void:
 	bait.name = "Bait"
 	container.add_child(bait)
 	bait.land_at(target_position, source)
+
+
+func _spawn_remote_noise_lure(target_position: Vector2, source: Node, auto_trigger: bool) -> bool:
+	var container: Node2D = _world_root.get_node_or_null(NodePath(String(PLACED_LURES_CONTAINER))) as Node2D
+	if container == null:
+		container = Node2D.new()
+		container.name = String(PLACED_LURES_CONTAINER)
+		_world_root.add_child(container)
+
+	var lure: RemoteNoiseLure = RemoteNoiseLureScript.new()
+	lure.name = "NoiseLure"
+	container.add_child(lure)
+	if multiplayer.is_server():
+		if not lure.install_at(target_position, source, auto_trigger):
+			lure.queue_free()
+			return false
+	else:
+		if not lure.install_replica_at(target_position):
+			lure.queue_free()
+			return false
+	return true
 
 
 func _host_id() -> StringName:

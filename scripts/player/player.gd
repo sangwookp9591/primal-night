@@ -73,6 +73,8 @@ func _physics_process(delta: float) -> void:
 		var recipe_id: StringName = select_quick_craft_recipe()
 		if recipe_id != &"":
 			_request_quick_craft(recipe_id)
+	if Input.is_action_just_pressed("place_lure"):
+		_request_place_lure()
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -138,6 +140,13 @@ func _request_quick_craft(recipe_id: StringName) -> void:
 	for node in get_tree().get_nodes_in_group(&"net_crafting"):
 		if node.has_method("request"):
 			node.request(recipe_id, self)
+			return
+
+
+func _request_place_lure() -> void:
+	for node in get_tree().get_nodes_in_group(&"net_pickup"):
+		if node.has_method("request_place_noise_lure_for"):
+			node.request_place_noise_lure_for(self)
 			return
 
 

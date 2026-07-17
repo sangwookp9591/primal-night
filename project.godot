@@ -32,6 +32,10 @@ quick_craft={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":67)]
 }
+place_lure={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":70)]
+}
 
 move_up={
 "deadzone": 0.5,
