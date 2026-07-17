@@ -13,6 +13,8 @@ extends SceneTree
 ##   여기서 지키는 것은 회귀 폭과 CPU 예산 상한뿐이다.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const NoiseEmitterScript = preload("res://scripts/senses/noise_emitter.gd")
+const NoiseProfileScript = preload("res://scripts/senses/noise_profile.gd")
 const FrameLogRecorderScript = preload("res://scripts/debug/frame_log_recorder.gd")
 const FrameMetricsScript = preload("res://scripts/debug/frame_metrics.gd")
 
@@ -47,6 +49,8 @@ var _noise_events: int = 0
 var _active_cells_max: int = 0
 var _investigate_entries: int = 0
 var _chase_entries: int = 0
+var _noise_emitter: NoiseEmitter = NoiseEmitterScript.new()
+var _noise_profile: NoiseProfile = null
 
 
 func _initialize() -> void:
@@ -55,6 +59,11 @@ func _initialize() -> void:
 	_peak_memory_mb = _start_memory_mb
 
 	_perf = get_root().get_node("PerfMonitor")
+	_noise_profile = NoiseProfileScript.new()
+	_noise_profile.id = &"sense_loop_baseline"
+	_noise_profile.radius = 400.0
+	_noise_profile.merge_window_seconds = 0.0
+	_noise_profile.merge_distance_px = 0.0
 	get_root().get_node("EventBus").noise_emitted.connect(
 		func(_position: Vector2, _radius: float, _source: Node) -> void: _noise_events += 1)
 
@@ -92,8 +101,8 @@ func _process(delta: float) -> bool:
 	if _frame % NOISE_INTERVAL_FRAMES == 0:
 		var step: int = _frame / NOISE_INTERVAL_FRAMES
 		var offset: Vector2 = Vector2.from_angle(float(step) * 1.1) * 240.0
-		get_root().get_node("EventBus").noise_emitted.emit(
-			_raptor.global_position + offset, 400.0, null)
+		_noise_emitter.emit_profile(get_root().get_node("EventBus"), _noise_profile,
+			_raptor.global_position + offset, null, float(_frame) / 60.0, false)
 
 	_frame += 1
 	if _recorder.get_frames().size() < _target_frames:
@@ -136,6 +145,9 @@ func _write_outputs() -> void:
 			"scent_update_ms_p95": _perf.get_p95_ms(&"scent"),
 			"scent_update_ms_max": _perf.get_max_ms(&"scent"),
 			"scent_samples": _perf.get_sample_count(&"scent"),
+			"noise_emit_ms_p95": _perf.get_p95_ms(&"noise"),
+			"noise_emit_ms_max": _perf.get_max_ms(&"noise"),
+			"noise_samples": _perf.get_sample_count(&"noise"),
 			"smell_active_cells_max": _active_cells_max,
 			"noise_events_total": _noise_events,
 			"raptor_investigate_entries": _investigate_entries,
@@ -148,9 +160,11 @@ func _write_outputs() -> void:
 		file.store_string(JSON.stringify(baseline, "\t"))
 		file.store_string("\n")
 	print("기준선 기록: %s / %s" % [_json_path, _csv_path])
-	print("  frame p95=%.3fms  ai p95=%.3fms(%d샘플)  scent p95=%.3fms(%d샘플)  활성셀 최대=%d  소리 이벤트=%d" % [
+	print("  frame p95=%.3fms  ai p95=%.3fms(%d샘플)  scent p95=%.3fms(%d샘플)  noise p95=%.3fms(%d샘플)  활성셀 최대=%d  소리 이벤트=%d" % [
 		float(summary["frame_ms"]["p95"]), _perf.get_p95_ms(&"ai"), _perf.get_sample_count(&"ai"),
-		_perf.get_p95_ms(&"scent"), _perf.get_sample_count(&"scent"), _active_cells_max, _noise_events])
+		_perf.get_p95_ms(&"scent"), _perf.get_sample_count(&"scent"),
+		_perf.get_p95_ms(&"noise"), _perf.get_sample_count(&"noise"),
+		_active_cells_max, _noise_events])
 
 
 func _parse_args() -> void:

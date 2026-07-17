@@ -101,6 +101,7 @@ func teleport_avatar(player_id: StringName, position: Vector2) -> void:
 	if avatar == null:
 		return
 	avatar.global_position = position
+	_reset_survival_motion_baseline(avatar)
 	_authority.register_player(player_id, position)
 
 
@@ -244,6 +245,7 @@ func _spawn(player_id: StringName, controller_peer_id: int, position: Vector2) -
 	avatar.controller_peer_id = controller_peer_id
 	_container.add_child(avatar)
 	avatar.global_position = position
+	_reset_survival_motion_baseline(avatar)
 	_avatars[player_id] = avatar
 	_authority.register_player(player_id, position)
 	if controller_peer_id == multiplayer.get_unique_id():
@@ -287,3 +289,8 @@ func _tick_pending_despawns(delta: float) -> void:
 			continue
 		_despawn(player_id)
 		despawn_avatar.rpc(String(player_id))
+
+
+func _reset_survival_motion_baseline(avatar: Player) -> void:
+	if avatar != null and avatar.stats != null:
+		avatar.stats.reset_motion_baseline()

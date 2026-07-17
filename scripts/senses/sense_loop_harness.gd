@@ -12,17 +12,22 @@ extends SceneTree
 ## 10개 시드가 전부 4개 항목을 만족해야 exit 0. 하나라도 실패하면 exit 1 + 단계별 로그.
 ##
 ## ★ 게임 코드는 건드리지 않는다. 현재 커밋된 공개 API 만 사용한다:
-##   EventBus.noise_emitted/smell_emitted (NoiseEmitter/SmellSource 가 쓰는 것과 동일 경로),
-##   Raptor.state/State(공개 enum), CampfireSite.interact 계약, Player.inventory/interactor.
+##   NoiseEmitter.emit_profile, SmellSource 등록, Raptor.state/State(공개 enum),
+##   CampfireSite.interact 계약, Player.inventory/interactor.
 ##   player_config 의 base_*_noise 같은 내부 필드는 참조하지 않는다 — 픽스 커밋으로
 ##   API 가 바뀌어도(예: 필드 제거) 이 하네스가 조용히 깨지지 않게 하기 위함이다.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const SEED_COUNT: int = 10
 const SEED_BASE: int = 4001
+const HARNESS_NOISE_RADIUS: float = 400.0
+const HARNESS_SMELL_STRENGTH: float = 60.0
+const HARNESS_SMELL_INTERVAL: float = 0.1
 
 var _epoch_physics_frames: int = 0
 var _results: Array[Dictionary] = []
+var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
+var _harness_noise_profile: NoiseProfile = null
 
 
 func _init() -> void:
@@ -32,6 +37,11 @@ func _init() -> void:
 func _run() -> void:
 	await process_frame
 	_epoch_physics_frames = Engine.get_physics_frames()
+	_harness_noise_profile = NoiseProfile.new()
+	_harness_noise_profile.id = &"sense_loop_harness"
+	_harness_noise_profile.radius = HARNESS_NOISE_RADIUS
+	_harness_noise_profile.merge_window_seconds = 0.0
+	_harness_noise_profile.merge_distance_px = 0.0
 
 	for seed_index: int in range(SEED_COUNT):
 		var seed_value: int = SEED_BASE + seed_index
@@ -93,7 +103,8 @@ func _run_seed(seed_value: int) -> Dictionary:
 
 	# ── 1) 소리 조사 진입 — 직접 지각 반경 밖, 청취 반경 안에 소리를 놓는다 ──
 	var noise_position: Vector2 = raptor.global_position + Vector2(0.0, -250.0)
-	event_bus.noise_emitted.emit(noise_position, 400.0, null)
+	_noise_emitter.emit_profile(event_bus, _harness_noise_profile, noise_position, null,
+		float(Engine.get_physics_frames()) / 60.0, false)
 	if not await _wait_until(func() -> bool: return raptor.state != Raptor.State.WANDER, 5.0):
 		result.reason = "소리로 조사에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
 		await _teardown(main)
@@ -118,7 +129,7 @@ func _run_seed(seed_value: int) -> Dictionary:
 	_log("  [seed %d] 랩터 상실(배회 복귀) 확인" % seed_value)
 
 	# ── 3) 냄새 조사 진입 — 랩터의 현재 위치에 직접 냄새를 놓는다 ──
-	event_bus.smell_emitted.emit(raptor.global_position, 60.0, &"blood")
+	var smell_source: SmellSource = _install_harness_smell_source(main, raptor.global_position)
 	if not await _wait_until(func() -> bool: return raptor.state != Raptor.State.WANDER, 5.0):
 		result.reason = "냄새로 조사에 들어가지 않았다 (state=%s)" % raptor.get_state_name()
 		await _teardown(main)
@@ -128,6 +139,8 @@ func _run_seed(seed_value: int) -> Dictionary:
 		await _teardown(main)
 		return result
 	result.smell_investigate = true
+	smell_source.deactivate()
+	smell_source.queue_free()
 	_log("  [seed %d] 냄새 조사 진입 확인 (raptor=%s)" % [
 		seed_value, raptor.global_position.snapped(Vector2.ONE)])
 
@@ -218,6 +231,17 @@ func _teardown(main: Node) -> void:
 	main.queue_free()
 	await physics_frame
 	await physics_frame
+
+
+func _install_harness_smell_source(parent: Node, position: Vector2) -> SmellSource:
+	var smell_source: SmellSource = SmellSource.new()
+	smell_source.name = "HarnessSmellSource"
+	smell_source.kind = &"blood"
+	smell_source.strength = HARNESS_SMELL_STRENGTH
+	smell_source.interval_seconds = HARNESS_SMELL_INTERVAL
+	parent.add_child(smell_source)
+	smell_source.global_position = position
+	return smell_source
 
 
 ## condition 이 참이 될 때까지 대기한다. report 는 1초마다 호출한다(생략 가능).

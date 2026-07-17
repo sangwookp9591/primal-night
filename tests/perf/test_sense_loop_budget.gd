@@ -107,6 +107,19 @@ func test_moving_far_enough_breaks_the_merge_window() -> void:
 		"멀리 이동한 소리는 새 위치라 병합하지 않는다 — 병합이 소리를 삼키면 안 된다")
 
 
+func test_noise_emitter_records_perf_samples_for_emitted_noise() -> void:
+	var profile: NoiseProfile = NoiseProfileScript.new()
+	profile.id = &"perf_noise_sample"
+	profile.radius = 120.0
+	var emitter: NoiseEmitter = NoiseEmitterScript.new()
+	_perf.reset(&"noise")
+
+	assert_true(emitter.emit_profile(_event_bus, profile, Vector2.ZERO, null, 0.0, false))
+
+	assert_gt(_perf.get_sample_count(&"noise"), 0,
+		"NoiseEmitter 발신 경로에 noise 계측 샘플이 있어야 한다")
+
+
 ## --- 냄새: 활성 셀만 갱신 (성능문서 5.2) ---
 
 func test_smell_grid_keeps_active_cells_bounded_and_reclaims_them() -> void:
@@ -171,6 +184,8 @@ func test_main_scene_sense_loop_keeps_ai_and_scent_within_cpu_budget() -> void:
 		"랩터 AI 틱에 계측 샘플이 있어야 한다 (성능문서 9장)")
 	assert_gt(_perf.get_sample_count(&"scent"), 0,
 		"냄새 격자 틱에 계측 샘플이 있어야 한다")
+	assert_gt(_perf.get_sample_count(&"noise"), 0,
+		"소리 발신 경로에 계측 샘플이 있어야 한다")
 
 	assert_lte(_perf.get_p95_ms(&"ai"), AI_BUDGET_MS,
 		"공룡 AI p95 는 CPU 예산 %.1fms 안이어야 한다 (관측 %.3fms)" % [
@@ -202,6 +217,8 @@ func test_committed_sense_loop_baseline_is_within_budget() -> void:
 		"기준선 AI p95 가 CPU 예산을 넘으면 안 된다")
 	assert_lte(float(custom.get("scent_update_ms_p95", 999.0)), SCENT_BUDGET_MS,
 		"기준선 냄새 격자 p95 가 CPU 예산을 넘으면 안 된다")
+	assert_gt(int(custom.get("noise_samples", 0)), 0,
+		"기준선에 소리 발신 샘플이 0 이면 계측 없이 통과한 것이다")
 
 	# 0 은 "빨라서 0" 이 아니라 "계측이 안 붙어서 0" 일 수 있다 — 가짜 통과 차단.
 	assert_gt(int(custom.get("ai_samples", 0)), 0,

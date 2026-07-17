@@ -9,9 +9,11 @@ var _json_path: String = "res://docs/technical/BASELINE_B01_HEADLESS_SMOKE.json"
 var _recorder: RefCounted = FrameLogRecorderScript.new()
 var _calculator: RefCounted = FrameMetricsScript.new()
 var _start_memory_mb: float = 0.0
+var _perf: Node = null
 
 func _initialize() -> void:
 	_start_memory_mb = Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+	_perf = get_root().get_node_or_null("PerfMonitor")
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for index: int in range(args.size()):
 		if args[index] == "--frames" and index + 1 < args.size():
@@ -55,6 +57,8 @@ func _write_outputs() -> void:
 		"custom": {
 			"ai_update_usec_p95": 0.0,
 			"scent_update_usec_p95": 0.0,
+			"noise_emit_usec_p95": _perf.get_p95_ms(&"noise") * 1000.0 if _perf != null else 0.0,
+			"noise_samples": _perf.get_sample_count(&"noise") if _perf != null else 0,
 			"navigation_requests_max_frame": 0,
 		},
 	}

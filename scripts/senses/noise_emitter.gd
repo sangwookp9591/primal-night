@@ -27,5 +27,17 @@ func emit_profile(event_bus: Node, profile: NoiseProfile, position: Vector2, sou
 			return false
 		last.position = position
 		last.time = now_seconds
+	var perf: Node = _perf_monitor()
+	if perf != null:
+		perf.begin_sample(&"noise")
 	event_bus.noise_emitted.emit(position, profile.radius, source)
+	if perf != null:
+		perf.end_sample(&"noise")
 	return true
+
+
+func _perf_monitor() -> Node:
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return null
+	return tree.root.get_node_or_null("PerfMonitor")

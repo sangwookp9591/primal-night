@@ -94,6 +94,19 @@ func test_join_spawns_client_avatar_on_both_sides() -> void:
 		host.host_player.global_position + host.net.config.client_spawn_offset, Vector2(1.0, 1.0))
 
 
+func test_spawn_does_not_count_initial_position_as_fatigue_movement() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var host_side_avatar: Player = host.container.get_node(String(client_id))
+	var client_side_avatar: Player = client.container.get_node(String(client_id))
+
+	await wait_physics_frames(3)
+
+	assert_almost_eq(host_side_avatar.stats.fatigue, 0.0, 0.001,
+		"호스트 권위 아바타는 스폰 위치 배치만으로 피로가 쌓이면 안 된다")
+	assert_almost_eq(client_side_avatar.stats.fatigue, 0.0, 0.001,
+		"클라이언트 복제 아바타도 스폰 위치 배치만으로 피로가 쌓이면 안 된다")
+
+
 func test_client_movement_within_budget_replicates_to_host() -> void:
 	var client_id: StringName = await _join_and_spawn()
 	var client_side_avatar: Player = client.container.get_node(String(client_id))
