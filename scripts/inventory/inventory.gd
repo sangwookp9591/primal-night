@@ -15,6 +15,16 @@ extends Node
 ## HUD 는 이 신호로만 갱신한다. 매 프레임 폴링하지 않는다 (성능문서 6.2).
 signal changed()
 
+## 보유 냄새 원천 합산 규칙 (설계서 5.4).
+##
+## 여러 개를 들면 더 강한 냄새가 나야 하지만, 단순 곱셈 합산은 고기 한 스택으로
+## 맵 전체를 덮어 포식자 유인이 무의미해진다. 그래서 "최댓값 + 가산" 을 쓴다:
+##   가장 강한 원천 1단위가 기준(base), 나머지 각 단위는 자기 강도의
+##   ADDITIONAL_UNIT_FACTOR 만큼만 더하고, 총합은 base * MAX_MULTIPLIER 에서 막는다.
+## 냄새 종류/주기는 가장 강한 원천의 것을 따른다. 섞어 들면 센 쪽이 존재를 지운다.
+const CARRIED_SMELL_ADDITIONAL_UNIT_FACTOR: float = 0.5
+const CARRIED_SMELL_MAX_MULTIPLIER: float = 3.0
+
 @export var slot_count: int = 16
 @export var max_weight: float = 20.0
 
@@ -131,6 +141,41 @@ func total_weight() -> float:
 			total += item.weight * float(slot["count"])
 	return total
 
+## 보유 중인 모든 냄새 원천을 합산한 결과. 원천이 없으면 빈 Dictionary.
+## 반환: {strength: float, interval: float, kind: StringName}
+##
+## 슬롯 단위가 아니라 개수 단위로 센다. 스택 상한을 넘겨 여러 슬롯에 흩어져도
+## 전량이 합산에 들어간다.
+func get_carried_smell() -> Dictionary:
+	var strongest: ItemData = null
+	var strength_sum: float = 0.0
+
+	for slot: Dictionary in _slots:
+		if slot.is_empty():
+			continue
+		var item: ItemData = _game_data.get_item(slot["id"])
+		if item == null or not item.is_smell_source():
+			continue
+		strength_sum += item.smell_strength * float(slot["count"])
+		if strongest == null or item.smell_strength > strongest.smell_strength:
+			strongest = item
+
+	if strongest == null:
+		return {}
+
+	var base: float = strongest.smell_strength
+	# 기준 1단위는 제값을 다 내고, 나머지 단위만 가산 계수를 받는다.
+	var extra: float = (strength_sum - base) * CARRIED_SMELL_ADDITIONAL_UNIT_FACTOR
+	var total: float = minf(base + extra, base * CARRIED_SMELL_MAX_MULTIPLIER)
+
+	return {
+		strength = total,
+		interval = strongest.smell_interval_seconds,
+		kind = strongest.get_smell_kind(),
+	}
+
+## 냄새 원천 보유량이 바뀔 때마다 합산 결과로 등록을 통째로 갱신한다.
+## 등록은 소유자(self) 하나로 유지한다. 격자는 owner 당 원천 하나만 들고 있다.
 func _update_carried_smell_source(id: StringName) -> void:
 	var changed_item: ItemData = _game_data.get_item(id)
 	if changed_item == null or not changed_item.is_smell_source():
@@ -138,21 +183,12 @@ func _update_carried_smell_source(id: StringName) -> void:
 	var grid: SmellGrid = _find_smell_grid()
 	if grid == null:
 		return
-	var carried: ItemData = _first_carried_smell_item()
-	if carried != null:
-		grid.register_smell_source(self, Callable(self, "_carried_smell_position"),
-			carried.smell_strength, carried.smell_interval_seconds, carried.get_smell_kind())
-	else:
+	var carried: Dictionary = get_carried_smell()
+	if carried.is_empty():
 		grid.unregister_smell_source(self)
-
-func _first_carried_smell_item() -> ItemData:
-	for slot: Dictionary in _slots:
-		if slot.is_empty():
-			continue
-		var item: ItemData = _game_data.get_item(slot["id"])
-		if item != null and item.is_smell_source():
-			return item
-	return null
+		return
+	grid.register_smell_source(self, Callable(self, "_carried_smell_position"),
+		carried["strength"], carried["interval"], carried["kind"])
 
 func _find_smell_grid() -> SmellGrid:
 	if _carried_smell_grid == null or not is_instance_valid(_carried_smell_grid):

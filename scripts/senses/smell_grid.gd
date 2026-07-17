@@ -183,6 +183,12 @@ func unregister_smell_source(owner: Object) -> void:
 func get_registered_smell_source_count() -> int:
 	return _smell_sources.size()
 
+## 등록된 원천의 현재 강도. 등록돼 있지 않으면 0.0.
+func get_registered_smell_strength(owner: Object) -> float:
+	if not _smell_sources.has(owner):
+		return 0.0
+	return float(_smell_sources[owner]["strength"])
+
 @rpc("authority", "call_remote", "unreliable")
 func apply_smell_snapshot(indices: PackedInt32Array, values: PackedFloat32Array) -> void:
 	if is_multiplayer_authority() or indices.size() != values.size():
