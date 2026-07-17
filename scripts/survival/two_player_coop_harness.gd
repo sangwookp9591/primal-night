@@ -12,14 +12,17 @@ extends SceneTree
 ## 전 구간 자동 판정, 실패 시 종료 코드 1.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const NetTestRigScript = preload("res://tests/support/net_test_rig.gd")
 const RAPTOR_RNG_SEED: int = 3
 const SMELL_WINDOW_FRAMES: int = 180  # 3.0초 — 피 냄새 주기 0.5초면 6회 발신 예상.
 
 var _frames: int = 0
 var _blood_smell_count: int = 0
+var _rig: RefCounted
 
 
 func _init() -> void:
+	_rig = NetTestRigScript.new(self)
 	_run()
 
 
@@ -36,8 +39,8 @@ func _run() -> void:
 	for required: String in ["NetSession", "NetMovement", "Players", "Player", "NetPickup", "NetSurvival", "SmellGrid"]:
 		if host_main.get_node_or_null(required) == null:
 			return _fail("main.tscn 에 %s 노드가 없다 — W2-T2 가 게임 씬에 연결되지 않았다" % required)
-	var host_session: SessionService = host_main.get_node("NetSession")
-	var client_session: SessionService = client_main.get_node("NetSession")
+	var host_session: LocalSessionService = host_main.get_node("NetSession")
+	var client_session: LocalSessionService = client_main.get_node("NetSession")
 	var host_player: Player = host_main.get_node("Player")
 	var host_grid: SmellGrid = host_main.get_node("SmellGrid")
 	var client_survival: NetSurvival = client_main.get_node("NetSurvival")
@@ -50,9 +53,9 @@ func _run() -> void:
 
 	# 1) 접속.
 	_log("--- phase 1: 호스트 개설 + 클라이언트 참가 ---")
-	if host_session.host_session() != OK:
+	if _rig.start_host(host_session) != OK:
 		return _fail("host_session 실패")
-	if client_session.join_session("127.0.0.1:%d" % (host_main.get_node("NetMovement") as NetMovement).config.port) != OK:
+	if _rig.connect_client(client_session, host_session) != OK:
 		return _fail("join_session 실패")
 	if not await _wait_until(func() -> bool:
 			return host_session.get_players().size() == 2, 10.0):
@@ -192,6 +195,9 @@ func _run() -> void:
 		return _fail("이탈이 정리되지 않았다")
 
 	_log("=== 2인 협동 하네스 성공: 동시 획득 1명 확정·복제/소실 0·피해 클램프·호스트 단독 냄새·붕대 치료 확정·냄새 정지 ===")
+	_rig.disconnect_all()
+	if not _rig.assert_no_leaked_peers():
+		return _fail("NetTestRig peer 누수")
 	quit(0)
 
 
@@ -221,13 +227,7 @@ func _spawn_item(main: Node2D, item_name: String, item_id: StringName, count: in
 
 
 func _wait_until(condition: Callable, timeout_seconds: float) -> bool:
-	var max_frames: int = int(timeout_seconds * 60.0)
-	for frame_index: int in range(max_frames):
-		if condition.call():
-			return true
-		await physics_frame
-		_frames += 1
-	return condition.call()
+	return await _rig.pump_until(condition, timeout_seconds)
 
 
 func _log(message: String) -> void:
@@ -236,4 +236,5 @@ func _log(message: String) -> void:
 
 func _fail(reason: String) -> void:
 	_log("=== 2인 협동 하네스 실패: %s ===" % reason)
+	_rig.disconnect_all()
 	quit(1)

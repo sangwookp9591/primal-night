@@ -13,6 +13,7 @@ extends SceneTree
 ## 한 번에 검증하는 데 그대로 쓴다.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const NetTestRigScript = preload("res://tests/support/net_test_rig.gd")
 const RAPTOR_RNG_SEED: int = 3
 const WALK_FRAMES: int = 72
 const SETTLE_FRAMES: int = 90
@@ -21,9 +22,11 @@ const MIN_WALK_DISTANCE_PX: float = 80.0
 
 var _frames: int = 0
 var _host_left_observed: Array[StringName] = []
+var _rig: RefCounted
 
 
 func _init() -> void:
+	_rig = NetTestRigScript.new(self)
 	_run()
 
 
@@ -40,8 +43,8 @@ func _run() -> void:
 	for required: String in ["NetSession", "NetMovement", "Players", "Player"]:
 		if host_main.get_node_or_null(required) == null:
 			return _fail("main.tscn 에 %s 노드가 없다 — 네트워크가 게임 씬에 연결되지 않았다" % required)
-	var host_session: SessionService = host_main.get_node("NetSession")
-	var client_session: SessionService = client_main.get_node("NetSession")
+	var host_session: LocalSessionService = host_main.get_node("NetSession")
+	var client_session: LocalSessionService = client_main.get_node("NetSession")
 	var host_net: NetMovement = host_main.get_node("NetMovement")
 	var host_player: Player = host_main.get_node("Player")
 	var client_view_of_host: Player = client_main.get_node("Player")
@@ -51,10 +54,10 @@ func _run() -> void:
 
 	# 1) 접속.
 	_log("--- phase 1: 호스트 개설 + 클라이언트 참가 ---")
-	var error: Error = host_session.host_session()
+	var error: Error = _rig.start_host(host_session)
 	if error != OK:
 		return _fail("host_session 실패: %d" % error)
-	error = client_session.join_session("127.0.0.1:%d" % host_net.config.port)
+	error = _rig.connect_client(client_session, host_session)
 	if error != OK:
 		return _fail("join_session 실패: %d" % error)
 
@@ -161,6 +164,9 @@ func _run() -> void:
 	_log("30초 제거 완료. host players=%s" % [host_session.get_players()])
 
 	_log("=== 2인 하네스 성공: 접속·스폰·이동 동기화·변조 거부·이탈 정리 ===")
+	_rig.disconnect_all()
+	if not _rig.assert_no_leaked_peers():
+		return _fail("NetTestRig peer 누수")
 	quit(0)
 
 
@@ -180,15 +186,7 @@ func _make_machine(machine_name: String) -> Node:
 
 
 func _wait_until(condition: Callable, timeout_seconds: float, report: Callable = Callable()) -> bool:
-	var max_frames: int = int(timeout_seconds * 60.0)
-	for frame_index: int in range(max_frames):
-		if condition.call():
-			return true
-		if report.is_valid() and frame_index % 60 == 0:
-			report.call()
-		await physics_frame
-		_frames += 1
-	return condition.call()
+	return await _rig.pump_until(condition, timeout_seconds, report)
 
 
 func _log(message: String) -> void:
@@ -197,4 +195,5 @@ func _log(message: String) -> void:
 
 func _fail(reason: String) -> void:
 	_log("=== 2인 하네스 실패: %s ===" % reason)
+	_rig.disconnect_all()
 	quit(1)

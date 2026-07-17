@@ -10,8 +10,12 @@ extends SessionService
 
 const DEFAULT_CONFIG: NetConfig = preload("res://resources/net/net_config.tres")
 const RECONNECT_SLOT_SECONDS: float = 120.0
+const DYNAMIC_PORT_BASE: int = 20000
+const DYNAMIC_PORT_SPAN: int = 32768
+const DYNAMIC_PORT_ATTEMPTS: int = 256
 
 static var _pending_player_ids_by_port: Dictionary = {}
+static var _dynamic_port_cursor: int = 0
 
 @export var config: NetConfig = DEFAULT_CONFIG
 @export var build_number: String = "dev"
@@ -20,6 +24,8 @@ var _peer_to_player: Dictionary = {}
 var _player_to_peer: Dictionary = {}
 var _reconnect_slots: Dictionary = {}
 var _last_connection_failure: Dictionary = {}
+var bound_port: int = 0
+var _pending_player_id_port: int = 0
 
 
 func _ready() -> void:
@@ -30,7 +36,14 @@ func _ready() -> void:
 
 func host_session() -> Error:
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
-	var error: Error = peer.create_server(config.port, config.max_clients)
+	var error: Error
+	if config.port == 0:
+		var result: Dictionary = _create_server_on_dynamic_port(peer)
+		error = result.error
+		bound_port = result.port
+	else:
+		error = peer.create_server(config.port, config.max_clients)
+		bound_port = config.port if error == OK else 0
 	if error != OK:
 		_record_connection_failure(&"host_create_failed", error, "", build_number)
 		return error
@@ -52,9 +65,11 @@ func join_session(invite: Variant) -> Error:
 	var requested_player_id: StringName = parsed["player_id"]
 	if not String(requested_player_id).is_empty():
 		_pending_player_ids_by_port[int(parsed["port"])] = requested_player_id
+		_pending_player_id_port = int(parsed["port"])
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	var error: Error = peer.create_client(String(parsed["address"]), int(parsed["port"]))
 	if error != OK:
+		_clear_pending_player_id()
 		_record_connection_failure(&"client_create_failed", error, String(parsed["host_build_number"]), build_number)
 		return error
 	multiplayer.multiplayer_peer = peer
@@ -65,11 +80,16 @@ func join_session(invite: Variant) -> Error:
 
 
 func leave_session() -> void:
-	if not _has_session():
-		return
-	multiplayer.multiplayer_peer.close()
-	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-	session_ended.emit()
+	_clear_pending_player_id()
+	if _has_session():
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		session_ended.emit()
+	if bound_port != 0:
+		_pending_player_ids_by_port.erase(bound_port)
+	bound_port = 0
+	_peer_to_player.clear()
+	_player_to_peer.clear()
 
 
 func get_local_player_id() -> StringName:
@@ -129,8 +149,8 @@ func _on_peer_connected(peer_id: int) -> void:
 		_set_peer_player_id(peer_id, _player_id_from_peer(peer_id))
 		player_joined.emit(_player_id_from_peer(peer_id))
 		return
-	var player_id: StringName = _pending_player_ids_by_port.get(config.port, _player_id_from_peer(peer_id))
-	_pending_player_ids_by_port.erase(config.port)
+	var player_id: StringName = _pending_player_ids_by_port.get(bound_port, _player_id_from_peer(peer_id))
+	_pending_player_ids_by_port.erase(bound_port)
 	_set_peer_player_id(peer_id, player_id)
 	if _reconnect_slots.has(player_id):
 		_reconnect_slots.erase(player_id)
@@ -150,6 +170,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 func _on_server_disconnected() -> void:
 	# 호스트 이탈: 세션 종료 (설계서 7.3). 호스트 이전은 출시 범위 밖이다.
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	_clear_pending_player_id()
 	session_ended.emit()
 
 
@@ -192,3 +213,28 @@ func _record_connection_failure(reason: StringName, error: Error, host_build: St
 		local_build_number = local_build,
 		can_return_single_player = true,
 	}
+
+
+func _create_server_on_dynamic_port(peer: ENetMultiplayerPeer) -> Dictionary:
+	var start: int = (OS.get_process_id() + _dynamic_port_cursor) % DYNAMIC_PORT_SPAN
+	for offset: int in range(DYNAMIC_PORT_ATTEMPTS):
+		var candidate: int = DYNAMIC_PORT_BASE + ((start + offset) % DYNAMIC_PORT_SPAN)
+		var probe: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+		if probe.create_server(candidate, 1) != OK:
+			continue
+		probe.close()
+		var error: Error = peer.create_server(candidate, config.max_clients)
+		if error == OK:
+			_dynamic_port_cursor = (_dynamic_port_cursor + offset + 1) % DYNAMIC_PORT_SPAN
+			return {error = OK, port = candidate}
+	return {error = ERR_CANT_CREATE, port = 0}
+
+
+func _clear_pending_player_id() -> void:
+	if _pending_player_id_port != 0:
+		_pending_player_ids_by_port.erase(_pending_player_id_port)
+		_pending_player_id_port = 0
+
+
+static func clear_for_test() -> void:
+	_pending_player_ids_by_port.clear()

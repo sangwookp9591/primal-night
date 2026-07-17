@@ -18,6 +18,7 @@ extends SceneTree
 ## 입력·물리 기반 이동, 단계별 로그, 성공 시 exit 0 / 실패 시 exit 1.
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const NetTestRigScript = preload("res://tests/support/net_test_rig.gd")
 const WorldItemScene: PackedScene = preload("res://scenes/items/world_item.tscn")
 const RAPTOR_RNG_SEED: int = 3
 
@@ -25,9 +26,11 @@ const RAPTOR_RNG_SEED: int = 3
 var _epoch_physics_frames: int = 0
 var _campfire_lit_count: int = 0
 var _blood_smell_count: int = 0
+var _rig: RefCounted
 
 
 func _init() -> void:
+	_rig = NetTestRigScript.new(self)
 	_run()
 
 
@@ -46,8 +49,8 @@ func _run() -> void:
 			"SurvivalDemo/CampfireSite", "SurvivalDemo/Bandage"]:
 		if host_main.get_node_or_null(required) == null:
 			return _fail("main.tscn 에 %s 가 없다 — W2 배선 누락" % required)
-	var host_session: SessionService = host_main.get_node("NetSession")
-	var client_session: SessionService = client_main.get_node("NetSession")
+	var host_session: LocalSessionService = host_main.get_node("NetSession")
+	var client_session: LocalSessionService = client_main.get_node("NetSession")
 	var host_player: Player = host_main.get_node("Player")
 	var host_raptor: Raptor = host_main.get_node("Raptor")
 	var client_raptor: Raptor = client_main.get_node("Raptor")
@@ -72,10 +75,9 @@ func _run() -> void:
 
 	# ── phase 1: 호스트가 방 생성 → 친구 참가 (Steam 초대는 로컬 참가로 대체) ──
 	_log("--- phase 1: 방 생성 + 참가 ---")
-	if host_session.host_session() != OK:
+	if _rig.start_host(host_session) != OK:
 		return _fail("host_session 실패")
-	var port: int = (host_main.get_node("NetMovement") as NetMovement).config.port
-	if client_session.join_session("127.0.0.1:%d" % port) != OK:
+	if _rig.connect_client(client_session, host_session) != OK:
 		return _fail("join_session 실패")
 	if not await _wait_until(func() -> bool: return host_session.get_players().size() == 2, 10.0):
 		return _fail("호스트가 참가를 관측하지 못했다")
@@ -241,7 +243,7 @@ func _run() -> void:
 		return _fail("이탈이 관측되지 않았다")
 	if not host_session.has_reconnect_slot(client_id):
 		return _fail("120초 재접속 슬롯이 열리지 않았다")
-	if client_session.join_session({ address = "127.0.0.1", port = port, player_id = client_id }) != OK:
+	if _rig.connect_client(client_session, host_session, client_id) != OK:
 		return _fail("재참가가 시작되지 않았다")
 	if not await _wait_until(func() -> bool:
 			return host_session.get_players().size() == 2 and client_main.has_node(avatar_path), 10.0):
@@ -269,6 +271,9 @@ func _run() -> void:
 	if _campfire_lit_count != 1:
 		return _fail("최종 campfire_lit 발신 %d회 — 전 구간에서 호스트 단독 1회여야 한다" % _campfire_lit_count)
 	_log("=== 2주 목표 장면 통합 하네스 성공: 방 생성 → 2인 탐색 → 부상 → 냄새 추적 → 치료 → 모닥불 탈출(전원 보호 시에만 후퇴) → 재접속 복원 ===")
+	_rig.disconnect_all()
+	if not _rig.assert_no_leaked_peers():
+		return _fail("NetTestRig peer 누수")
 	quit(0)
 
 
@@ -345,14 +350,7 @@ func _report_raptor() -> void:
 
 ## condition 이 참이 될 때까지 대기. report 는 1초마다 호출한다.
 func _wait_until(condition: Callable, timeout_seconds: float, report: Callable = Callable()) -> bool:
-	var max_frames: int = int(timeout_seconds * 60.0)
-	for frame_index: int in range(max_frames):
-		if condition.call():
-			return true
-		if report.is_valid() and frame_index % 60 == 0:
-			report.call()
-		await physics_frame
-	return condition.call()
+	return await _rig.pump_until(condition, timeout_seconds, report)
 
 
 func _log(message: String) -> void:
@@ -362,4 +360,5 @@ func _log(message: String) -> void:
 
 func _fail(reason: String) -> void:
 	_log("=== 2주 목표 장면 통합 하네스 실패: %s ===" % reason)
+	_rig.disconnect_all()
 	quit(1)

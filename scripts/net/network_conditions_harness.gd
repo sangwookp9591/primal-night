@@ -7,9 +7,11 @@ const PROFILES: Array[Dictionary] = [
 	{name = "RTT 100ms / loss 1%", rtt_ms = 100, packet_loss_percent = 1, jitter_ms = 0},
 	{name = "RTT 250ms / loss 5%", rtt_ms = 250, packet_loss_percent = 5, jitter_ms = 30},
 ]
+const NetTestRigScript = preload("res://tests/support/net_test_rig.gd")
 
 
 func _init() -> void:
+	var rig: RefCounted = NetTestRigScript.new(self)
 	var failed: bool = false
 	print("=== network conditions harness: CI short scenario (2h remote test 축소) ===")
 	for profile: Dictionary in PROFILES:
@@ -42,4 +44,7 @@ func _init() -> void:
 		failed = true
 
 	print("=== network conditions harness %s ===" % ("FAILED" if failed else "PASSED"))
+	rig.disconnect_all()
+	if not rig.assert_no_leaked_peers():
+		failed = true
 	quit(1 if failed else 0)
