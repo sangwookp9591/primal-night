@@ -1,9 +1,13 @@
 [gd_resource type="TileSet" load_steps=3 format=3 uid="uid://valleytileset"]
 
-[ext_resource type="Texture2D" uid="uid://c4oqap4d6umxp" path="res://assets/tiles/valley_tiles.png" id="1_valleytiles"]
+[ext_resource type="Texture2D" uid="uid://bs7hk620fdnii" path="res://assets/tiles/valley_terrain_tiles_sheet.png" id="1_valleyterrain"]
 
+; 정식 지형 시트 (PRIMAL_NIGHT_ASSET_SHEETS_DRAFT §계곡 지형 타일 17종).
+; 6열×3행 아이소메트릭 64×32. 행 우선 인덱스:
+;   0~2 Z01 / 3~5 Z02 / 6~8 Z03 / 9~11 Z04 / 12~14 Z05 / 15 절벽 / 16 깊은 물 / (5,2) 빈 칸.
+; 절벽(3,2)·깊은 물(4,2)만 충돌 폴리곤을 갖는다 (비플레이 이동 불가).
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_valley"]
-texture = ExtResource("1_valleytiles")
+texture = ExtResource("1_valleyterrain")
 texture_region_size = Vector2i(64, 32)
 0:0/0 = 0
 1:0/0 = 0
@@ -11,7 +15,19 @@ texture_region_size = Vector2i(64, 32)
 3:0/0 = 0
 4:0/0 = 0
 5:0/0 = 0
-5:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-28, 0, 0, -14, 28, 0, 0, 14)
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+4:1/0 = 0
+5:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+3:2/0/physics_layer_0/polygon_0/points = PackedVector2Array(-28, 0, 0, -14, 28, 0, 0, 14)
+4:2/0 = 0
+4:2/0/physics_layer_0/polygon_0/points = PackedVector2Array(-28, 0, 0, -14, 28, 0, 0, 14)
 
 [resource]
 tile_shape = 1

@@ -1,15 +1,20 @@
 extends SceneTree
 
+## ⚠️ DEPRECATED — 대체됨 (연결 TA). 더 이상 빌드/런타임에 쓰이지 않는다.
+##
+## 이 스크립트는 회색 상자 단계의 프로그램 생성 아틀라스(valley_tiles.png, 단색 다이아몬드
+## 6종)를 만들었다. 이제 정식 지형 시트 assets/tiles/valley_terrain_tiles_sheet.png(17종)로
+## 교체됐고, valley_tileset.tres 와 valley_map.gd 는 그 시트를 참조한다.
+## 산출물 valley_tiles.png(+.import)는 삭제됐다. 이 스크립트를 실행하면 죽은 아틀라스가
+## 다시 생기므로 실행하지 말 것. 회색 상자 재현이 필요할 때의 기록으로만 남긴다.
+##
+## --- 아래는 원래 회색 상자 생성기 (역사적 기록) ---
+##
 ## 회색 상자 계곡 타일 아틀라스 생성기 (레인 M, 에셋 정책: 새 아트 생성 불가 →
 ## 저채도 자연색으로 프로그램 생성). 07-16 '임시에셋 스타일 가이드' 팔레트 기반.
-## 실행: /opt/homebrew/bin/godot --headless --path . -s tools/generate_valley_tiles.gd
-##
 ## 산출: assets/tiles/valley_tiles.png — 64×32 아이소메트릭 다이아몬드 6종.
 ##   0 Z01 추락 분지(회갈)  1 Z02 갈대 강변(청록끼 습지)  2 Z03 메아리 밀림(짙은 녹)
 ##   3 Z04 둥지 평원(마른 풀)  4 Z05 검은 능선(검은 암반)  5 비플레이(절벽/물, 충돌)
-##
-## 다이아몬드만 칠하고 바깥은 투명 — 아이소메트릭 타일 경계가 시각적으로 읽힌다.
-## TileSet 리소스는 resources/tiles/valley_tileset.tres 가 이 png 를 참조한다.
 
 const TILE_W: int = 64
 const TILE_H: int = 32

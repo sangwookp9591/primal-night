@@ -107,10 +107,52 @@ func test_nonplay_chunks_are_collision() -> void:
 	# 24 비플레이 청크 × 1024 = 24576 충돌 타일.
 	assert_eq(collision.get_used_cells().size(), 24 * 32 * 32,
 		"비플레이 청크는 충돌 타일로 칠해져야 한다 (이동 불가)")
-	# 충돌 타일은 물리 폴리곤을 가진다 (아틀라스 5번).
-	var sample: Vector2i = collision.get_used_cells()[0]
-	assert_eq(collision.get_cell_atlas_coords(sample), Vector2i(ValleyMapScript.TILE_NONPLAY, 0),
-		"비플레이 타일은 절벽/물 아틀라스여야 한다")
+	# 모든 비플레이 타일은 절벽 또는 깊은 물 아틀라스여야 한다 (정식 지형 시트).
+	var nonplay_atlases: Array = [ValleyMapScript.TILE_CLIFF, ValleyMapScript.TILE_WATER]
+	for sample: Vector2i in collision.get_used_cells():
+		assert_true(collision.get_cell_atlas_coords(sample) in nonplay_atlases,
+			"비플레이 타일 %s 는 절벽/물 아틀라스여야 한다" % sample)
+
+
+func test_nonplay_tiles_carry_collision_polygons() -> void:
+	# 절벽·물 타일이 실제로 물리 폴리곤을 가져야 이동이 막힌다.
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(1)
+	var tile_set: TileSet = (valley.get_node("Collision") as TileMapLayer).tile_set
+	var source: TileSetAtlasSource = tile_set.get_source(ValleyMapScript.SOURCE_ID) as TileSetAtlasSource
+
+	for atlas: Vector2i in [ValleyMapScript.TILE_CLIFF, ValleyMapScript.TILE_WATER]:
+		var data: TileData = source.get_tile_data(atlas, 0)
+		assert_gt(data.get_collision_polygons_count(0), 0,
+			"비플레이 타일 %s 는 충돌 폴리곤을 가져야 한다" % atlas)
+
+
+func test_playable_zone_tiles_come_from_the_zone_variant_set() -> void:
+	# 각 Zone 청크의 타일이 그 Zone 의 변형 집합에서만 나오는지 검산한다.
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(1)
+	var ground: TileMapLayer = valley.get_node("Ground")
+
+	# S01(Z01, 1E) 청크의 셀들이 Z01 변형만 쓰는지 표본 확인.
+	var origin: Vector2i = ValleyMapScript.chunk_cell_origin(Vector2i(1, 1))
+	var z01_variants: Array = ValleyMapScript.ZONE_VARIANTS["1"]
+	var seen_variety: Dictionary = {}
+	for dy: int in range(0, ValleyMapScript.TILES_PER_CHUNK, 4):
+		for dx: int in range(0, ValleyMapScript.TILES_PER_CHUNK, 4):
+			var atlas: Vector2i = ground.get_cell_atlas_coords(origin + Vector2i(dx, dy))
+			assert_true(atlas in z01_variants, "Z01 청크 타일 %s 는 Z01 변형이어야 한다" % atlas)
+			seen_variety[atlas] = true
+	# 변형이 실제로 분산됐는지 — 한 종류만 나오면 시드 분산이 죽은 것이다.
+	assert_gt(seen_variety.size(), 1, "Zone 변형이 청크 안에서 분산돼야 한다 (반복감 감소)")
+
+
+func test_variant_selection_is_deterministic() -> void:
+	# 같은 셀은 항상 같은 변형 — 실행마다 달라지면 하네스 결정성이 깨진다.
+	for cell: Vector2i in [Vector2i(5, 7), Vector2i(40, 190), Vector2i(200, 12)]:
+		var first: int = ValleyMapScript.variant_index(cell, 3)
+		var second: int = ValleyMapScript.variant_index(cell, 3)
+		assert_eq(first, second, "셀 %s 변형 선택은 결정적이어야 한다" % cell)
+		assert_between(first, 0, 2, "변형 인덱스는 범위 안이어야 한다")
 
 
 # --- 랜드마크 계약 (문서 §3) -------------------------------------------------

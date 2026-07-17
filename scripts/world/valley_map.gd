@@ -15,14 +15,24 @@ extends Node2D
 const TILES_PER_CHUNK: int = 32
 const GRID: int = 8
 
-## 아틀라스 타일 인덱스 (valley_tileset.tres 순서).
-const TILE_Z01: int = 0
-const TILE_Z02: int = 1
-const TILE_Z03: int = 2
-const TILE_Z04: int = 3
-const TILE_Z05: int = 4
-const TILE_NONPLAY: int = 5
 const SOURCE_ID: int = 0
+
+## 정식 지형 시트(valley_terrain_tiles_sheet, 6열×3행) 아틀라스 좌표.
+## Zone 별 2~3 변형을 셀 시드로 분산 배치해 반복감을 줄인다.
+const ZONE_VARIANTS: Dictionary = {
+	"1": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)],  # Z01 회갈 암반·다진 흙·추락 잔해
+	"2": [Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0)],  # Z02 습지·얕은 물가·성긴 갈대
+	"3": [Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1)],  # Z03 짙은 식생·낙엽·거목 뿌리
+	"4": [Vector2i(3, 1), Vector2i(4, 1), Vector2i(5, 1)],  # Z04 마른 풀·짓밟힌 흙·관목
+	"5": [Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2)],  # Z05 현무암·화산암·화산재
+}
+
+## 비플레이(충돌) 지형 — 절벽/깊은 물.
+const TILE_CLIFF: Vector2i = Vector2i(3, 2)
+const TILE_WATER: Vector2i = Vector2i(4, 2)
+
+## 지형 변형 분산용 고정 밸리 시드. 실행마다 같은 배치라 하네스 결정성이 유지된다.
+const VALLEY_SEED: int = 0x5A11E9
 
 ## 배치도 §2. 행은 위(y7)→아래(y0). "··" 는 비플레이.
 const DOC_GRID: Array = [
@@ -84,27 +94,57 @@ func _paint_chunks(ground: TileMapLayer, collision: TileMapLayer) -> void:
 			# 배치도 행 0 = y7. Godot 타일 행(위=0)은 그대로 row 다.
 			var cell_origin: Vector2i = Vector2i(col * TILES_PER_CHUNK, row * TILES_PER_CHUNK)
 			if label == "··":
-				_paint_chunk_cells(collision, cell_origin, TILE_NONPLAY)
+				_paint_nonplay_chunk(collision, cell_origin, nonplay_tile_for(col, row))
 			else:
-				_paint_chunk_cells(ground, cell_origin, zone_tile_for(label))
+				_paint_zone_chunk(ground, cell_origin, label.substr(0, 1))
 
 
-func _paint_chunk_cells(layer: TileMapLayer, cell_origin: Vector2i, tile_index: int) -> void:
-	var atlas: Vector2i = Vector2i(tile_index, 0)
+## 플레이 청크: Zone 변형을 셀 시드로 분산 배치한다 (반복감 감소, 결정적).
+func _paint_zone_chunk(layer: TileMapLayer, cell_origin: Vector2i, zone_digit: String) -> void:
+	var variants: Array = ZONE_VARIANTS[zone_digit]
+	for dy: int in range(TILES_PER_CHUNK):
+		for dx: int in range(TILES_PER_CHUNK):
+			var cell: Vector2i = cell_origin + Vector2i(dx, dy)
+			layer.set_cell(cell, SOURCE_ID, variants[variant_index(cell, variants.size())])
+
+
+## 비플레이 청크: 단일 지형(절벽 또는 깊은 물). 충돌은 타일셋 물리 폴리곤이 제공한다.
+func _paint_nonplay_chunk(layer: TileMapLayer, cell_origin: Vector2i, atlas: Vector2i) -> void:
 	for dy: int in range(TILES_PER_CHUNK):
 		for dx: int in range(TILES_PER_CHUNK):
 			layer.set_cell(cell_origin + Vector2i(dx, dy), SOURCE_ID, atlas)
 
 
-## 청크 라벨 앞 숫자가 Zone 이다 (1→Z01 …). 반환은 아틀라스 타일 인덱스.
-static func zone_tile_for(label: String) -> int:
-	match label.substr(0, 1):
-		"1": return TILE_Z01
-		"2": return TILE_Z02
-		"3": return TILE_Z03
-		"4": return TILE_Z04
-		"5": return TILE_Z05
-		_: return TILE_NONPLAY
+## 셀 좌표 + 고정 밸리 시드의 결정적 해시 → 변형 인덱스. Godot 버전·실행과 무관하게
+## 같은 셀은 항상 같은 변형이라 하네스 결정성을 깨지 않는다 (자체 정수 해시).
+static func variant_index(cell: Vector2i, count: int) -> int:
+	if count <= 1:
+		return 0
+	var h: int = (cell.x * 73856093) ^ (cell.y * 19349663) ^ VALLEY_SEED
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return absi(h) % count
+
+
+## 비플레이 지형 선택: 강변(Z02)에 접했거나 남쪽 저지대면 깊은 물, 그 외는 절벽.
+static func nonplay_tile_for(col: int, row: int) -> Vector2i:
+	for neighbor: Vector2i in [
+		Vector2i(col + 1, row), Vector2i(col - 1, row),
+		Vector2i(col, row + 1), Vector2i(col, row - 1),
+	]:
+		if _zone_digit_at(neighbor.x, neighbor.y) == "2":
+			return TILE_WATER
+	if row == GRID - 1:  # 남쪽 추락 접근면 저지대
+		return TILE_WATER
+	return TILE_CLIFF
+
+
+## 격자 (col,row) 의 Zone 숫자. 범위 밖·비플레이면 빈 문자열.
+static func _zone_digit_at(col: int, row: int) -> String:
+	if col < 0 or col >= GRID or row < 0 or row >= GRID:
+		return ""
+	var label: String = DOC_GRID[row][col]
+	return "" if label == "··" else label.substr(0, 1)
 
 
 ## 배치도 청크 좌표(dcx, dcy) → 그 청크의 좌상단 타일 셀.
