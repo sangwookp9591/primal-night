@@ -33,7 +33,9 @@ var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 var _floor_smell_source: SmellSource = null
 
 func _ready() -> void:
-	$ItemSprite.texture = icon_texture(item_id)
+	var item_sprite := get_node_or_null("ItemSprite") as Sprite2D
+	if item_sprite != null:
+		item_sprite.texture = icon_texture(item_id)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	var item: ItemData = get_node("/root/GameData").get_item(item_id)

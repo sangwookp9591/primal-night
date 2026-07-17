@@ -17,10 +17,12 @@ var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 
 func _ready() -> void:
-	var atlas := AtlasTexture.new()
-	atlas.atlas = STATE_SHEET
-	atlas.region = Rect2(Vector2.ZERO, Vector2(128.0, 128.0))
-	$SiteSprite.texture = atlas
+	var site_sprite := get_node_or_null("SiteSprite") as Sprite2D
+	if site_sprite != null:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = STATE_SHEET
+		atlas.region = Rect2(Vector2.ZERO, Vector2(128.0, 128.0))
+		site_sprite.texture = atlas
 	_game_data = get_node("/root/GameData")
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
