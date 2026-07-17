@@ -1,0 +1,54 @@
+{
+	"build": "b342299-dirty",
+	"custom": {
+		"ai_samples": 60,
+		"ai_update_ms_max": 0.108,
+		"ai_update_ms_p95": 0.106,
+		"butcher_stages_total": 15,
+		"carcasses_spawned": 23,
+		"noise_emit_ms_max": 0.023,
+		"noise_emit_ms_p95": 0.023,
+		"noise_samples": 4,
+		"raptor_chase_entries": 2,
+		"raptor_investigate_entries": 1,
+		"scent_samples": 55,
+		"scent_update_ms_max": 0.226,
+		"scent_update_ms_p95": 0.209,
+		"smell_active_cells_max": 33
+	},
+	"duration_sec": 13.9298393333338,
+	"engine": "4.7.1-stable (official)",
+	"environment": {
+		"cpu": "Apple M4",
+		"display_server": "headless",
+		"gpu": "",
+		"os": "macOS",
+		"resolution": "headless"
+	},
+	"fps": {
+		"average": 143.576673940096,
+		"low_0_1_percent": 13.0983775476344,
+		"low_1_percent": 68.4115410269712
+	},
+	"frame_ms": {
+		"max": 144.190333333333,
+		"p50": 6.896,
+		"p95": 6.94444444444444,
+		"p99": 7.34633333333335
+	},
+	"hardware_id": "macos-dev-headless-not-minspec",
+	"measurement_note": "macOS 개발기 headless 해체 루프 기준선이며 Windows 최소사양 예산 또는 출시 판정 수치가 아님 (성능문서 10장). 로컬 회귀 게이트 전용.",
+	"memory_mb": {
+		"end": 94.1317901611328,
+		"peak": 94.1332550048828,
+		"start": 27.2132530212402
+	},
+	"scenario": "W5_6_BUTCHER_LOOP",
+	"scenario_note": "main.tscn 실주행: 랩터 2마리(PackCoordinator) + 반복 사체 해체(절단 소음 240px·신선 피 냄새 80) + 냄새 격자 갱신. 랩터 rng seed=5001/5101 고정.",
+	"schema_version": 1,
+	"stalls": {
+		"over_100ms": 1,
+		"over_33ms": 1,
+		"over_50ms": 1
+	}
+}

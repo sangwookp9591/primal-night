@@ -37,12 +37,47 @@ func test_floor_raw_meat_emits_smell_from_registered_source() -> void:
 	item.count = 1
 	item.global_position = Vector2(250.0, 250.0)
 	add_child_autofree(item)
+	# 등록은 한 프레임 지연된다 (씬 노드 순서에 기대지 않기 위해, smell_source.gd 참조).
+	await wait_physics_frames(1)
 
 	assert_eq(grid.get_registered_smell_source_count(), 1, "raw_meat 바닥 아이템은 냄새 원천으로 등록되어야 한다")
 
 	grid._process(0.5)
 
 	assert_gt(grid.get_smell_at(item.global_position), 0.0, "등록된 raw_meat 위치에서 주기적으로 냄새가 나야 한다")
+
+## 순서 회귀: SmellGrid 는 자기 _ready 에서 smell_grid 그룹에 가입한다. 원천이 격자보다
+## 먼저 준비되면(=main.tscn 의 실제 배치) _ready 시점엔 그룹이 비어 있다.
+## 위 테스트들처럼 격자를 먼저 만들면 이 버그는 절대 재현되지 않는다.
+func test_source_readied_before_the_grid_still_registers() -> void:
+	var source: SmellSource = SmellSourceScript.new()
+	source.kind = &"raw_meat"
+	source.strength = 45.0
+	source.interval_seconds = 0.5
+	add_child_autofree(source)
+	var grid: SmellGrid = _make_grid()
+
+	await wait_physics_frames(1)
+
+	assert_almost_eq(grid.get_registered_smell_strength(source), 45.0, 0.01,
+		"원천이 격자보다 먼저 준비돼도 등록돼야 한다")
+
+
+## 지연 등록의 함정: 등록되기 전에 해제되면(같은 프레임에 줍는 경우) 지연 호출이
+## 뒤늦게 살려내면 안 된다.
+func test_source_deactivated_before_registration_never_registers() -> void:
+	var source: SmellSource = SmellSourceScript.new()
+	source.kind = &"raw_meat"
+	source.strength = 45.0
+	add_child_autofree(source)
+	var grid: SmellGrid = _make_grid()
+
+	source.deactivate()
+	await wait_physics_frames(1)
+
+	assert_eq(grid.get_registered_smell_source_count(), 0,
+		"등록 전에 해제된 원천이 지연 호출로 되살아나면 안 된다")
+
 
 func test_pickup_unregisters_floor_source_and_registers_carried_source() -> void:
 	var grid: SmellGrid = _make_grid()
