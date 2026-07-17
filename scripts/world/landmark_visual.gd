@@ -32,7 +32,7 @@ const LANDMARK_LABELS: Dictionary = {
 
 func _ready() -> void:
 	y_sort_enabled = true
-	call_deferred("_replace_generated_markers")
+	call_deferred("_build_landmarks")
 
 
 static func sheet_index_for(landmark_id: String) -> int:
@@ -63,7 +63,7 @@ static func chunk_cell_origin(doc_coord: Vector2i) -> Vector2i:
 	return Vector2i(doc_coord.x * TILES_PER_CHUNK, tile_row * TILES_PER_CHUNK)
 
 
-func _replace_generated_markers() -> void:
+func _build_landmarks() -> void:
 	for child: Node in get_children():
 		remove_child(child)
 		child.queue_free()

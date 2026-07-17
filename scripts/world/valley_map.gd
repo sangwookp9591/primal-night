@@ -4,8 +4,8 @@ extends Node2D
 ## 40청크 계곡 회색 상자 (MAP_DESIGN_DRAFT §2/§3, 정본 §7~§10).
 ##
 ## 8×8 청크(각 32×32 아이소메트릭 64×32px 타일). 40개는 플레이 가능(Zone별 색),
-## 나머지는 비플레이(절벽/물, 충돌). 청크·랜드마크·충돌·내비게이션을 _ready 에서
-## 프로그램으로 칠한다 — 40960+ 타일을 씬에 굽지 않는다 (§8.6: 회색 상자 먼저).
+## 나머지는 비플레이(절벽/물, 충돌). 청크·충돌·내비게이션을 _ready 에서
+## 프로그램으로 칠하고, 랜드마크 시각 배치는 landmarks.tscn 이 단독 소유한다.
 ##
 ## 좌표 계약(★ 하네스·게임플레이 좌표 불변): main.tscn 의 Player(-384,200)·사체·
 ## 캠프파이어·LoopObjective(640,700)·랩터 좌표는 바뀌지 않는다. 대신 이 맵을
@@ -81,7 +81,6 @@ func _ready() -> void:
 	$Landmarks.position = MAP_PIXEL_OFFSET
 
 	_paint_chunks(ground, collision)
-	_place_landmarks(ground)
 	_bake_navigation(ground)
 
 
@@ -159,44 +158,6 @@ func landmark_world_position(landmark_id: String) -> Vector2:
 	var doc_coord: Vector2i = LANDMARKS[landmark_id]
 	var center_cell: Vector2i = chunk_cell_origin(doc_coord) + Vector2i(TILES_PER_CHUNK / 2, TILES_PER_CHUNK / 2)
 	return MAP_PIXEL_OFFSET + ($Ground as TileMapLayer).map_to_local(center_cell)
-
-
-# --- 랜드마크 마커 -----------------------------------------------------------
-
-func _place_landmarks(ground: TileMapLayer) -> void:
-	var container: Node2D = $Landmarks
-	for landmark_id: String in LANDMARKS:
-		var doc_coord: Vector2i = LANDMARKS[landmark_id]
-		var center_cell: Vector2i = chunk_cell_origin(doc_coord) + Vector2i(TILES_PER_CHUNK / 2, TILES_PER_CHUNK / 2)
-		var marker: Node2D = _make_marker(landmark_id)
-		marker.name = landmark_id
-		marker.position = ground.map_to_local(center_cell)
-		container.add_child(marker)
-
-
-## 회색 상자 마커: 단순 마름모 + 라벨. 기능은 범위 밖 (위치·이름만).
-func _make_marker(landmark_id: String) -> Node2D:
-	var marker := Node2D.new()
-	var diamond := Polygon2D.new()
-	diamond.polygon = PackedVector2Array([
-		Vector2(0, -14), Vector2(20, 0), Vector2(0, 14), Vector2(-20, 0),
-	])
-	# 랜드마크 종류별 색: S=주 앵커(밝은 호박), F=모닥불(주황), R=경로(청록), H=해체(적갈).
-	var kind: String = landmark_id.substr(0, 1)
-	diamond.color = {
-		"S": Color(0.88, 0.64, 0.35, 0.92), "F": Color(0.90, 0.50, 0.25, 0.9),
-		"R": Color(0.44, 0.72, 0.72, 0.9), "H": Color(0.66, 0.26, 0.22, 0.9),
-	}.get(kind, Color(0.8, 0.8, 0.8, 0.9))
-	diamond.z_index = 30
-	marker.add_child(diamond)
-
-	var label := Label.new()
-	label.text = LANDMARK_LABELS.get(landmark_id, landmark_id)
-	label.position = Vector2(-24, -34)
-	label.add_theme_font_size_override(&"font_size", 11)
-	label.z_index = 31
-	marker.add_child(label)
-	return marker
 
 
 # --- 내비게이션 --------------------------------------------------------------

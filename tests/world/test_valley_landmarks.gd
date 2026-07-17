@@ -42,6 +42,21 @@ func test_valley_scene_replaces_s_landmarks_with_sprite_cells() -> void:
 		assert_true(label.text.begins_with(landmark_id))
 
 
+func test_valley_scene_places_s01_marker_once() -> void:
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(2)
+	var landmarks: Node2D = valley.get_node("Landmarks")
+	var s01_count: int = 0
+
+	for child: Node in landmarks.get_children():
+		var label: Label = child.get_node_or_null("Label") as Label
+		if child.name == &"S01" or (label != null and label.text.begins_with("S01")):
+			s01_count += 1
+
+	assert_eq(s01_count, 1, "S01 must only be placed by landmarks.tscn")
+	assert_not_null(landmarks.get_node("S01").get_node_or_null("Sprite"))
+
+
 func test_auxiliary_anchors_remain_simple_markers() -> void:
 	var valley: ValleyMap = _make_valley()
 	await wait_physics_frames(2)
