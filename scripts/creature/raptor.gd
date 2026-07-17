@@ -53,6 +53,7 @@ var _snapshot_elapsed: float = 0.0
 var _replicated_position: Vector2 = Vector2.ZERO
 var _perf: Node = null
 var _smell_grid: SmellGrid = null
+var _pack_coordinator: Node = null
 var _nav_agent: NavigationAgent2D = null
 var _alert_label: Label = null
 var _alert_remaining: float = 0.0
@@ -230,6 +231,7 @@ func _perceive_players(radius: float) -> Dictionary:
 	var nearest_unprotected: Node2D = null
 	var best_distance_squared: float = INF
 	var any_visible: bool = false
+	var candidates: Array[Node2D] = []
 	var radius_squared: float = radius * radius
 	var local_api: MultiplayerAPI = multiplayer
 	for node: Node in get_tree().get_nodes_in_group(&"player"):
@@ -246,9 +248,15 @@ func _perceive_players(radius: float) -> Dictionary:
 		any_visible = true
 		if _is_protected_by_fire(player):
 			continue
+		candidates.append(player)
 		if distance_squared < best_distance_squared:
 			best_distance_squared = distance_squared
 			nearest_unprotected = player
+	var coordinator: Node = _find_pack_coordinator()
+	if coordinator != null and coordinator.has_method("choose_visible_target"):
+		var pack_target: Node2D = coordinator.choose_visible_target(self, candidates)
+		if pack_target != null:
+			nearest_unprotected = pack_target
 	return { nearest_unprotected = nearest_unprotected, any_visible = any_visible }
 
 ## 새 단서가 지금 쫓는 단서를 갈아탈 만한가 (관심도, 설계서 14.1).
@@ -269,7 +277,7 @@ func _is_more_interesting(kind: StringName, strength: float) -> bool:
 func _adopt_cue(kind: StringName, strength: float, target: Vector2) -> void:
 	_interest_kind = kind
 	_interest = strength
-	_search_origin = _clamp_outside_fires(target)
+	_search_origin = _clamp_outside_fires(_pack_investigation_target(target))
 	_sweeps_left = data.search_sweeps
 	move_target = _search_origin
 	_change_state(State.INVESTIGATE)
@@ -292,6 +300,19 @@ func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):
 		_smell_grid = SmellGrid.find_in(get_tree())
 	return _smell_grid
+
+
+func _find_pack_coordinator() -> Node:
+	if _pack_coordinator == null or not is_instance_valid(_pack_coordinator):
+		_pack_coordinator = get_tree().get_first_node_in_group(&"raptor_pack_coordinator")
+	return _pack_coordinator
+
+
+func _pack_investigation_target(target: Vector2) -> Vector2:
+	var coordinator: Node = _find_pack_coordinator()
+	if coordinator == null or not coordinator.has_method("assign_investigation_target"):
+		return target
+	return coordinator.assign_investigation_target(self, target)
 
 
 ## 자기 위치의 냄새 농도 = 냄새 단서의 세기 (관심도 비교용).
