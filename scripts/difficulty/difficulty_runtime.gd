@@ -42,6 +42,9 @@ func apply_preset(id: StringName) -> void:
 	for raptor: Raptor in get_tree().get_nodes_in_group(&"raptor"):
 		if get_parent().is_ancestor_of(raptor):
 			raptor.apply_difficulty(config)
+	for scavenger: Scavenger in get_tree().get_nodes_in_group(&"scavenger"):
+		if get_parent().is_ancestor_of(scavenger):
+			scavenger.apply_difficulty(config)
 
 func _on_player_joined(_player_id: StringName) -> void:
 	if multiplayer.is_server():

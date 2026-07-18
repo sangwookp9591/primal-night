@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CreatureData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/creature/creature_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+walk_speed = 105.0
+chase_speed = 105.0
+max_health = 1.0
+sight_radius = 120.0
+lose_sight_radius = 420.0
+smell_threshold = 3.0
+investigate_arrive_distance = 28.0
+search_sweeps = 0
+search_radius = 0.0
+ai_tick_interval = 0.2
+wander_range = 260.0

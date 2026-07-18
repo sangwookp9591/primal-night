@@ -22,6 +22,7 @@ const BUTCHER_NOISE: NoiseProfile = preload("res://data/senses/noise_butcher.tre
 const BUTCHER_MAX_DISTANCE_PX: float = 72.0
 
 signal stage_committed(stage: int, granted: Dictionary)
+signal stage_scavenged(stage: int)
 
 @export var profile: CarcassProfile
 @export_range(0, 7, 1) var visual_direction: int = 4
@@ -145,6 +146,20 @@ func apply_stage(who: Player) -> bool:
 	_refresh_visual_stage()
 	_refresh_smell_source()
 	stage_committed.emit(stage, profile.yields_for_stage(stage))
+	return true
+
+
+## 청소동물이 보상을 먹는 호스트 권위 경로. 플레이어 해체와 달리 산출을 지급하지
+## 않고 다음 yield bit만 소모한다. 호출자는 생태 AI이며 클라이언트 복제본은 거부한다.
+func consume_stage_by_scavenger() -> bool:
+	if not is_multiplayer_authority() or profile == null or is_fully_butchered():
+		return false
+	var stage: int = next_stage()
+	yield_mask |= 1 << stage
+	_stage_elapsed = 0.0
+	_refresh_visual_stage()
+	_refresh_smell_source()
+	stage_scavenged.emit(stage)
 	return true
 
 

@@ -112,6 +112,20 @@ func apply_pickup(player: Player) -> int:
 		queue_free()
 	return added
 
+## 냄새 나는 바닥 먹이를 청소동물이 한 개 먹는다. 인벤토리나 획득 이벤트를
+## 거치지 않는 자원 경쟁 소비이며, 권위가 없는 복제본은 월드 상태를 바꾸지 못한다.
+func consume_one_by_scavenger() -> bool:
+	if not is_multiplayer_authority() or count <= 0:
+		return false
+	var item: ItemData = get_node("/root/GameData").get_item(item_id)
+	if item == null or not item.is_smell_source():
+		return false
+	count -= 1
+	if count <= 0:
+		_clear_floor_smell_source()
+		queue_free()
+	return true
+
 func _clear_floor_smell_source() -> void:
 	if _floor_smell_source == null:
 		return

@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=26 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -24,6 +24,7 @@
 [ext_resource type="Script" path="res://scripts/net/net_equipment.gd" id="22_netequipment"]
 [ext_resource type="Script" path="res://scripts/difficulty/difficulty_runtime.gd" id="23_difficulty"]
 [ext_resource type="Script" path="res://scripts/net/net_combat.gd" id="24_netcombat"]
+[ext_resource type="PackedScene" path="res://scenes/creature/scavenger.tscn" id="25_scavenger"]
 
 [node name="Main" type="Node2D"]
 
@@ -47,6 +48,13 @@ position = Vector2(-800, 800)
 
 [node name="Raptor2" parent="." instance=ExtResource("7_raptor")]
 position = Vector2(-1040, 760)
+
+; 첫날 낮 Z01의 자원 경쟁자 — 플레이어 접근 시 전투 없이 흩어진다.
+[node name="Scavenger" parent="." instance=ExtResource("25_scavenger")]
+position = Vector2(-620, 430)
+
+[node name="Scavenger2" parent="." instance=ExtResource("25_scavenger")]
+position = Vector2(-720, 360)
 
 [node name="PackCoordinator" type="Node" parent="."]
 script = ExtResource("20_packcoordinator")

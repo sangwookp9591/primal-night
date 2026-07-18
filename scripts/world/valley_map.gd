@@ -123,6 +123,12 @@ const RAPTOR_DAY_ONE_PATROL: Dictionary = {
 	"minimum_safe_distance_from_spawn_px": 360.0,
 }
 
+## 첫날 낮 Z01의 소수 청소동물. 위협이 아니라 방치한 사냥 보상을 먼저 먹는
+## 자원 경쟁자이며, 랩터 순찰보다 안쪽에서 생태 규칙을 먼저 보여 준다.
+const SCAVENGER_DAY_ONE_FORAGE: Dictionary = {
+	"zone": "Z01", "count": 2, "ring_min_px": 220.0, "ring_max_px": 420.0,
+}
+
 var _chunk_zone_cache: Dictionary = {}
 
 
