@@ -121,6 +121,12 @@ jobs:
           set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/net/two_player_combat_harness.gd | tee artifacts/two_player_combat_harness.log
 
+      # host+3 압축 soak — 이동·장비·전투·재접속 반복 중 총량 보존·외형 일치·누수 가드.
+      - name: Four-player soak harness (compressed)
+        run: |
+          set -o pipefail
+          SOAK_MINUTES=0.5 "$GODOT_BIN" --headless --path . -s scripts/net/four_player_soak_harness.gd | tee artifacts/four_player_soak_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
