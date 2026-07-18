@@ -69,18 +69,75 @@ const LANDMARK_LABELS: Dictionary = {
 ## 맞춘 뒤 tests/world/test_valley_map.gd 가 실제 게임플레이 좌표를 검산해 확정한 값이다.
 const MAP_PIXEL_OFFSET: Vector2 = Vector2(-3272.0, -2572.0)
 
+## Phase 7 수직 절편. 40청크 원본은 보존하되 이 세 구역만 현재 플레이 동선으로 연다.
+## Z01(안전/불) → Z02(물/회복) → Z03(재료/은신)는 정본 §10의 양방향 연결 삼각형이다.
+const SLICE_ZONES: PackedStringArray = ["Z01", "Z02", "Z03"]
+const LOCKED_ZONES: PackedStringArray = ["Z04", "Z05"]
+
+## 열린 세계의 가장자리처럼 보이는 자연 경계. 다음 Phase가 해제할 때 타일맵을
+## 재생성하지 않고 이 경계 데이터만 제거할 수 있다.
+const SLICE_BOUNDARIES: Array[Dictionary] = [
+	{"from": "Z02", "to": "Z04", "terrain": "급류", "tile": TILE_WATER},
+	{"from": "Z03", "to": "Z04", "terrain": "가시덤불", "tile": Vector2i(5, 2)},
+	{"from": "Z03", "to": "Z05", "terrain": "절벽", "tile": TILE_CLIFF},
+]
+
+## 보행 30~60초마다 하나의 판단을 주는 고정 앵커. 기존 아이템/랜드마크/랩터만
+## 재배치 대상으로 참조하며 새 아이템·레시피를 만들지 않는다.
+const DENSITY_RULES: Dictionary = {
+	"travel_seconds_min": 30,
+	"travel_seconds_max": 60,
+	"minimum_interactions_per_zone": {"Z01": 6, "Z02": 6, "Z03": 6},
+	"start_radius_bands": [
+		{"radius_px": 180, "minimum": 3, "purpose": "부상 안정화와 첫 채집"},
+		{"radius_px": 360, "minimum": 6, "purpose": "불 재료와 바람막이"},
+		{"radius_px": 720, "minimum": 9, "purpose": "흔적 뒤 첫 위험 신호"},
+	],
+}
+
+const SLICE_ENCOUNTERS: Array[Dictionary] = [
+	{"zone": "Z01", "anchor": "spawn", "kind": "resource", "ref": "bandage", "minute": 0.5},
+	{"zone": "Z01", "anchor": "spawn", "kind": "resource", "ref": "fiber", "minute": 1.0},
+	{"zone": "Z01", "anchor": "S01", "kind": "trace", "ref": "crash_debris", "minute": 1.5},
+	{"zone": "Z01", "anchor": "spawn", "kind": "resource", "ref": "wood", "minute": 2.0},
+	{"zone": "Z01", "anchor": "S02", "kind": "landmark", "ref": "campfire_shelter", "minute": 3.0},
+	{"zone": "Z01", "anchor": "outer_low", "kind": "danger", "ref": "raptor_patrol_sign", "minute": 4.0},
+	{"zone": "Z02", "anchor": "S03", "kind": "landmark", "ref": "reed_pool", "minute": 4.5},
+	{"zone": "Z02", "anchor": "S03", "kind": "resource", "ref": "fiber", "minute": 5.0},
+	{"zone": "Z02", "anchor": "R1", "kind": "trace", "ref": "footprints", "minute": 5.5},
+	{"zone": "Z02", "anchor": "S04", "kind": "landmark", "ref": "flooded_station", "minute": 6.0},
+	{"zone": "Z02", "anchor": "R1", "kind": "resource", "ref": "stone", "minute": 6.5},
+	{"zone": "Z02", "anchor": "S06", "kind": "danger", "ref": "raptor_crossing", "minute": 7.0},
+	{"zone": "Z03", "anchor": "S06", "kind": "landmark", "ref": "echo_cave", "minute": 7.5},
+	{"zone": "Z03", "anchor": "S05", "kind": "trace", "ref": "noisy_bush", "minute": 8.0},
+	{"zone": "Z03", "anchor": "S05", "kind": "resource", "ref": "wood", "minute": 8.5},
+	{"zone": "Z03", "anchor": "S07", "kind": "trace", "ref": "bones", "minute": 9.0},
+	{"zone": "Z03", "anchor": "R2", "kind": "resource", "ref": "fiber", "minute": 9.5},
+	{"zone": "Z03", "anchor": "outer_low", "kind": "danger", "ref": "raptor_patrol", "minute": 10.0},
+]
+
+## 첫 낮에는 Z01 낮은 외곽만 배회한다. 조사/추격은 감각 단서에 의해 이 반경을
+## 벗어날 수 있어 기존 밤·2일차 압박과 하네스의 원인-결과를 훼손하지 않는다.
+const RAPTOR_DAY_ONE_PATROL: Dictionary = {
+	"zone": "Z01", "ring_min_px": 360.0, "ring_max_px": 720.0,
+	"minimum_safe_distance_from_spawn_px": 360.0,
+}
+
 var _chunk_zone_cache: Dictionary = {}
 
 
 func _ready() -> void:
 	var ground: TileMapLayer = $Ground
 	var collision: TileMapLayer = $Collision
+	var boundary: TileMapLayer = $SliceBoundary
 	ground.position = MAP_PIXEL_OFFSET
 	collision.position = MAP_PIXEL_OFFSET
+	boundary.position = MAP_PIXEL_OFFSET
 	$Occlusion.position = MAP_PIXEL_OFFSET
 	$Landmarks.position = MAP_PIXEL_OFFSET
 
 	_paint_chunks(ground, collision)
+	_paint_slice_boundaries(boundary)
 	_bake_navigation(ground)
 
 
@@ -112,6 +169,41 @@ func _paint_nonplay_chunk(layer: TileMapLayer, cell_origin: Vector2i, atlas: Vec
 	for dy: int in range(TILES_PER_CHUNK):
 		for dx: int in range(TILES_PER_CHUNK):
 			layer.set_cell(cell_origin + Vector2i(dx, dy), SOURCE_ID, atlas)
+
+
+## Z04/Z05 전체를 지우거나 벽으로 채우지 않고, 열린 절편과 맞닿은 seam에만
+## 2타일 폭 자연 장애물을 둔다. 따라서 경계 너머 지형/랜드마크는 계속 보인다.
+func _paint_slice_boundaries(layer: TileMapLayer) -> void:
+	var directions: Array[Vector2i] = [
+		Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]
+	for row: int in range(GRID):
+		for col: int in range(GRID):
+			var locked_digit := _zone_digit_at(col, row)
+			if locked_digit not in ["4", "5"]:
+				continue
+			for direction: Vector2i in directions:
+				var open_digit := _zone_digit_at(col + direction.x, row + direction.y)
+				if open_digit not in ["1", "2", "3"]:
+					continue
+				var atlas := TILE_CLIFF
+				if locked_digit == "4":
+					atlas = TILE_WATER if open_digit == "2" else Vector2i(5, 2)
+				_paint_boundary_edge(layer, Vector2i(col, row), direction, atlas)
+
+
+func _paint_boundary_edge(layer: TileMapLayer, chunk: Vector2i, toward_open: Vector2i,
+		atlas: Vector2i) -> void:
+	var origin := chunk * TILES_PER_CHUNK
+	for along: int in range(TILES_PER_CHUNK):
+		for depth: int in range(2):
+			var cell: Vector2i
+			if toward_open.x != 0:
+				var x := depth if toward_open.x < 0 else TILES_PER_CHUNK - 1 - depth
+				cell = origin + Vector2i(x, along)
+			else:
+				var y := depth if toward_open.y < 0 else TILES_PER_CHUNK - 1 - depth
+				cell = origin + Vector2i(along, y)
+			layer.set_cell(cell, SOURCE_ID, atlas)
 
 
 ## 셀 좌표 + 고정 밸리 시드의 결정적 해시 → 변형 인덱스. Godot 버전·실행과 무관하게
@@ -216,3 +308,15 @@ func playable_chunk_count() -> int:
 			if DOC_GRID[row][col] != "··":
 				count += 1
 	return count
+
+
+func slice_interaction_count(zone: String) -> int:
+	var count: int = 0
+	for encounter: Dictionary in SLICE_ENCOUNTERS:
+		if encounter.zone == zone:
+			count += 1
+	return count
+
+
+func is_slice_zone(zone: String) -> bool:
+	return zone in SLICE_ZONES
