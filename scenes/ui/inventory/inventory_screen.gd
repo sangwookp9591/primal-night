@@ -226,10 +226,17 @@ func _toggle_selected_equipment() -> void:
 	if not item is WearableData:
 		return
 	var wearable := item as WearableData
+	var net_equipment := _find_net_equipment()
 	if _player.equipment.get_equipped(wearable.equip_slot) == item_id:
-		_player.equipment.request_unequip(wearable.equip_slot)
+		if net_equipment != null:
+			net_equipment.request_unequip(_player, wearable.equip_slot)
+		else:
+			_player.equipment.request_unequip(wearable.equip_slot)
 	else:
-		_player.equipment.request_equip(item_id)
+		if net_equipment != null:
+			net_equipment.request_equip(_player, item_id)
+		else:
+			_player.equipment.request_equip(item_id)
 
 
 func _is_equipped(item_id: StringName) -> bool:
@@ -241,7 +248,22 @@ func _is_equipped(item_id: StringName) -> bool:
 
 func _unequip_selected_slot() -> void:
 	var equip_slot: StringName = EquipmentComponent.SLOTS[_selected_equipment_index]
-	_player.equipment.request_unequip(equip_slot)
+	var net_equipment := _find_net_equipment()
+	if net_equipment != null:
+		net_equipment.request_unequip(_player, equip_slot)
+	else:
+		_player.equipment.request_unequip(equip_slot)
+
+
+func _find_net_equipment() -> NetEquipment:
+	if _player == null:
+		return null
+	var side_root: Node = _player.get_parent()
+	if side_root != null and side_root.name == "Players":
+		side_root = side_root.get_parent()
+	if side_root == null:
+		return null
+	return side_root.get_node_or_null("NetEquipment") as NetEquipment
 
 
 func _slot_display_name(slot: StringName) -> String:

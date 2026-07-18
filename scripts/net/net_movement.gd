@@ -204,6 +204,14 @@ func _on_player_joined(player_id: StringName) -> void:
 		return
 	var peer: int = _session.get_peer_for_player(player_id)
 	_last_intent_ticks[peer] = _ticks
+	# 늦은 참가자는 호스트 정적 Player 외에 이미 접속해 있던 원격 아바타를 모른다.
+	# 새 아바타 브로드캐스트보다 먼저 기존 스폰을 새 피어에게 reliable로 재전송한다.
+	for existing_id: StringName in _avatars:
+		var existing: Player = _avatars[existing_id]
+		if existing == _host_player or existing_id == player_id:
+			continue
+		spawn_avatar.rpc_id(peer, String(existing_id),
+			existing.controller_peer_id, existing.global_position)
 	var spawn_position: Vector2 = _host_player.global_position + config.client_spawn_offset
 	_spawn(player_id, peer, spawn_position)
 	spawn_avatar.rpc(String(player_id), peer, spawn_position)

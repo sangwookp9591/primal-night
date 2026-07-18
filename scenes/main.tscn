@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=23 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory/inventory_screen.tscn" id="19_inventoryscreen"]
 [ext_resource type="Script" path="res://scripts/creature/pack_coordinator.gd" id="20_packcoordinator"]
 [ext_resource type="Script" path="res://scripts/world/net_butcher.gd" id="21_netbutcher"]
+[ext_resource type="Script" path="res://scripts/net/net_equipment.gd" id="22_netequipment"]
 
 [node name="Main" type="Node2D"]
 
@@ -73,6 +74,11 @@ config = ExtResource("11_netconfig")
 script = ExtResource("10_netmovement")
 avatar_scene = ExtResource("2_player")
 config = ExtResource("11_netconfig")
+
+; 장비 변경 호스트 권위 — 클라이언트 의도 검증·확정 후 ID 스냅샷 복제.
+; NetMovement 뒤에 두어 참가/재접속 시 아바타 스폰이 먼저 처리되게 한다.
+[node name="NetEquipment" type="Node" parent="."]
+script = ExtResource("22_netequipment")
 
 ; 아이템 획득 호스트 권위 — 줍기 의도 검증·직렬 확정·복제 (설계서 7.2/7.4, W2-T2).
 [node name="NetPickup" type="Node" parent="."]

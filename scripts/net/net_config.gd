@@ -7,8 +7,8 @@ extends Resource
 ## 로컬 개발 세션이 여는 포트.
 @export var port: int = 8910
 
-## 호스트 외 클라이언트 수. 출시 2인 = 호스트 + 1 (설계서 7.1).
-@export var max_clients: int = 1
+## 호스트 외 클라이언트 수. 최대 4인 = 호스트 + 3.
+@export var max_clients: int = 3
 
 ## --- 이동 동기화 (설계서 7.2: 이동·방향 비신뢰 최신값) ---
 

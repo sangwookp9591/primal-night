@@ -5,4 +5,4 @@
 [resource]
 script = ExtResource("1_netconfig")
 port = 8910
-max_clients = 1
+max_clients = 3
