@@ -82,6 +82,26 @@ func test_player_sheets_contain_no_magenta_key_pixels() -> void:
 		assert_eq(magenta_pixels, 0, "%s has magenta key fringe" % sheet_path)
 
 
+func test_base_body_does_not_contain_baked_russet_clothing_palette() -> void:
+	var sheet_path := "res://assets/sprites/player/player_survivor_sheet.png"
+	var image := Image.load_from_file(ProjectSettings.globalize_path(sheet_path))
+	image.convert(Image.FORMAT_RGBA8)
+	var bytes := image.get_data()
+	var russet_pixels := 0
+	for byte_index: int in range(0, bytes.size(), 4):
+		var red := bytes[byte_index]
+		var green := bytes[byte_index + 1]
+		var blue := bytes[byte_index + 2]
+		var alpha := bytes[byte_index + 3]
+		if alpha > 0 and red >= 70 and red <= 170 \
+				and green < 80 and blue < 80 \
+				and red > green * 1.45:
+			russet_pixels += 1
+	# A few face-shadow pixels share this broad hue band; a baked jacket produced
+	# more than a thousand. Keep the allowance below two pixels per atlas cell.
+	assert_lte(russet_pixels, 64, "BaseBody contains baked jacket/backpack palette")
+
+
 func test_equipment_overlay_centroids_stay_in_anatomical_bands() -> void:
 	var outfit_ids: Array[StringName] = [
 		&"white_underwear", &"work_clothes", &"leather_armor",
