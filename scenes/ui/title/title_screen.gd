@@ -53,6 +53,9 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	show_main()
+	if not SaveService.pending_continue_error.is_empty():
+		_status.text = SaveService.pending_continue_error
+		SaveService.pending_continue_error = ""
 
 func show_main() -> void:
 	_show_only(_main_menu)

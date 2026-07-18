@@ -10,6 +10,7 @@ func before_each() -> void:
 	SaveService.pending_snapshot = {}
 	SaveService.pending_death_recovery = false
 	SaveService.launch_requested = false
+	SaveService.pending_continue_error = ""
 	DirAccess.remove_absolute(TEST_SAVE)
 	main = add_child_autofree(MainScene.instantiate())
 	await wait_process_frames(2)
@@ -23,6 +24,7 @@ func after_each() -> void:
 	SaveService.pending_snapshot = {}
 	SaveService.pending_death_recovery = false
 	SaveService.launch_requested = false
+	SaveService.pending_continue_error = ""
 
 func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	var player := main.get_node("Player") as Player
@@ -46,6 +48,10 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	chronicle.record_solution(&"escape")
 	var expected := service.collect_snapshot()
 	assert_true(service.save_now())
+	var loaded := SaveService.load_file(TEST_SAVE)
+	assert_true(loaded.ok)
+	expected = loaded.snapshot
+	assert_true(expected.player.equipment.condition_flags is int)
 	player.global_position = Vector2.ZERO
 	player.stats.apply_replicated(1.0, 1.0, 1.0, 1.0)
 	player.health.apply_replicated(1.0, false)
@@ -53,15 +59,78 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	assert_true(service.apply_snapshot(expected))
 	var actual := service.collect_snapshot()
 	assert_eq(actual.difficulty, expected.difficulty)
-	assert_eq(actual.player, expected.player)
-	assert_eq(actual.clock, expected.clock)
-	assert_eq(actual.objective, expected.objective)
-	assert_eq(actual.chronicle, expected.chronicle)
-	assert_eq(actual.world_items, expected.world_items)
-	assert_eq(actual.campfires, expected.campfires)
-	assert_eq(actual.base_camp, expected.base_camp)
-	assert_eq(actual.carcasses, expected.carcasses)
-	assert_eq(actual.creatures, expected.creatures)
+	for key: String in ["player", "clock", "objective", "chronicle", "world_items",
+			"campfires", "base_camp", "carcasses", "creatures"]:
+		assert_eq(JSON.stringify(actual[key]), JSON.stringify(expected[key]),
+			"%s는 실제 JSON 파일 왕복 뒤에도 보존된다" % key)
+
+func test_pending_snapshot_restores_clock_after_fresh_main_is_ready() -> void:
+	var clock := main.get_node("SessionClock") as SessionClock
+	clock.apply_replicated(1, 77.2, true)
+	assert_true(service.save_now())
+	main.queue_free()
+	await wait_process_frames(2)
+
+	assert_true(SaveService.prepare_continue(TEST_SAVE).ok)
+	main = add_child_autofree(MainScene.instantiate())
+	service = main.get_node("SaveService") as SaveService
+	service.save_path = TEST_SAVE
+	await wait_process_frames(4)
+
+	clock = main.get_node("SessionClock") as SessionClock
+	assert_almost_eq(clock.time_of_day_seconds, 77.2, 0.2)
+	assert_eq(clock.current_phase, SessionClock.Phase.DAYLIGHT)
+	assert_almost_eq(clock.remaining_seconds,
+		clock.session_duration_seconds() - 77.2, 0.2)
+
+func test_snapshot_phase_restore_does_not_trigger_boundary_autosave() -> void:
+	var clock := main.get_node("SessionClock") as SessionClock
+	clock.apply_replicated(1, 500.0, true)
+	var snapshot := service.collect_snapshot()
+	clock.reset()
+	var autosave_reasons: Array[StringName] = []
+	service.save_completed.connect(
+		func(reason: StringName) -> void: autosave_reasons.append(reason))
+	assert_true(service.apply_snapshot(snapshot))
+	assert_true(autosave_reasons.is_empty(),
+		"복원 중 phase 변경은 자동 저장 경계로 취급하지 않는다")
+
+func test_json_integer_schema_is_normalized_in_one_load_layer() -> void:
+	var snapshot := service.collect_snapshot()
+	snapshot.player.equipment.condition_flags = EquipmentComponent.DAMAGED_FLAG
+	snapshot.player.inventory[0] = {"id": "wood", "count": 2}
+	snapshot.world_items[0].count = 3
+	snapshot.carcasses[0].yield_mask = 5
+	snapshot.creatures[0].state = 1
+	snapshot.chronicle.solution_counts.escape = 2
+	snapshot.chronicle.session_results = [{"outcome": "remain", "day": 2, "cause": ""}]
+	var file := FileAccess.open(TEST_SAVE, FileAccess.WRITE)
+	file.store_string(JSON.stringify(snapshot))
+	file.close()
+
+	var loaded := SaveService.load_file(TEST_SAVE)
+	assert_true(loaded.ok)
+	assert_true(loaded.snapshot.version is int)
+	assert_true(loaded.snapshot.clock.day is int)
+	assert_true(loaded.snapshot.objective.outcome is int)
+	assert_true(loaded.snapshot.weather.seed is int)
+	assert_true(loaded.snapshot.player.equipment.condition_flags is int)
+	assert_true(loaded.snapshot.player.inventory[0].count is int)
+	assert_true(loaded.snapshot.world_items[0].count is int)
+	assert_true(loaded.snapshot.carcasses[0].yield_mask is int)
+	assert_true(loaded.snapshot.creatures[0].state is int)
+	assert_true(loaded.snapshot.chronicle.solution_counts.escape is int)
+	assert_true(loaded.snapshot.chronicle.session_results[0].day is int)
+
+func test_fractional_integer_schema_is_rejected() -> void:
+	var snapshot := service.collect_snapshot()
+	snapshot.player.equipment.condition_flags = 1.5
+	var file := FileAccess.open(TEST_SAVE, FileAccess.WRITE)
+	file.store_string(JSON.stringify(snapshot))
+	file.close()
+	var loaded := SaveService.load_file(TEST_SAVE)
+	assert_false(loaded.ok)
+	assert_string_contains(loaded.message, "정수")
 
 func test_corrupt_and_version_mismatch_are_safely_rejected() -> void:
 	var file := FileAccess.open(TEST_SAVE, FileAccess.WRITE)

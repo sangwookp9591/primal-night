@@ -23,11 +23,15 @@ var time_of_day_seconds: float = 0.0
 var current_phase: Phase = Phase.DAYLIGHT
 var remaining_seconds: float = 0.0
 var running: bool = false
+var _state_initialized: bool = false
 
 
 func _ready() -> void:
-	reset()
-	start()
+	# A save/network snapshot may arrive while the scene is still entering the tree.
+	# Never let the default-start lifecycle overwrite state that was already restored.
+	if not _state_initialized:
+		reset()
+		start()
 
 
 func _physics_process(delta: float) -> void:
@@ -41,6 +45,7 @@ func reset() -> void:
 	current_phase = Phase.DAYLIGHT
 	remaining_seconds = session_duration_seconds()
 	running = false
+	_state_initialized = true
 
 
 func start() -> void:
@@ -101,6 +106,7 @@ func apply_replicated(day: int, time_of_day: float, is_running: bool) -> void:
 	remaining_seconds = maxf(session_duration_seconds() \
 		- float(current_day - 1) * day_duration_seconds() - time_of_day_seconds, 0.0)
 	running = is_running and not is_expired()
+	_state_initialized = true
 	if current_day != previous_day:
 		day_changed.emit(current_day)
 	if current_phase != previous_phase:

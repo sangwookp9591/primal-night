@@ -2,6 +2,12 @@ extends GutTest
 
 const TitleScene: PackedScene = preload("res://scenes/ui/title/title_screen.tscn")
 
+func before_each() -> void:
+	SaveService.pending_continue_error = ""
+
+func after_each() -> void:
+	SaveService.pending_continue_error = ""
+
 func test_title_exposes_single_host_join_quit_and_focus_chain() -> void:
 	var title: TitleScreen = add_child_autofree(TitleScene.instantiate()) as TitleScreen
 	await wait_process_frames(2)
@@ -53,3 +59,11 @@ func test_join_invalid_address_shows_human_readable_failure_and_stays_in_title()
 func test_failure_messages_cover_version_and_network_failures() -> void:
 	assert_string_contains(TitleScreen.failure_message({reason = &"version_mismatch"}), "버전")
 	assert_string_contains(TitleScreen.failure_message({reason = &"connection_failed"}), "연결")
+
+func test_continue_restore_error_is_shown_once_on_title() -> void:
+	SaveService.pending_continue_error = "저장 상태를 복원하지 못했습니다."
+	var title: TitleScreen = add_child_autofree(TitleScene.instantiate()) as TitleScreen
+	await wait_process_frames(2)
+	var status := title.get_node("Center/MenuPanel/Content/Status") as Label
+	assert_string_contains(status.text, "복원하지 못했습니다")
+	assert_true(SaveService.pending_continue_error.is_empty())

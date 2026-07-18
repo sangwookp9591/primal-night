@@ -6,17 +6,20 @@ signal save_failed(message: String)
 
 const FORMAT_VERSION: int = 1
 const DEFAULT_SAVE_PATH: String = "user://saves/slot_1.save"
+const TITLE_SCENE: String = "res://scenes/ui/title/title_screen.tscn"
 const WORLD_ITEM_SCENE: PackedScene = preload("res://scenes/items/world_item.tscn")
 
 static var pending_snapshot: Dictionary = {}
 static var pending_death_recovery: bool = false
 static var launch_requested: bool = false
+static var pending_continue_error: String = ""
 
 @export var save_path: String = DEFAULT_SAVE_PATH
 @export var enabled: bool = true
 
 var last_error: String = ""
 var _root: Node
+var _restoring_snapshot: bool = false
 
 func _ready() -> void:
 	_root = get_parent()
@@ -34,7 +37,14 @@ func _ready() -> void:
 		var death_recovery := pending_death_recovery
 		pending_snapshot = {}
 		pending_death_recovery = false
-		apply_snapshot.call_deferred(snapshot, death_recovery)
+		_apply_pending_snapshot.call_deferred(snapshot, death_recovery)
+
+func _apply_pending_snapshot(snapshot: Dictionary, death_recovery: bool) -> void:
+	if apply_snapshot(snapshot, death_recovery):
+		return
+	pending_continue_error = last_error if not last_error.is_empty() \
+		else "저장 상태를 복원하지 못했습니다."
+	get_tree().change_scene_to_file(TITLE_SCENE)
 
 func save_now(reason: StringName = &"manual") -> bool:
 	if not enabled or not multiplayer.is_server():
@@ -123,8 +133,10 @@ func apply_snapshot(snapshot: Dictionary, death_recovery: bool = false) -> bool:
 	if not _apply_player(player, snapshot.player):
 		return _fail("플레이어 저장 상태가 올바르지 않습니다.")
 	var clock := _root.get_node("SessionClock") as SessionClock
+	_restoring_snapshot = true
 	clock.apply_replicated(int(snapshot.clock.day), float(snapshot.clock.time),
 		bool(snapshot.clock.running))
+	_restoring_snapshot = false
 	var weather := _root.get_node_or_null("NetWeather") as NetWeather
 	if weather != null and snapshot.has("weather") and snapshot.weather is Dictionary:
 		weather.apply_snapshot(snapshot.weather)
@@ -164,10 +176,64 @@ static func load_file(path: String = DEFAULT_SAVE_PATH) -> Dictionary:
 	var parsed: Variant = parser.data
 	if not parsed is Dictionary:
 		return {"ok": false, "message": "저장 파일이 손상되어 이어갈 수 없습니다."}
-	var checked := validate_snapshot(parsed)
+	var normalized := _normalize_json_snapshot(parsed as Dictionary)
+	if not normalized.ok:
+		return normalized
+	var checked := validate_snapshot(normalized.snapshot)
 	if not checked.ok:
 		return checked
-	return {"ok": true, "snapshot": parsed}
+	return {"ok": true, "snapshot": normalized.snapshot}
+
+static func _normalize_json_snapshot(source: Dictionary) -> Dictionary:
+	var snapshot := source.duplicate(true)
+	var fields: Array[Array] = [
+		[snapshot, "version"],
+		[snapshot.get("clock", {}), "day"],
+		[snapshot.get("objective", {}), "outcome"],
+		[snapshot.get("weather", {}), "seed"],
+		[snapshot.get("death_record", {}), "day"],
+		[snapshot.get("player", {}).get("equipment", {}), "condition_flags"],
+	]
+	var chronicle: Dictionary = snapshot.get("chronicle", {})
+	for key: String in ["survival_days", "scar_count", "repaired_outfit_count",
+			"discovered_principle_count"]:
+		fields.append([chronicle, key])
+	for key: Variant in (chronicle.get("solution_counts", {}) as Dictionary).keys():
+		fields.append([chronicle.solution_counts, key])
+	for result: Variant in chronicle.get("session_results", []):
+		if result is Dictionary:
+			fields.append([result, "day"])
+	for slot: Variant in snapshot.get("player", {}).get("inventory", []):
+		if slot is Dictionary and not slot.is_empty():
+			fields.append([slot, "count"])
+	for slot: Variant in snapshot.get("base_camp", {}).get("storage_cache", []):
+		if slot is Dictionary and not slot.is_empty():
+			fields.append([slot, "count"])
+	for item: Variant in snapshot.get("world_items", []):
+		if item is Dictionary:
+			fields.append([item, "count"])
+	for carcass: Variant in snapshot.get("carcasses", []):
+		if carcass is Dictionary:
+			fields.append([carcass, "yield_mask"])
+	for creature: Variant in snapshot.get("creatures", []):
+		if creature is Dictionary:
+			fields.append([creature, "state"])
+	for field: Array in fields:
+		if not _normalize_int_field(field[0] as Dictionary, field[1]):
+			return {"ok": false, "message": "저장 파일의 정수 상태가 올바르지 않습니다."}
+	return {"ok": true, "snapshot": snapshot}
+
+static func _normalize_int_field(container: Dictionary, key: Variant) -> bool:
+	if not container.has(key):
+		return true
+	var value: Variant = container[key]
+	if value is int:
+		return true
+	if not value is float or not is_finite(float(value)) \
+			or not is_equal_approx(float(value), roundf(float(value))):
+		return false
+	container[key] = int(value)
+	return true
 
 static func validate_snapshot(value: Variant) -> Dictionary:
 	if not value is Dictionary:
@@ -392,7 +458,8 @@ func _restore_cause_history(states: Array) -> Array[Dictionary]:
 	return result
 
 func _on_phase_changed(phase: SessionClock.Phase) -> void:
-	if phase == SessionClock.Phase.NIGHT or phase == SessionClock.Phase.DAYLIGHT:
+	if not _restoring_snapshot \
+			and (phase == SessionClock.Phase.NIGHT or phase == SessionClock.Phase.DAYLIGHT):
 		save_now(&"day_night_boundary")
 
 func _on_bedding_rested(_who: Player) -> void:
