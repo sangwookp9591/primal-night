@@ -57,7 +57,9 @@ func show_death(cause: String) -> void:
 		save_service.record_death(cause)
 	get_tree().paused = multiplayer.get_peers().is_empty()
 	_heading.text = "사망"
-	_message.text = cause
+	var chronicle := get_parent().get_node_or_null("CharacterChronicle") as CharacterChronicle
+	_message.text = cause if chronicle == null else "%s\n\n%s" % [
+		cause, chronicle.reflection_text()]
 	_continue.visible = false
 	_save.visible = false
 	_reload.visible = SaveService.has_save()

@@ -63,6 +63,10 @@ func record_death(cause: String) -> bool:
 		return false
 	var snapshot: Dictionary = loaded.snapshot
 	var clock := _root.get_node_or_null("SessionClock") as SessionClock
+	var chronicle := _root.get_node_or_null("CharacterChronicle") as CharacterChronicle
+	if chronicle != null:
+		chronicle.record_result(&"death", cause)
+		snapshot["chronicle"] = chronicle.snapshot()
 	snapshot.death_record = {
 		"cause": cause,
 		"day": clock.current_day if clock != null else 1,
@@ -97,6 +101,7 @@ func collect_snapshot() -> Dictionary:
 			"death_cause": objective.death_cause_text,
 			"cause_history": _cause_history_snapshot(objective.cause_history),
 		},
+		"chronicle": _chronicle_snapshot(),
 		"world_items": _world_item_snapshots(),
 		"campfires": _campfire_snapshots(),
 		"base_camp": _base_camp_snapshot(),
@@ -131,6 +136,10 @@ func apply_snapshot(snapshot: Dictionary, death_recovery: bool = false) -> bool:
 	objective.fire_maintained = bool(state.fire_maintained)
 	objective.death_cause_text = String(state.get("death_cause", ""))
 	objective.cause_history = _restore_cause_history(state.get("cause_history", []))
+	var chronicle := _root.get_node_or_null("CharacterChronicle") as CharacterChronicle
+	if chronicle != null and snapshot.has("chronicle"):
+		if not chronicle.apply_snapshot(snapshot.chronicle):
+			return _fail("캐릭터 기록이 올바르지 않습니다.")
 	_apply_world_items(snapshot.world_items)
 	_apply_campfires(snapshot.campfires)
 	_apply_base_camp(snapshot.base_camp)
@@ -186,6 +195,17 @@ static func prepare_continue(path: String = DEFAULT_SAVE_PATH,
 	DifficultyRuntime.select_for_next_game(StringName(pending_snapshot.difficulty))
 	return {"ok": true, "message": ""}
 
+static func continue_chronicle_summary(path: String = DEFAULT_SAVE_PATH) -> String:
+	var loaded := load_file(path)
+	if not loaded.ok:
+		return ""
+	var state: Dictionary = loaded.snapshot.get("chronicle", {})
+	if state.is_empty() or not CharacterChronicle.validate_snapshot(state):
+		return ""
+	return "%d일 생존 · 흉터 %s" % [
+		int(state.get("survival_days", 1)),
+		CharacterChronicle._korean_count(int(state.get("scar_count", 0)))]
+
 func _player_snapshot(player: Player) -> Dictionary:
 	return {
 		"position": _vec(player.global_position),
@@ -225,6 +245,10 @@ func _apply_player(player: Player, state: Dictionary) -> bool:
 func _weather_snapshot() -> Dictionary:
 	var weather := _root.get_node_or_null("NetWeather") as NetWeather
 	return weather.snapshot() if weather != null else {}
+
+func _chronicle_snapshot() -> Dictionary:
+	var chronicle := _root.get_node_or_null("CharacterChronicle") as CharacterChronicle
+	return chronicle.snapshot() if chronicle != null else {}
 
 func _world_item_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

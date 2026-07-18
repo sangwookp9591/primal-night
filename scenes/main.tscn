@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=34 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -32,6 +32,7 @@
 [ext_resource type="Script" path="res://scripts/save/save_service.gd" id="30_save"]
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="31_pause"]
 [ext_resource type="Script" path="res://scripts/weather/net_weather.gd" id="32_weather"]
+[ext_resource type="Script" path="res://scripts/session/character_chronicle.gd" id="33_chronicle"]
 
 [node name="Main" type="Node2D"]
 
@@ -168,3 +169,6 @@ script = ExtResource("32_weather")
 [node name="LoopObjective" type="Node2D" parent="."]
 position = Vector2(640, 700)
 script = ExtResource("17_loopobjective")
+
+[node name="CharacterChronicle" type="Node" parent="."]
+script = ExtResource("33_chronicle")

@@ -149,6 +149,9 @@ func bind_objective(objective: LoopObjective) -> void:
 
 func _on_outcome_changed(_outcome: LoopObjective.Outcome, objective: LoopObjective) -> void:
 	_outcome_notice.text = objective.narrative_text()
+	var chronicle := objective.get_parent().get_node_or_null("CharacterChronicle") as CharacterChronicle
+	if chronicle != null and not _outcome_notice.text.is_empty():
+		_outcome_notice.text += "\n" + chronicle.reflection_text(2)
 	_outcome_notice.visible = not _outcome_notice.text.is_empty()
 
 

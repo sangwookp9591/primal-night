@@ -28,6 +28,7 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	var player := main.get_node("Player") as Player
 	var clock := main.get_node("SessionClock") as SessionClock
 	var objective := main.get_node("LoopObjective") as LoopObjective
+	var chronicle := main.get_node("CharacterChronicle") as CharacterChronicle
 	var rack := main.get_node("DryingRack") as DryingRack
 	var cache := main.get_node("StorageCache") as StorageCache
 	player.global_position = Vector2(12.0, 34.0)
@@ -41,6 +42,8 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	objective.bleeding_treated = true
 	objective.fire_maintained = true
 	objective.record_cause_event(&"noise", Vector2(2.0, 3.0))
+	chronicle.scar_count = 2
+	chronicle.record_solution(&"escape")
 	var expected := service.collect_snapshot()
 	assert_true(service.save_now())
 	player.global_position = Vector2.ZERO
@@ -53,6 +56,7 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 	assert_eq(actual.player, expected.player)
 	assert_eq(actual.clock, expected.clock)
 	assert_eq(actual.objective, expected.objective)
+	assert_eq(actual.chronicle, expected.chronicle)
 	assert_eq(actual.world_items, expected.world_items)
 	assert_eq(actual.campfires, expected.campfires)
 	assert_eq(actual.base_camp, expected.base_camp)
@@ -105,6 +109,7 @@ func test_death_record_updates_metadata_without_replacing_checkpoint() -> void:
 	var after: Dictionary = SaveService.load_file(TEST_SAVE).snapshot
 	assert_eq(after.player, before.player)
 	assert_eq(after.death_record.cause, "피 냄새가 랩터를 불렀다.")
+	assert_eq(after.chronicle.session_results.back().cause, "피 냄새가 랩터를 불렀다.")
 
 func test_single_pause_stops_tree_and_resume_restores_it() -> void:
 	var menu := main.get_node("PauseMenu") as PauseMenu

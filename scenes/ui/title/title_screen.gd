@@ -57,7 +57,10 @@ func _ready() -> void:
 func show_main() -> void:
 	_show_only(_main_menu)
 	_status.text = ""
-	$Center/MenuPanel/Content/MainMenu/Continue.disabled = not SaveService.has_save()
+	var continue_button := $Center/MenuPanel/Content/MainMenu/Continue as Button
+	continue_button.disabled = not SaveService.has_save()
+	var summary := SaveService.continue_chronicle_summary()
+	continue_button.text = "이어하기" if summary.is_empty() else "이어하기 — %s" % summary
 	$Center/MenuPanel/Content/MainMenu/Single.grab_focus.call_deferred()
 
 func show_join() -> void:
