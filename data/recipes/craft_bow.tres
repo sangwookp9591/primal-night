@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/bow.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_bow"
+duration = 6.0
+noise = 90.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_bow"
+ingredients = {&"wood": 2, &"sinew": 2, &"fiber": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "휘는 나무와 질긴 힘줄로 원거리 무기를 만들 수 있다."
+observation_success = "활을 만들었다."

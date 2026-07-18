@@ -36,6 +36,7 @@ var actions: ActionController = ActionController.new()
 
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
+var bow_aiming: bool = false
 
 ## StealthZone(수풀)이 겹침으로 직접 설정한다 (설계서 5.6). Player 는 트리를 뒤지지 않는다.
 var in_bush: bool = false
@@ -84,7 +85,12 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("place_lure"):
 		_request_place_lure()
 	if Input.is_action_just_pressed("attack"):
-		_request_attack()
+		if equipment.get_equipped(&"main_hand") == &"bow":
+			_request_bow_aim(true)
+		else:
+			_request_attack()
+	if Input.is_action_just_released("attack") and bow_aiming:
+		_request_bow_fire()
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -93,6 +99,8 @@ func _physics_process(delta: float) -> void:
 	stance = Stance.CROUCH if crouching else (Stance.RUN if running else Stance.WALK)
 	var speed: float = (config.crouch_speed if crouching else \
 		(config.run_speed if running else config.walk_speed)) * injury.movement_multiplier()
+	if bow_aiming:
+		speed *= NetCombat.BOW_AIM_MOVE_MULTIPLIER
 
 	stamina.update(running, moving, delta, stats.fatigue_ratio(), stats.water_wellness())
 
@@ -171,6 +179,32 @@ func _request_attack() -> void:
 			node.request_attack(self, facing_direction())
 			return
 	push_warning("Player: 공격 시스템을 찾을 수 없습니다.")
+
+func _request_bow_aim(active: bool) -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_bow_aim"):
+			node.request_bow_aim(self, active, facing_direction())
+			return
+
+func _request_bow_fire() -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_bow_fire"):
+			node.request_bow_fire(self, facing_direction())
+			return
+
+func set_bow_aim_feedback(active: bool, direction: Vector2) -> void:
+	bow_aiming = active
+	if visual_rig == null:
+		return
+	var line := visual_rig.get_node_or_null("AimPlaceholder") as Line2D
+	if line == null:
+		line = Line2D.new()
+		line.name = "AimPlaceholder"
+		line.width = 2.0
+		line.default_color = Color(0.93, 0.76, 0.3, 0.72)
+		visual_rig.add_child(line)
+	line.points = PackedVector2Array([Vector2.ZERO, direction.normalized() * 72.0])
+	line.visible = active
 
 func facing_direction() -> Vector2:
 	if visual_rig == null or visual_rig.base_body == null:

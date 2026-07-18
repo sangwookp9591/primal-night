@@ -27,6 +27,10 @@ const VISUALS: Dictionary = {
 		layer = &"main_hand",
 		color = Color(0.62, 0.67, 0.70, 1.0),
 	},
+	&"bow": {
+		layer = &"main_hand",
+		color = Color(0.58, 0.36, 0.16, 1.0),
+	},
 	&"placeholder_state_overlay": {
 		layer = &"state_overlay",
 		color = Color(0.25, 0.65, 1.0, 0.35),

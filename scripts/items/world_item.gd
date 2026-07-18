@@ -39,6 +39,12 @@ func _ready() -> void:
 	var item_sprite := get_node_or_null("ItemSprite") as Sprite2D
 	if item_sprite != null:
 		item_sprite.texture = icon_texture(item_id)
+		if item_id == &"arrow":
+			item_sprite.visible = false
+			var marker := get_node_or_null("Marker") as ColorRect
+			if marker != null:
+				marker.visible = true
+				marker.color = Color(0.83, 0.68, 0.35)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	var item: ItemData = get_node("/root/GameData").get_item(item_id)
