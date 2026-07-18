@@ -8,9 +8,9 @@
 
 ## 1. 현재 상태 스냅샷
 
-- **HEAD**: `5391d30` (main, 2026-07-18 6차 세션). 작업 트리 클린. origin은 `2f857b8`까지 push됨(사용자 지시) — 이후 6커밋(식품 안전 `d99a313`, 채집·굽기 `7081281`, BaseBody 맨몸 `d53510a`, 수확 모션 `5391d30` 등)은 미push, 사용자 결정 대기. **임의 push 금지.**
-- **신규 축(6차)**: 채집(열매 수풀·식용/독버섯)·식중독(구토 소음=랩터 유인)·중독 DoT·모닥불 굽기(날고기→구운 고기)·인벤 Enter 먹기·벌목/따기 모션+흔들림. 원화는 착의 상태 — BaseBody 재작업 시 의류 제거 필수(이중 겹침 사고 이력).
-- **테스트**: GUT **604/604 실패 0**. 하네스 전부 초록. export 템플릿 설치됨(macOS zip·Windows exe 생성 확인).
+- **HEAD**: `66ad90f` (main, 2026-07-18 7차 세션). 작업 트리 클린. **origin과 동기화됨**(사용자가 매 요청마다 push 지시 — 66ad90f까지 push 완료). 새 커밋의 임의 push는 여전히 금지.
+- **신규 축(6~7차)**: 채집(열매 수풀·식용/독버섯)·식중독(구토 소음=랩터 유인)·중독 DoT·모닥불 굽기·인벤 Enter 먹기·벌목/따기 모션+흔들림·의상 3종(모피 망토/갈대 우비/뼈 갑옷)·중독 상태 얼굴 8방향(StateOverlay 우선순위 중독>식중독>젖음). 원화는 착의 상태 — BaseBody 재작업 시 의류 제거 필수(이중 겹침 사고 이력).
+- **테스트**: GUT **609/609 실패 0**. 하네스 전부 초록. export 템플릿 설치됨(macOS zip·Windows exe 생성 확인).
 - **비주얼**: 좀보이드 레퍼런스 정합 완료 — 줌 3.0(캐릭터 화면높이 ~13%), 밝은 초지 타일(이음선 없음), 식생 장식 레이어(해시 결정론·충돌 없음), 캠프 가구·청소동물 실렌더, 캐릭터 원화 정합. 아트 후속 후보: 랩터 사체 어두운 날개/뼈 파트, 보관함 상자 렌더.
 - **CI 하네스 목록** (.github/workflows/ci.yml): GUT, two_player, network_conditions, two_player_coop, two_player_goal_scene(×5), goal_scene_replay, sense_loop(10시드), three_day_slice, four_player_equipment(host+3), two_player_combat(host+1), four_player_soak(압축 0.5분).
 - **60분 soak 관문 통과 기록**: docs/technical/FOUR_PLAYER_SOAK_GATE_RECORD.md (69,178주기·치명 오류 0).
