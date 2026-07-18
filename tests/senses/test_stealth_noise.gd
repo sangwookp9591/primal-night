@@ -34,6 +34,13 @@ func _make_bush(at: Vector2, size: Vector2) -> StealthZone:
 	add_child_autofree(zone)
 	return zone
 
+func _wait_for_bush_state(player: Player, expected: bool, max_physics_frames: int = 10) -> bool:
+	for _frame_index in range(max_physics_frames):
+		if player.in_bush == expected:
+			return true
+		await wait_physics_frames(1)
+	return player.in_bush == expected
+
 func _make_raptor_data() -> CreatureData:
 	var data: CreatureData = CreatureDataScript.new()
 	data.sight_radius = 10.0
@@ -83,22 +90,23 @@ func test_stealth_zone_marks_the_player_in_bush_on_enter_and_clears_on_exit() ->
 	player.position = Vector2(-500.0, -500.0)
 	var bush: StealthZone = _make_bush(Vector2.ZERO, Vector2(200.0, 200.0))
 	await wait_physics_frames(1)
-	assert_false(player.in_bush, "수풀 밖에서는 in_bush 가 꺼져 있어야 한다")
+	assert_true(await _wait_for_bush_state(player, false),
+		"수풀 밖에서는 in_bush 가 꺼져 있어야 한다")
 
 	player.position = Vector2.ZERO
-	await wait_physics_frames(2)
-	assert_true(player.in_bush, "수풀에 들어가면 in_bush 가 켜져야 한다")
+	assert_true(await _wait_for_bush_state(player, true),
+		"수풀에 들어가면 in_bush 가 켜져야 한다")
 
 	player.position = Vector2(-500.0, -500.0)
-	await wait_physics_frames(2)
-	assert_false(player.in_bush, "수풀을 나가면 in_bush 가 꺼져야 한다")
+	assert_true(await _wait_for_bush_state(player, false),
+		"수풀을 나가면 in_bush 가 꺼져야 한다")
 
 func test_running_through_bush_increases_the_noise_radius() -> void:
 	var player: Player = add_child_autofree(PlayerScene.instantiate())
 	_make_bush(Vector2.ZERO, Vector2(400.0, 400.0))
 	player.position = Vector2.ZERO
-	await wait_physics_frames(2)
-	assert_true(player.in_bush, "전제: 플레이어가 수풀 안에 있어야 한다")
+	assert_true(await _wait_for_bush_state(player, true),
+		"전제: 플레이어가 수풀 안에 있어야 한다")
 
 	Input.action_press("move_right")
 	Input.action_press("run")
@@ -113,7 +121,8 @@ func test_crouching_in_bush_stays_quiet_not_the_bush_run_profile() -> void:
 	var player: Player = add_child_autofree(PlayerScene.instantiate())
 	_make_bush(Vector2.ZERO, Vector2(400.0, 400.0))
 	player.position = Vector2.ZERO
-	await wait_physics_frames(2)
+	assert_true(await _wait_for_bush_state(player, true),
+		"전제: 플레이어가 수풀 안에 있어야 한다")
 
 	Input.action_press("move_right")
 	Input.action_press("crouch")
