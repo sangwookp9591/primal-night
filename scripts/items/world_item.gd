@@ -26,16 +26,20 @@ const ITEM_ATLAS_INDICES := {
 @export var item_id: StringName = &"stone"
 @export var count: int = 1
 
+var resource_respawn_seconds: float = 0.0
 var _event_bus: Node = null
 var _net_pickup: NetPickup = null
 var _net_pickup_cached: bool = false
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 var _floor_smell_source: SmellSource = null
 var _base_spawn_count: int = 0
+var _respawn_count: int = 0
+var _respawn_remaining: float = 0.0
 
 func _ready() -> void:
 	add_to_group(&"world_item")
 	_base_spawn_count = count
+	_respawn_count = count
 	var item_sprite := get_node_or_null("ItemSprite") as Sprite2D
 	if item_sprite != null:
 		item_sprite.texture = icon_texture(item_id)
@@ -54,9 +58,55 @@ func _ready() -> void:
 		_floor_smell_source.strength = item.smell_strength
 		_floor_smell_source.interval_seconds = item.smell_interval_seconds
 		add_child(_floor_smell_source)
+	set_process(false)
+
+func _process(delta: float) -> void:
+	if not multiplayer.is_server() or count > 0 or resource_respawn_seconds <= 0.0:
+		return
+	_respawn_remaining = maxf(_respawn_remaining - delta, 0.0)
+	if _respawn_remaining > 0.0:
+		return
+	_restore_resource()
+	if multiplayer.get_peers().size() > 0:
+		receive_resource_respawn.rpc(count)
 
 func apply_spawn_quantity_multiplier(multiplier: float) -> void:
 	count = maxi(1, roundi(float(_base_spawn_count) * multiplier))
+	_respawn_count = count
+
+## 씬에 배치된 자원만 DifficultyRuntime 이 등록한다. 플레이어 사망 드롭처럼
+## 런타임에 생성된 WorldItem 은 등록하지 않으므로 다시 생겨나지 않는다.
+func configure_resource_respawn(base_seconds: float, time_multiplier: float) -> void:
+	resource_respawn_seconds = maxf(base_seconds * maxf(time_multiplier, 0.0), 0.0)
+
+func deplete() -> void:
+	count = 0
+	_clear_floor_smell_source()
+	if resource_respawn_seconds <= 0.0:
+		queue_free()
+		return
+	visible = false
+	monitorable = false
+	_respawn_remaining = resource_respawn_seconds
+	set_process(multiplayer.is_server())
+
+func _restore_resource() -> void:
+	count = maxi(_respawn_count, 1)
+	visible = true
+	monitorable = true
+	set_process(false)
+	_restore_floor_smell_source()
+
+@rpc("authority", "call_remote", "reliable")
+func receive_resource_respawn(restored_count: int) -> void:
+	if multiplayer.is_server() or restored_count <= 0:
+		return
+	count = restored_count
+	visible = true
+	monitorable = true
+
+func respawn_remaining_seconds() -> float:
+	return _respawn_remaining
 
 static func atlas_index_for(id: StringName) -> int:
 	return int(ITEM_ATLAS_INDICES.get(id, -1))
@@ -109,7 +159,7 @@ func apply_pickup(player: Player) -> int:
 		_event_bus.item_picked_up.emit(item_id, player)
 
 	if count <= 0:
-		queue_free()
+		deplete()
 	return added
 
 ## 냄새 나는 바닥 먹이를 청소동물이 한 개 먹는다. 인벤토리나 획득 이벤트를
@@ -122,8 +172,7 @@ func consume_one_by_scavenger() -> bool:
 		return false
 	count -= 1
 	if count <= 0:
-		_clear_floor_smell_source()
-		queue_free()
+		deplete()
 	return true
 
 func _clear_floor_smell_source() -> void:
@@ -132,6 +181,18 @@ func _clear_floor_smell_source() -> void:
 	_floor_smell_source.deactivate()
 	_floor_smell_source.queue_free()
 	_floor_smell_source = null
+
+func _restore_floor_smell_source() -> void:
+	if _floor_smell_source != null:
+		return
+	var item: ItemData = get_node("/root/GameData").get_item(item_id)
+	if item == null or not item.is_smell_source():
+		return
+	_floor_smell_source = SmellSource.new()
+	_floor_smell_source.kind = item.get_smell_kind()
+	_floor_smell_source.strength = item.smell_strength
+	_floor_smell_source.interval_seconds = item.smell_interval_seconds
+	add_child(_floor_smell_source)
 
 ## 같은 기계(멀티플레이 브랜치)의 NetPickup 만 잡는다 — 헤드리스 하네스에선
 ## 한 트리에 기계가 2개다. 상호작용 시점에만 1회 조회하고 캐시한다 (성능문서 6.1).

@@ -168,6 +168,24 @@ func test_death_recovery_applies_selected_difficulty_keep_ratio() -> void:
 			kept += int(slot.count)
 	assert_eq(kept, floori(10.0 * difficulty.config.death_item_keep_ratio))
 
+func test_json_round_trip_restores_each_difficulty_death_rule() -> void:
+	var player := main.get_node("Player") as Player
+	var difficulty := main.get_node("DifficultyRuntime") as DifficultyRuntime
+	var empty_inventory := player.inventory.get_transaction_snapshot()
+	for preset_id: StringName in [&"gentle", &"standard", &"harsh"]:
+		assert_true(player.inventory.restore_transaction_snapshot(empty_inventory))
+		difficulty.apply_preset(preset_id)
+		player.inventory.add_item(&"wood", 10)
+		assert_true(service.save_now())
+		var loaded := SaveService.load_file(TEST_SAVE)
+		assert_true(loaded.ok)
+		assert_eq(StringName(loaded.snapshot.difficulty), preset_id)
+		assert_true(player.inventory.restore_transaction_snapshot(empty_inventory))
+		assert_true(service.apply_snapshot(loaded.snapshot, true))
+		assert_eq(player.inventory.count_of(&"wood"),
+			floori(10.0 * difficulty.config.death_item_keep_ratio),
+			"%s 사망 복구 규칙이 실제 JSON 파일 왕복 뒤 적용된다" % preset_id)
+
 func test_death_record_updates_metadata_without_replacing_checkpoint() -> void:
 	var player := main.get_node("Player") as Player
 	player.global_position = Vector2(44.0, 55.0)

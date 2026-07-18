@@ -217,7 +217,7 @@ func confirm_pickup(item_path: String, player_id: String, item_id: String, added
 	if item != null:
 		item.count = remaining
 		if remaining <= 0:
-			item.queue_free()
+			item.deplete()
 
 	var avatar: Player = _avatar_of(StringName(player_id))
 	if avatar == null:

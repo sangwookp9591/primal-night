@@ -6,6 +6,7 @@ const PRESETS := {
 	&"standard": preload("res://resources/difficulty/standard.tres"),
 	&"harsh": preload("res://resources/difficulty/harsh.tres"),
 }
+const RESOURCE_RESPAWN_BASE_SECONDS: float = 180.0
 
 static var pending_preset_id: StringName = &"standard"
 static var has_pending_selection: bool = false
@@ -39,6 +40,9 @@ func apply_preset(id: StringName) -> void:
 	for item: WorldItem in get_tree().get_nodes_in_group(&"world_item"):
 		if get_parent().is_ancestor_of(item):
 			item.apply_spawn_quantity_multiplier(config.resource_spawn_quantity_multiplier)
+			if item.owner != null:
+				item.configure_resource_respawn(RESOURCE_RESPAWN_BASE_SECONDS,
+					config.resource_respawn_time_multiplier)
 	for raptor: Raptor in get_tree().get_nodes_in_group(&"raptor"):
 		if get_parent().is_ancestor_of(raptor):
 			raptor.apply_difficulty(config)
