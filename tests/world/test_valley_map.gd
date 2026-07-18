@@ -48,6 +48,25 @@ func test_scene_has_isometric_layers_and_navigation() -> void:
 	assert_true(occlusion.y_sort_enabled)
 
 
+func test_open_slice_has_dense_collision_free_y_sorted_vegetation() -> void:
+	var valley: ValleyMap = _make_valley()
+	var vegetation := valley.get_node_or_null("Vegetation") as Node2D
+	assert_not_null(vegetation)
+	assert_true(vegetation.y_sort_enabled)
+	assert_gt(vegetation.get_child_count(), 350,
+		"Z01~Z03에는 화면 격자를 끊을 만큼 결정적 식생 소품이 있어야 한다")
+	assert_lt(vegetation.get_child_count(), 650,
+		"장식 밀도는 렌더·노드 예산 안에 머물러야 한다")
+	var tall_tree_count := 0
+	for node: Node in vegetation.get_children():
+		assert_true(node is Sprite2D)
+		assert_false(node is CollisionObject2D)
+		var region := (node as Sprite2D).region_rect
+		if region.position.y == 0.0:
+			tall_tree_count += 1
+	assert_gt(tall_tree_count, 20, "캐릭터보다 큰 나무가 여러 구역에 충분히 배치되어야 한다")
+
+
 func test_exactly_forty_playable_chunks() -> void:
 	# 문서 §9 자체 점검: 6+8+10+8+8 = 40.
 	var valley: ValleyMap = _make_valley()

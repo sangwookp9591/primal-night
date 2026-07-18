@@ -16,13 +16,19 @@ const TILES_PER_CHUNK: int = 32
 const GRID: int = 8
 
 const SOURCE_ID: int = 0
+const VEGETATION_SHEET: Texture2D = preload(
+	"res://assets/sprites/props/valley_vegetation_8_sheet.png")
+const BASE_CAMP_FURNISHINGS_SHEET: Texture2D = preload(
+	"res://assets/sprites/props/base_camp_furnishings_2_sheet.png")
+const VEGETATION_CELL_SIZE := Vector2(128.0, 128.0)
+const VEGETATION_HASH_INTERVAL: int = 53
 
 ## 정식 지형 시트(valley_terrain_tiles_sheet, 6열×3행) 아틀라스 좌표.
 ## Zone 별 2~3 변형을 셀 시드로 분산 배치해 반복감을 줄인다.
 const ZONE_VARIANTS: Dictionary = {
-	"1": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)],  # Z01 회갈 암반·다진 흙·추락 잔해
-	"2": [Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0)],  # Z02 습지·얕은 물가·성긴 갈대
-	"3": [Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1)],  # Z03 짙은 식생·낙엽·거목 뿌리
+	"1": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)],  # Z01 밝은 초지
+	"2": [Vector2i(4, 0), Vector2i(5, 0), Vector2i(0, 1)],  # Z02 마른 풀·습지 초록
+	"3": [Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 0)],  # Z03 짙은 식생
 	"4": [Vector2i(3, 1), Vector2i(4, 1), Vector2i(5, 1)],  # Z04 마른 풀·짓밟힌 흙·관목
 	"5": [Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2)],  # Z05 현무암·화산암·화산재
 }
@@ -133,6 +139,7 @@ const SCAVENGER_DAY_ONE_FORAGE: Dictionary = {
 }
 
 var _chunk_zone_cache: Dictionary = {}
+var _vegetation_layer: Node2D
 
 
 func _ready() -> void:
@@ -144,10 +151,49 @@ func _ready() -> void:
 	boundary.position = MAP_PIXEL_OFFSET
 	$Occlusion.position = MAP_PIXEL_OFFSET
 	$Landmarks.position = MAP_PIXEL_OFFSET
+	_vegetation_layer = Node2D.new()
+	_vegetation_layer.name = "Vegetation"
+	_vegetation_layer.y_sort_enabled = true
+	add_child(_vegetation_layer)
 
 	_paint_chunks(ground, collision)
 	_paint_slice_boundaries(boundary)
 	_bake_navigation(ground)
+	_replace_base_camp_debug_shapes.call_deferred()
+
+
+## 베이스캠프 씬의 상호작용·충돌 계약은 그대로 두고, 회색상자 도형만 정식
+## 렌더로 덮는다. Main 이 World 뒤에 프롭을 인스턴스하므로 한 프레임 지연한다.
+func _replace_base_camp_debug_shapes() -> void:
+	var root := get_parent()
+	var drying_rack := root.get_node_or_null("DryingRack") as Node2D
+	if drying_rack != null:
+		var frame := drying_rack.get_node_or_null("Frame") as CanvasItem
+		if frame != null:
+			frame.visible = false
+		_add_base_camp_sprite(drying_rack, 0, Vector2(0.0, -5.0))
+	var bedding := root.get_node_or_null("Bedding") as Node2D
+	if bedding != null:
+		for shape_name: StringName in [&"Mat", &"Hide"]:
+			var shape := bedding.get_node_or_null(NodePath(shape_name)) as CanvasItem
+			if shape != null:
+				shape.visible = false
+		_add_base_camp_sprite(bedding, 1, Vector2(0.0, -3.0))
+
+
+func _add_base_camp_sprite(parent: Node2D, atlas_index: int, offset: Vector2) -> void:
+	if parent.get_node_or_null("FurnishingVisual") != null:
+		return
+	var atlas := AtlasTexture.new()
+	atlas.atlas = BASE_CAMP_FURNISHINGS_SHEET
+	atlas.region = Rect2(Vector2(atlas_index * 128.0, 0.0), Vector2(128.0, 128.0))
+	var sprite := Sprite2D.new()
+	sprite.name = "FurnishingVisual"
+	sprite.texture = atlas
+	sprite.offset = offset
+	sprite.scale = Vector2(0.55, 0.55)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	parent.add_child(sprite)
 
 
 # --- 청크 배치 ---------------------------------------------------------------
@@ -171,6 +217,44 @@ func _paint_zone_chunk(layer: TileMapLayer, cell_origin: Vector2i, zone_digit: S
 		for dx: int in range(TILES_PER_CHUNK):
 			var cell: Vector2i = cell_origin + Vector2i(dx, dy)
 			layer.set_cell(cell, SOURCE_ID, variants[variant_index(cell, variants.size())])
+			_try_place_vegetation(layer, cell, zone_digit)
+
+
+## 장식은 자원/상호작용 노드와 완전히 분리한다. 좌표 해시로 밀도와 종류를 고정해
+## 저장·네트워크 상태를 늘리지 않고, 충돌 없는 Sprite2D만 y-sort 레이어에 둔다.
+func _try_place_vegetation(ground: TileMapLayer, cell: Vector2i, zone_digit: String) -> void:
+	if zone_digit not in ["1", "2", "3"]:
+		return
+	var h: int = _cell_hash(cell, 0x71E6E7)
+	if posmod(h, VEGETATION_HASH_INTERVAL) != 0:
+		return
+	var sprite := Sprite2D.new()
+	sprite.name = "Plant_%d_%d" % [cell.x, cell.y]
+	sprite.texture = VEGETATION_SHEET
+	sprite.region_enabled = true
+	var index := _vegetation_index(zone_digit, h)
+	sprite.region_rect = Rect2(
+		Vector2(index % 4, index / 4) * VEGETATION_CELL_SIZE,
+		VEGETATION_CELL_SIZE)
+	sprite.position = ground.position + ground.map_to_local(cell)
+	sprite.offset = Vector2(0.0, -VEGETATION_CELL_SIZE.y * 0.5)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_vegetation_layer.add_child(sprite)
+
+
+static func _vegetation_index(zone_digit: String, hash_value: int) -> int:
+	var selector := posmod(hash_value >> 8, 12)
+	if zone_digit == "2":
+		return 6 + posmod(selector, 2)  # 갈대·야생화가 습지 초원 실루엣을 만든다.
+	if selector < 3:
+		return posmod(hash_value >> 16, 4)  # 드문 큰 나무.
+	return 4 + posmod(hash_value >> 12, 4)  # 수풀·풀덤불 중심의 바닥 밀도.
+
+
+static func _cell_hash(cell: Vector2i, seed: int) -> int:
+	var h: int = (cell.x * 73856093) ^ (cell.y * 19349663) ^ seed
+	h = (h ^ (h >> 13)) * 1274126177
+	return h ^ (h >> 16)
 
 
 ## 비플레이 청크: 단일 지형(절벽 또는 깊은 물). 충돌은 타일셋 물리 폴리곤이 제공한다.
