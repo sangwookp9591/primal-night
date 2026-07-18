@@ -1,34 +1,47 @@
-[gd_scene load_steps=2 format=4]
+[gd_scene load_steps=3 format=4]
 
 [ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="1_item"]
+[ext_resource type="PackedScene" path="res://scenes/items/harvestable_node.tscn" id="2_harvest"]
 
 [node name="ForageNodes" type="Node2D"]
 
 ; Z01: 안전한 시작 초지는 붉은 열매 위주, 식용 버섯은 드물다.
-[node name="Z01BerryA" parent="." instance=ExtResource("1_item")]
+[node name="Z01BerryA" parent="." instance=ExtResource("2_harvest")]
 position = Vector2(-430, 690)
-item_id = &"berry"
-count = 2
+harvest_kind = "berry_bush"
+reward_id = &"berry"
+reward_count = 2
+hold_seconds = 0.4
+vegetation_index = 4
 
-[node name="Z01BerryB" parent="." instance=ExtResource("1_item")]
+[node name="Z01BerryB" parent="." instance=ExtResource("2_harvest")]
 position = Vector2(-80, 650)
-item_id = &"berry"
-count = 2
+harvest_kind = "berry_bush"
+reward_id = &"berry"
+reward_count = 2
+hold_seconds = 0.4
+vegetation_index = 4
 
-[node name="Z01BerryC" parent="." instance=ExtResource("1_item")]
+[node name="Z01BerryC" parent="." instance=ExtResource("2_harvest")]
 position = Vector2(40, 860)
-item_id = &"berry"
-count = 1
+harvest_kind = "berry_bush"
+reward_id = &"berry"
+reward_count = 1
+hold_seconds = 0.4
+vegetation_index = 5
 
 [node name="Z01Mushroom" parent="." instance=ExtResource("1_item")]
 position = Vector2(-250, 930)
 item_id = &"mushroom"
 
 ; Z02: 습지 가장자리는 버섯이 늘고 독버섯이 처음 섞인다.
-[node name="Z02Berry" parent="." instance=ExtResource("1_item")]
+[node name="Z02Berry" parent="." instance=ExtResource("2_harvest")]
 position = Vector2(5820, 180)
-item_id = &"berry"
-count = 2
+harvest_kind = "berry_bush"
+reward_id = &"berry"
+reward_count = 2
+hold_seconds = 0.4
+vegetation_index = 5
 
 [node name="Z02MushroomA" parent="." instance=ExtResource("1_item")]
 position = Vector2(6040, 130)
@@ -58,3 +71,28 @@ item_id = &"mushroom"
 [node name="Z03ToxicMushroomB" parent="." instance=ExtResource("1_item")]
 position = Vector2(4050, -150)
 item_id = &"toxic_mushroom"
+
+; 장식 나무와 별개인 상호작용 벌목 노드 — 충돌은 없고 수확 상태만 소유한다.
+[node name="Z01TreeA" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(-540, 820)
+vegetation_index = 0
+
+[node name="Z01TreeB" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(110, 740)
+vegetation_index = 1
+
+[node name="Z02TreeA" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(5740, 320)
+vegetation_index = 1
+
+[node name="Z02TreeB" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(6200, 240)
+vegetation_index = 0
+
+[node name="Z03TreeA" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(1640, -1220)
+vegetation_index = 2
+
+[node name="Z03TreeB" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(4140, -280)
+vegetation_index = 2

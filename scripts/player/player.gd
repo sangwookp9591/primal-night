@@ -249,6 +249,16 @@ func play_attack_feedback(direction: Vector2) -> void:
 	tween.tween_property(visual_rig, "position", Vector2.ZERO, 0.12)
 
 
+func play_harvest_feedback(target_position: Vector2, strength: float = 1.0) -> void:
+	if visual_rig == null:
+		return
+	var direction := global_position.direction_to(target_position)
+	var distance := 10.0 * clampf(strength, 0.35, 1.0)
+	var tween := create_tween()
+	tween.tween_property(visual_rig, "position", direction * distance, 0.08)
+	tween.tween_property(visual_rig, "position", Vector2.ZERO, 0.12)
+
+
 func request_consume(item_id: StringName) -> void:
 	for node in get_tree().get_nodes_in_group(&"net_survival"):
 		if node.has_method("request_consume_for") and node.owns(self):
