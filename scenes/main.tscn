@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=35 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -33,6 +33,7 @@
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="31_pause"]
 [ext_resource type="Script" path="res://scripts/weather/net_weather.gd" id="32_weather"]
 [ext_resource type="Script" path="res://scripts/session/character_chronicle.gd" id="33_chronicle"]
+[ext_resource type="PackedScene" path="res://scenes/items/forage_nodes.tscn" id="34_forage"]
 
 [node name="Main" type="Node2D"]
 
@@ -43,6 +44,8 @@
 position = Vector2(-384, 200)
 
 [node name="SurvivalDemo" parent="." instance=ExtResource("3_survivaldemo")]
+
+[node name="ForageNodes" parent="." instance=ExtResource("34_forage")]
 
 ; S02 현무암 바람막이의 귀환 거점. 복잡한 자유 건축 대신 고정 프롭 세 개만 둔다.
 [node name="StorageCache" parent="." instance=ExtResource("26_storage")]

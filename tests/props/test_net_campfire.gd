@@ -263,3 +263,30 @@ func test_fuel_timer_is_host_owned_and_extinguish_replicates() -> void:
 		"소등이 클라이언트로 복제되어야 한다")
 	assert_eq(get_signal_emit_count(_event_bus, "campfire_extinguished"), 1,
 		"campfire_extinguished 도 호스트에서만 1회")
+
+
+func test_client_cook_hold_is_host_validated_and_replicated() -> void:
+	var client_id := await _join_and_spawn()
+	_spawn_site_both("Site", Vector2(32.0, 0.0))
+	await wait_physics_frames(2)
+	# 설치 과정과 독립적으로 굽기 프로토콜만 검증한다.
+	_site_on(host).build_and_light()
+	_site_on(client).build_and_light()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view_client: Player = host.container.get_node(String(client_id))
+	client_avatar.inventory.add_item(&"raw_meat", 1)
+	host_view_client.inventory.add_item(&"raw_meat", 1)
+
+	_site_on(client).on_hold_started(client_avatar)
+	assert_true(await wait_until(func() -> bool: return _site_on(host).has_cooking_smell(), 2.0),
+		"클라이언트 홀드 시작은 호스트의 요리 냄새 원천을 연다")
+	await wait_seconds(CampfireSite.COOK_SECONDS)
+	_site_on(client).interact(client_avatar)
+	_site_on(client).on_hold_ended(client_avatar)
+
+	assert_true(await wait_until(func() -> bool:
+		return host_view_client.inventory.count_of(&"cooked_meat") == 1 \
+			and client_avatar.inventory.count_of(&"cooked_meat") == 1, 5.0),
+		"호스트 확정한 날고기→구운 고기 변환이 양쪽 인벤토리에 복제된다")
+	assert_eq(host_view_client.inventory.count_of(&"raw_meat"), 0)
+	assert_eq(client_avatar.inventory.count_of(&"raw_meat"), 0)

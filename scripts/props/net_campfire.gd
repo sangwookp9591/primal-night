@@ -17,6 +17,7 @@ const PLAYER_ID_MAX_LENGTH: int = 32
 const REQUEST_MAX_PER_SECOND: int = 10
 const CONFIRM_MAX_PER_SECOND: int = 10
 const CONFIRM_PAYLOAD_BYTES: int = 256
+const COOK_HOLD_SLACK_SECONDS: float = 0.12
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -33,6 +34,7 @@ var _event_bus: Node = null
 var _now_seconds: float = 0.0
 ## 호스트가 확정한 모닥불 → 지정자리 경로. 연료 소진 소등을 복제할 때 쓴다.
 var _site_paths_by_campfire: Dictionary = {}
+var _cook_holds: Dictionary = {}
 
 
 func _ready() -> void:
@@ -48,6 +50,10 @@ func _ready() -> void:
 	_guard.register_rule(&"request_campfire_build", false, REQUEST_MAX_PER_SECOND, SITE_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"confirm_campfire_build", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.register_rule(&"confirm_campfire_extinguished", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
+	_guard.register_rule(&"request_cook_hold_start", false, REQUEST_MAX_PER_SECOND, SITE_PATH_MAX_LENGTH)
+	_guard.register_rule(&"request_cook_hold_end", false, REQUEST_MAX_PER_SECOND, SITE_PATH_MAX_LENGTH)
+	_guard.register_rule(&"request_campfire_cook", false, REQUEST_MAX_PER_SECOND, SITE_PATH_MAX_LENGTH)
+	_guard.register_rule(&"confirm_campfire_cook", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_guard.watch_session(_session)
 
@@ -71,6 +77,118 @@ func request(site: CampfireSite, who: Player) -> void:
 		_host_build(who, site)
 		return
 	request_campfire_build.rpc_id(RpcGuard.HOST_PEER_ID, String(_world_root.get_path_to(site)))
+
+
+func notify_cook_hold_started(site: CampfireSite, who: Player) -> void:
+	if multiplayer.is_server():
+		_host_cook_hold_started(who, site)
+		return
+	request_cook_hold_start.rpc_id(RpcGuard.HOST_PEER_ID, String(_world_root.get_path_to(site)))
+
+
+func notify_cook_hold_ended(site: CampfireSite, who: Player) -> void:
+	if multiplayer.is_server():
+		_host_cook_hold_ended(who, site)
+		return
+	request_cook_hold_end.rpc_id(RpcGuard.HOST_PEER_ID, String(_world_root.get_path_to(site)))
+
+
+func request_cook(site: CampfireSite, who: Player) -> void:
+	if multiplayer.is_server():
+		_host_cook(who, site)
+		return
+	request_campfire_cook.rpc_id(RpcGuard.HOST_PEER_ID, String(_world_root.get_path_to(site)))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_cook_hold_start(site_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_cook_hold_start", sender, site_path.length(), _now_seconds) \
+			or not _is_valid_path(site_path):
+		return
+	_host_cook_hold_started(_avatar_of(_session.get_player_id_for_peer(sender)),
+		_world_root.get_node_or_null(site_path) as CampfireSite)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_cook_hold_end(site_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_cook_hold_end", sender, site_path.length(), _now_seconds) \
+			or not _is_valid_path(site_path):
+		return
+	_host_cook_hold_ended(_avatar_of(_session.get_player_id_for_peer(sender)),
+		_world_root.get_node_or_null(site_path) as CampfireSite)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_campfire_cook(site_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_campfire_cook", sender, site_path.length(), _now_seconds) \
+			or not _is_valid_path(site_path):
+		return
+	_host_cook(_avatar_of(_session.get_player_id_for_peer(sender)),
+		_world_root.get_node_or_null(site_path) as CampfireSite)
+
+
+func _host_cook_hold_started(who: Player, site: CampfireSite) -> void:
+	if not _can_cook(who, site):
+		return
+	_cook_holds[_cook_key(who, site)] = _now_seconds
+	site._start_cooking_smell()
+
+
+func _host_cook_hold_ended(who: Player, site: CampfireSite) -> void:
+	if who != null and site != null:
+		_cook_holds.erase(_cook_key(who, site))
+		site._end_cooking_smell()
+
+
+func _host_cook(who: Player, site: CampfireSite) -> void:
+	if not _can_cook(who, site):
+		return
+	var key := _cook_key(who, site)
+	if not _cook_holds.has(key):
+		return
+	var elapsed := _now_seconds - float(_cook_holds[key])
+	if elapsed + COOK_HOLD_SLACK_SECONDS < CampfireSite.COOK_SECONDS:
+		push_warning("NetCampfire: 굽기 홀드 미달 %.2fs" % elapsed)
+		return
+	_cook_holds.erase(key)
+	site._end_cooking_smell()
+	if not site.apply_cook(who):
+		return
+	if multiplayer.get_peers().size() > 0:
+		confirm_campfire_cook.rpc(String(_world_root.get_path_to(site)), String(_player_id_of(who)))
+
+
+@rpc("authority", "call_remote", "reliable")
+func confirm_campfire_cook(site_path: String, player_id: String) -> void:
+	if not _guard.check(&"confirm_campfire_cook", multiplayer.get_remote_sender_id(),
+			site_path.length() + player_id.length(), _now_seconds):
+		return
+	if not _is_valid_path(site_path) or player_id.is_empty() \
+			or player_id.length() > PLAYER_ID_MAX_LENGTH:
+		return
+	var site := _world_root.get_node_or_null(site_path) as CampfireSite
+	if site != null:
+		site.apply_cook(_avatar_of(StringName(player_id)))
+
+
+func _can_cook(who: Player, site: CampfireSite) -> bool:
+	return who != null and is_instance_valid(who) and site != null \
+		and site.campfire != null and site.campfire.is_lit \
+		and who.global_position.distance_to(site.global_position) <= BUILD_MAX_DISTANCE_PX \
+		and who.inventory.has_item(&"raw_meat", 1)
+
+
+func _cook_key(who: Player, site: CampfireSite) -> String:
+	return "%d:%d" % [who.get_instance_id(), site.get_instance_id()]
 
 
 ## 클라이언트 → 호스트: 설치 의도. 경로만 받고 모든 사실은 호스트 월드에서 조회한다.

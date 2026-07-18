@@ -22,6 +22,10 @@ const ITEM_ATLAS_INDICES := {
 	&"bone_scraper": 11,
 	&"noise_lure": 12,
 	&"hide": 13,
+	&"berry": 14,
+	&"mushroom": 15,
+	&"toxic_mushroom": 16,
+	&"cooked_meat": 17,
 }
 
 @export var item_id: StringName = &"stone"

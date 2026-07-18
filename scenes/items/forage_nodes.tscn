@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=4]
+
+[ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="1_item"]
+
+[node name="ForageNodes" type="Node2D"]
+
+; Z01: 안전한 시작 초지는 붉은 열매 위주, 식용 버섯은 드물다.
+[node name="Z01BerryA" parent="." instance=ExtResource("1_item")]
+position = Vector2(-430, 690)
+item_id = &"berry"
+count = 2
+
+[node name="Z01BerryB" parent="." instance=ExtResource("1_item")]
+position = Vector2(-80, 650)
+item_id = &"berry"
+count = 2
+
+[node name="Z01BerryC" parent="." instance=ExtResource("1_item")]
+position = Vector2(40, 860)
+item_id = &"berry"
+count = 1
+
+[node name="Z01Mushroom" parent="." instance=ExtResource("1_item")]
+position = Vector2(-250, 930)
+item_id = &"mushroom"
+
+; Z02: 습지 가장자리는 버섯이 늘고 독버섯이 처음 섞인다.
+[node name="Z02Berry" parent="." instance=ExtResource("1_item")]
+position = Vector2(5820, 180)
+item_id = &"berry"
+count = 2
+
+[node name="Z02MushroomA" parent="." instance=ExtResource("1_item")]
+position = Vector2(6040, 130)
+item_id = &"mushroom"
+
+[node name="Z02MushroomB" parent="." instance=ExtResource("1_item")]
+position = Vector2(6120, 350)
+item_id = &"mushroom"
+
+[node name="Z02ToxicMushroom" parent="." instance=ExtResource("1_item")]
+position = Vector2(5910, 400)
+item_id = &"toxic_mushroom"
+
+; Z03: 짙은 식생은 버섯류 중심이며 식용/독성의 육안 판별을 요구한다.
+[node name="Z03MushroomA" parent="." instance=ExtResource("1_item")]
+position = Vector2(1740, -1340)
+item_id = &"mushroom"
+
+[node name="Z03ToxicMushroomA" parent="." instance=ExtResource("1_item")]
+position = Vector2(1980, -1370)
+item_id = &"toxic_mushroom"
+
+[node name="Z03MushroomB" parent="." instance=ExtResource("1_item")]
+position = Vector2(3820, -340)
+item_id = &"mushroom"
+
+[node name="Z03ToxicMushroomB" parent="." instance=ExtResource("1_item")]
+position = Vector2(4050, -150)
+item_id = &"toxic_mushroom"

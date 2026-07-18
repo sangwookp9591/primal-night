@@ -8,6 +8,7 @@ const CampfireScene: PackedScene = preload("res://scenes/props/campfire.tscn")
 const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config.tres")
 const BUILD_NOISE: NoiseProfile = preload("res://data/senses/noise_campfire_build.tres")
 const STATE_SHEET: Texture2D = preload("res://assets/sprites/props/campfire_states_sheet.png")
+const COOK_SECONDS: float = 3.0
 
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
@@ -15,6 +16,7 @@ var campfire: Campfire = null
 var _game_data: Node = null
 var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
+var _cooking_smell: SmellSource = null
 
 func _ready() -> void:
 	var site_sprite := get_node_or_null("SiteSprite") as Sprite2D
@@ -29,7 +31,8 @@ func _ready() -> void:
 
 func can_interact(who: Node) -> bool:
 	if campfire != null:
-		return false
+		var cook := who as Player
+		return campfire.is_lit and cook != null and cook.inventory.has_item(&"raw_meat", 1)
 
 	var player: Player = who as Player
 	if player == null:
@@ -39,9 +42,11 @@ func can_interact(who: Node) -> bool:
 		and player.inventory.has_item(&"wood", config.wood_cost)
 
 func get_hold_seconds() -> float:
-	return config.build_seconds
+	return COOK_SECONDS if campfire != null else config.build_seconds
 
 func get_prompt() -> String:
+	if campfire != null:
+		return "고기 굽기"
 	# 표시 문구와 수치는 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
 	var stone: ItemData = _game_data.get_item(&"stone")
 	var wood: ItemData = _game_data.get_item(&"wood")
@@ -57,6 +62,13 @@ func interact(who: Node) -> void:
 		return
 
 	var player: Player = who as Player
+	if campfire != null:
+		var cook_net := _find_net_campfire()
+		if cook_net != null:
+			cook_net.request_cook(self, player)
+		else:
+			apply_cook(player)
+		return
 	# 넷 스택이 있으면 설치 판정·복제는 호스트 권위 경로로 간다 (설계서 7.2, W2-T5).
 	var net: NetCampfire = _find_net_campfire()
 	if net != null:
@@ -65,6 +77,66 @@ func interact(who: Node) -> void:
 	if not consume_materials(player):
 		return
 	build_and_light()
+
+
+func on_hold_started(who: Node) -> void:
+	if campfire == null:
+		return
+	var player := who as Player
+	if player == null:
+		return
+	_start_cooking_smell()
+	var net := _find_net_campfire()
+	if net != null:
+		net.notify_cook_hold_started(self, player)
+
+
+func on_hold_ended(who: Node) -> void:
+	if campfire == null:
+		return
+	_end_cooking_smell()
+	var player := who as Player
+	var net := _find_net_campfire()
+	if net != null and player != null:
+		net.notify_cook_hold_ended(self, player)
+
+
+## 날고기 1 → 구운 고기 1의 전부 아니면 전무 변환.
+func apply_cook(player: Player) -> bool:
+	if player == null or campfire == null or not campfire.is_lit:
+		return false
+	if not player.inventory.remove_item(&"raw_meat", 1):
+		return false
+	if player.inventory.add_item(&"cooked_meat", 1) != 1:
+		player.inventory.add_item(&"raw_meat", 1)
+		return false
+	return true
+
+
+func _start_cooking_smell() -> void:
+	if _cooking_smell != null or not multiplayer.is_server():
+		return
+	var cooked: ItemData = _game_data.get_item(&"cooked_meat")
+	if cooked == null:
+		return
+	_cooking_smell = SmellSource.new()
+	_cooking_smell.name = "CookingSmell"
+	_cooking_smell.kind = cooked.get_smell_kind()
+	_cooking_smell.strength = cooked.smell_strength
+	_cooking_smell.interval_seconds = cooked.smell_interval_seconds
+	add_child(_cooking_smell)
+
+
+func _end_cooking_smell() -> void:
+	if _cooking_smell == null:
+		return
+	_cooking_smell.deactivate()
+	_cooking_smell.queue_free()
+	_cooking_smell = null
+
+
+func has_cooking_smell() -> bool:
+	return _cooking_smell != null
 
 ## 재료 소비 (전부 아니면 전무). 하나만 빠지고 실패하면 재료가 증발하므로 되돌린다.
 ## 넷 스택이 없는 로컬 설치와 호스트 권위 판정·클라이언트 복제 적용이 공유한다.
