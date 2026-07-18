@@ -117,6 +117,7 @@ func bind(player: Player) -> void:
 	player.inventory.changed.connect(_refresh_slots)
 	player.interactor.hold_changed.connect(_on_hold_changed)
 	player.interactor.target_changed.connect(_on_target_changed)
+	player.listening_hint.connect(_on_listening_hint)
 	CraftingKnowledge.ensure_on(player).observation_added.connect(_on_crafting_observation)
 
 	var event_bus: Node = get_node("/root/EventBus")
@@ -313,6 +314,10 @@ func _on_noise_emitted(position: Vector2, _radius: float, source: Node) -> void:
 	if _player == null or source == _player:
 		return
 	_indicator_model.report_noise(position, _player.global_position)
+
+
+func _on_listening_hint(direction: Vector2) -> void:
+	_indicator_model.report_noise(_player.global_position + direction, _player.global_position)
 
 func _find_smell_grid() -> SmellGrid:
 	if _smell_grid == null or not is_instance_valid(_smell_grid):

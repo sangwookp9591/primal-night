@@ -246,6 +246,11 @@ func _emit_registered_smell_sources(delta: float) -> void:
 	for owner: Object in _dead_smell_sources:
 		_smell_sources.erase(owner)
 
+
+func set_registered_smell_strength(owner: Object, strength: float) -> void:
+	if _smell_sources.has(owner):
+		_smell_sources[owner]["strength"] = maxf(strength, 0.0)
+
 ## 원격 아바타의 실제 이동을 소리로 낸다. 반경은 고정값이 아니라 호스트가 검증한
 ## 자세(NetMovement.submit_move_intent 교차검증 → Player.last_validated_stance)의
 ## NoiseProfile 에서 온다 — 웅크린 원격 아바타도 실제로 조용해야 한다 (설계서 5.6/7.4).

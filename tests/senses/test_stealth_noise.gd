@@ -164,3 +164,23 @@ func test_raptor_investigates_a_running_player_but_not_a_crouching_one_at_the_sa
 
 	assert_eq(raptor.state, Raptor.State.INVESTIGATE,
 		"같은 거리라도 달리면 랩터가 알아채야 한다")
+
+
+func test_crouched_bush_reduces_sight_but_not_smell_multiplier() -> void:
+	var raptor: Raptor = RaptorScript.new()
+	raptor.data = _make_raptor_data()
+	add_child_autofree(raptor)
+	var player: Player = add_child_autofree(PlayerScene.instantiate())
+	player.position = Vector2(60.0, 0.0)
+	var smell_before := player.clothing_smell_multiplier()
+	player.in_bush = true
+	player.stance = Player.Stance.CROUCH
+
+	var hidden_seen: Dictionary = raptor._perceive_players(100.0)
+	assert_false(hidden_seen.any_visible, "수풀 웅크림은 시각 유효 반경을 크게 줄인다")
+	assert_eq(player.clothing_smell_multiplier(), smell_before,
+		"수풀 은신은 냄새 계수를 바꾸지 않는다")
+
+	player.stance = Player.Stance.WALK
+	var exposed_seen: Dictionary = raptor._perceive_players(100.0)
+	assert_true(exposed_seen.any_visible, "같은 위치에서 일어서면 다시 보여야 한다")

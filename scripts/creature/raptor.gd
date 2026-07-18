@@ -349,7 +349,9 @@ func _perceive_players(radius: float) -> Dictionary:
 		if player.multiplayer != local_api:
 			continue
 		var distance_squared: float = global_position.distance_squared_to(player.global_position)
-		if distance_squared > radius_squared:
+		var visibility_multiplier: float = 0.25 if player is Player \
+			and (player as Player).is_hidden_in_bush() else 1.0
+		if distance_squared > radius_squared * visibility_multiplier * visibility_multiplier:
 			continue
 		any_visible = true
 		if _is_protected_by_fire(player):
