@@ -64,6 +64,26 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 		assert_eq(JSON.stringify(actual[key]), JSON.stringify(expected[key]),
 			"%s는 실제 JSON 파일 왕복 뒤에도 보존된다" % key)
 
+func test_file_round_trip_restores_food_safety_status() -> void:
+	var player := main.get_node("Player") as Player
+	player.stats.apply_food_risk(true, 0.75)
+	assert_true(service.save_now())
+	main.queue_free()
+	await wait_process_frames(2)
+
+	assert_true(SaveService.prepare_continue(TEST_SAVE).ok)
+	main = add_child_autofree(MainScene.instantiate())
+	service = main.get_node("SaveService") as SaveService
+	service.save_path = TEST_SAVE
+	await wait_process_frames(4)
+
+	player = main.get_node("Player") as Player
+	assert_gt(player.stats.food_poison_remaining, 0.0,
+		"식중독 잔여 시간은 실제 파일 왕복 뒤에도 복원된다")
+	assert_gt(player.stats.poison_remaining, 0.0,
+		"중독 잔여 시간은 실제 파일 왕복 뒤에도 복원된다")
+	assert_almost_eq(player.stats.poison_potency, 0.75, 0.001)
+
 func test_pending_snapshot_restores_clock_after_fresh_main_is_ready() -> void:
 	var clock := main.get_node("SessionClock") as SessionClock
 	clock.apply_replicated(1, 77.2, true)
