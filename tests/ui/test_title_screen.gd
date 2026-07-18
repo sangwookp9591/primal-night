@@ -6,11 +6,13 @@ func test_title_exposes_single_host_join_quit_and_focus_chain() -> void:
 	var title: TitleScreen = add_child_autofree(TitleScene.instantiate()) as TitleScreen
 	await wait_process_frames(2)
 	var single := title.get_node("Center/MenuPanel/Content/MainMenu/Single") as Button
+	var continue_button := title.get_node("Center/MenuPanel/Content/MainMenu/Continue") as Button
 	var host := title.get_node("Center/MenuPanel/Content/MainMenu/Host") as Button
 	var join := title.get_node("Center/MenuPanel/Content/MainMenu/Join") as Button
 	var controls := title.get_node("Center/MenuPanel/Content/MainMenu/Controls") as Button
 	var quit := title.get_node("Center/MenuPanel/Content/MainMenu/Quit") as Button
 	assert_false(single.focus_neighbor_bottom.is_empty())
+	assert_eq(continue_button.disabled, not SaveService.has_save())
 	assert_false(host.focus_neighbor_bottom.is_empty())
 	assert_false(join.focus_neighbor_bottom.is_empty())
 	assert_false(controls.focus_neighbor_bottom.is_empty())

@@ -1,6 +1,8 @@
 class_name Bedding
 extends Area2D
 
+signal rested(who: Player)
+
 @export var rest_seconds: float = 6.0
 @export var fatigue_recovery_multiplier: float = 8.0
 
@@ -25,8 +27,13 @@ func on_hold_ended(who: Node) -> void:
 	if player != null and net != null:
 		net.request_bedding(self, player, false, fatigue_recovery_multiplier)
 
-func interact(_who: Node) -> void:
-	pass
+func interact(who: Node) -> void:
+	var player := who as Player
+	if player != null and multiplayer.is_server():
+		rested.emit(player)
+
+func _ready() -> void:
+	add_to_group(&"bedding")
 
 func _net() -> NetBaseCamp:
 	var root: Node = get_parent()

@@ -10,6 +10,7 @@ const MAIN_SCENE := "res://scenes/main.tscn"
 @onready var _binding_rows: VBoxContainer = $Center/MenuPanel/Content/ControlsMenu/Bindings/Rows
 @onready var _address: LineEdit = $Center/MenuPanel/Content/JoinMenu/Address
 @onready var _status: Label = $Center/MenuPanel/Content/Status
+@onready var _overwrite_menu: VBoxContainer = $Center/MenuPanel/Content/OverwriteMenu
 @onready var _session: LocalSessionService = $NetSession
 
 var _launch_mode: StringName = &"single"
@@ -33,6 +34,7 @@ const ACTION_LABELS := {
 
 func _ready() -> void:
 	$Center/MenuPanel/Content/MainMenu/Single.pressed.connect(_choose_mode.bind(&"single"))
+	$Center/MenuPanel/Content/MainMenu/Continue.pressed.connect(_continue_game)
 	$Center/MenuPanel/Content/MainMenu/Host.pressed.connect(_choose_mode.bind(&"host"))
 	$Center/MenuPanel/Content/MainMenu/Join.pressed.connect(show_join)
 	$Center/MenuPanel/Content/MainMenu/Controls.pressed.connect(show_controls)
@@ -45,6 +47,8 @@ func _ready() -> void:
 	$Center/MenuPanel/Content/JoinMenu/Back.pressed.connect(show_main)
 	$Center/MenuPanel/Content/ControlsMenu/Restore.pressed.connect(_restore_bindings)
 	$Center/MenuPanel/Content/ControlsMenu/Back.pressed.connect(show_main)
+	$Center/MenuPanel/Content/OverwriteMenu/Confirm.pressed.connect(_confirm_overwrite)
+	$Center/MenuPanel/Content/OverwriteMenu/Back.pressed.connect(show_main)
 	_build_binding_rows()
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
@@ -53,6 +57,7 @@ func _ready() -> void:
 func show_main() -> void:
 	_show_only(_main_menu)
 	_status.text = ""
+	$Center/MenuPanel/Content/MainMenu/Continue.disabled = not SaveService.has_save()
 	$Center/MenuPanel/Content/MainMenu/Single.grab_focus.call_deferred()
 
 func show_join() -> void:
@@ -79,6 +84,7 @@ func _show_only(menu: Control) -> void:
 	_difficulty_menu.visible = menu == _difficulty_menu
 	_join_menu.visible = menu == _join_menu
 	_controls_menu.visible = menu == _controls_menu
+	_overwrite_menu.visible = menu == _overwrite_menu
 
 func _build_binding_rows() -> void:
 	var previous: Control = null
@@ -149,13 +155,38 @@ func _refresh_binding_text() -> void:
 		(_binding_buttons[action] as Button).text = InputBindings.binding_text(action)
 
 func _launch_with_difficulty(id: StringName) -> void:
+	if _launch_mode == &"single" and SaveService.has_save():
+		DifficultyRuntime.pending_preset_id = id
+		_show_only(_overwrite_menu)
+		_status.text = "새 게임을 시작하면 기존 저장을 덮어씁니다."
+		$Center/MenuPanel/Content/OverwriteMenu/Back.grab_focus.call_deferred()
+		return
+	_start_new_game(id)
+
+func _start_new_game(id: StringName) -> void:
 	DifficultyRuntime.select_for_next_game(id)
+	SaveService.launch_requested = true
 	if _launch_mode == &"host":
 		var error := _session.host_session()
 		if error != OK:
 			_status.text = failure_message(_session.get_last_connection_failure())
 			show_main()
 			return
+	get_tree().change_scene_to_file(MAIN_SCENE)
+
+func _confirm_overwrite() -> void:
+	var error := DirAccess.remove_absolute(SaveService.DEFAULT_SAVE_PATH)
+	if error != OK and error != ERR_DOES_NOT_EXIST:
+		_status.text = "기존 저장을 지울 수 없어 새 게임을 시작하지 못했습니다."
+		return
+	_start_new_game(DifficultyRuntime.pending_preset_id)
+
+func _continue_game() -> void:
+	var prepared := SaveService.prepare_continue()
+	if not prepared.ok:
+		_status.text = prepared.message
+		$Center/MenuPanel/Content/MainMenu/Continue.disabled = true
+		return
 	get_tree().change_scene_to_file(MAIN_SCENE)
 
 func _join() -> void:
@@ -167,6 +198,7 @@ func _join() -> void:
 func _on_connected_to_server() -> void:
 	# 참가자는 표준으로 먼저 열리고, main의 DifficultyRuntime이 호스트 프리셋 RPC를 받는다.
 	DifficultyRuntime.select_for_next_game(&"standard")
+	SaveService.launch_requested = true
 	get_tree().change_scene_to_file(MAIN_SCENE)
 
 func _on_connection_failed() -> void:

@@ -18,6 +18,7 @@ var _event_bus: Node = null
 var _registry: Node = null
 
 func _ready() -> void:
+	add_to_group(&"campfire")
 	_configure_visual()
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")

@@ -57,11 +57,16 @@ theme_override_constants/separation = 8
 
 [node name="Single" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
 layout_mode = 2
-focus_neighbor_bottom = NodePath("../Host")
+focus_neighbor_bottom = NodePath("../Continue")
 text = "싱글 시작"
-[node name="Host" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+[node name="Continue" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Single")
+focus_neighbor_bottom = NodePath("../Host")
+text = "이어하기"
+[node name="Host" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Continue")
 focus_neighbor_bottom = NodePath("../Join")
 text = "호스트 시작"
 [node name="Join" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
@@ -151,6 +156,22 @@ text = "기본값 복원"
 [node name="Back" type="Button" parent="Center/MenuPanel/Content/ControlsMenu"]
 layout_mode = 2
 text = "뒤로"
+
+[node name="OverwriteMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Heading" type="Label" parent="Center/MenuPanel/Content/OverwriteMenu"]
+layout_mode = 2
+text = "기존 저장 덮어쓰기"
+horizontal_alignment = 1
+[node name="Confirm" type="Button" parent="Center/MenuPanel/Content/OverwriteMenu"]
+layout_mode = 2
+focus_neighbor_bottom = NodePath("../Back")
+text = "기존 저장을 지우고 시작"
+[node name="Back" type="Button" parent="Center/MenuPanel/Content/OverwriteMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Confirm")
+text = "취소"
 
 [node name="Status" type="Label" parent="Center/MenuPanel/Content"]
 layout_mode = 2
