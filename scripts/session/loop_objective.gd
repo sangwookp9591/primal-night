@@ -11,9 +11,13 @@ extends Node2D
 ## (NetPickup/NetSurvival/NetResync 와 같은 골격).
 
 enum Outcome { PENDING, STABLE_ESCAPE, FORCED_ESCAPE, REMAIN, FAILED }
+enum RiftSignal { DORMANT, CALM, UNSTABLE }
+enum BodySignal { NONE, STEADY_BREATH, GUARDED }
 
 signal outcome_changed(outcome: Outcome)
 signal death_cause_changed(text: String)
+signal rift_signal_changed(rift_signal: RiftSignal, body_signal: BodySignal)
+signal environmental_narration(text: String)
 
 const SNAPSHOT_MAX_PER_SECOND: int = 10
 const SNAPSHOT_PAYLOAD_BYTES: int = 64
@@ -26,11 +30,12 @@ const LURE_SMELL_KINDS: Array[StringName] = [&"raw_meat", &"bait"]
 const CHECK_INTERVAL_TICKS: int = 6
 const ACTIVE_LURE_WINDOW_SECONDS: float = 1.5
 const CAUSE_HISTORY_CAPACITY: int = 12
+const FINAL_NIGHT_TEXT: String = "균열이 닫혀간다. 남기로 한다면 불을 지켜라."
 const OUTCOME_TEXTS: Dictionary = {
 	Outcome.PENDING: "",
-	Outcome.STABLE_ESCAPE: "피를 멎게 하고 불을 지킨 끝에, 무사히 골짜기를 빠져나왔다.",
-	Outcome.FORCED_ESCAPE: "위험의 흔적을 떨치지 못한 채, 대가를 안고 골짜기를 빠져나왔다.",
-	Outcome.REMAIN: "밤이 다시 닫혔고, 살아남은 이들은 다음 순환에 남았다.",
+	Outcome.STABLE_ESCAPE: "피를 멎게 하고 불을 지킨 끝에, 무사히 골짜기를 빠져나왔다. 남긴 위험은 없었다.",
+	Outcome.FORCED_ESCAPE: "위험의 흔적을 떨치지 못한 채 골짜기를 빠져나왔다. 급히 떠난 대가로 장비 일부를 남겼다.",
+	Outcome.REMAIN: "밤이 다시 닫혔다. 불을 지켜 온 생존자들은 떠나지 않고 다음 순환에 남았다.",
 	Outcome.FAILED: "살아 돌아갈 이가 없어, 이번 순환은 여기서 끊겼다.",
 }
 
@@ -40,6 +45,8 @@ const OUTCOME_TEXTS: Dictionary = {
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
 @export var players_container_path: NodePath = ^"../Players"
+@export var base_camp_path: NodePath = ^"../SurvivalDemo/CampfireSite"
+@export var base_narration_radius: float = 240.0
 
 var outcome: Outcome = Outcome.PENDING
 ## 세션 단위 플래그다 (2인 협동이므로 누가 노출됐든 그 판이 위험해진다).
@@ -48,6 +55,9 @@ var bleeding_treated: bool = false
 var fire_maintained: bool = false
 var death_cause_text: String = ""
 var cause_history: Array[Dictionary] = []
+var rift_signal: RiftSignal = RiftSignal.DORMANT
+var body_signal: BodySignal = BodySignal.NONE
+var last_environmental_narration: String = ""
 var _last_lure_smell_seconds: float = -INF
 
 var _clock: SessionClock
@@ -56,6 +66,9 @@ var _host_player: Player
 var _container: Node2D
 var _guard: RpcGuard
 var _now_seconds: float = 0.0
+var _final_night_narrated: bool = false
+var _narration_label: Label
+var _body_signal_line: Line2D
 
 
 func _ready() -> void:
@@ -64,6 +77,7 @@ func _ready() -> void:
 	_host_player = get_node(host_player_path)
 	_container = get_node(players_container_path)
 	_clock.session_expired.connect(_on_session_expired)
+	_clock.phase_changed.connect(_on_clock_phase_changed)
 	if has_node("/root/EventBus"):
 		var event_bus: Node = get_node("/root/EventBus")
 		event_bus.bleeding_started.connect(_on_bleeding_started)
@@ -79,10 +93,13 @@ func _ready() -> void:
 	# 참가·재접속한 피어는 세션이 이미 얼마나 흘렀는지, 판이 이미 끝났는지 모른다.
 	_session.player_joined.connect(_send_snapshot_to)
 	_session.player_reconnected.connect(_send_snapshot_to)
+	_build_environment_placeholders()
+	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
 	_now_seconds += delta
+	_refresh_extraction_signals()
 	if not multiplayer.is_server() or outcome != Outcome.PENDING:
 		return
 	if Engine.get_physics_frames() % CHECK_INTERVAL_TICKS != 0:
@@ -217,7 +234,107 @@ func _on_session_expired() -> void:
 
 
 func narrative_text() -> String:
-	return OUTCOME_TEXTS.get(outcome, "")
+	var summary: String = OUTCOME_TEXTS.get(outcome, "")
+	if outcome == Outcome.FORCED_ESCAPE:
+		return "%s 남긴 위험: %s" % [summary, compose_result_cause()]
+	if outcome == Outcome.FAILED:
+		return "%s %s" % [summary, compose_result_cause()]
+	return summary
+
+
+func compose_result_cause() -> String:
+	## 사망 원인과 같은 감각 인과 문장을 결과 화면에도 재사용한다.
+	return death_cause_text if not death_cause_text.is_empty() else compose_death_cause()
+
+
+func expected_rift_signal() -> RiftSignal:
+	if not _is_anyone_near_extraction():
+		return RiftSignal.DORMANT
+	if _escape_outcome() == Outcome.STABLE_ESCAPE and not _has_active_chase():
+		return RiftSignal.CALM
+	return RiftSignal.UNSTABLE
+
+
+func expected_body_signal(for_rift_signal: RiftSignal = expected_rift_signal()) -> BodySignal:
+	if for_rift_signal == RiftSignal.CALM:
+		return BodySignal.STEADY_BREATH
+	if for_rift_signal == RiftSignal.UNSTABLE:
+		return BodySignal.GUARDED
+	return BodySignal.NONE
+
+
+func should_narrate_final_night(player_position: Vector2, base_position: Vector2) -> bool:
+	return _clock.current_day == _clock.total_days \
+		and _clock.current_phase == SessionClock.Phase.NIGHT \
+		and player_position.distance_squared_to(base_position) \
+			<= base_narration_radius * base_narration_radius
+
+
+func _on_clock_phase_changed(phase: SessionClock.Phase) -> void:
+	if phase != SessionClock.Phase.NIGHT or _final_night_narrated:
+		return
+	var base := get_node_or_null(base_camp_path) as Node2D
+	if base == null or not should_narrate_final_night(_host_player.global_position, base.global_position):
+		return
+	_final_night_narrated = true
+	last_environmental_narration = FINAL_NIGHT_TEXT
+	_narration_label.global_position = base.global_position + Vector2(0.0, -54.0)
+	_narration_label.text = FINAL_NIGHT_TEXT
+	_narration_label.visible = true
+	environmental_narration.emit(FINAL_NIGHT_TEXT)
+
+
+func _refresh_extraction_signals() -> void:
+	var next_rift: RiftSignal = expected_rift_signal()
+	var next_body: BodySignal = expected_body_signal(next_rift)
+	if next_rift == rift_signal and next_body == body_signal:
+		_animate_placeholders()
+		return
+	rift_signal = next_rift
+	body_signal = next_body
+	rift_signal_changed.emit(rift_signal, body_signal)
+	queue_redraw()
+	_animate_placeholders()
+
+
+func _animate_placeholders() -> void:
+	if _body_signal_line == null:
+		return
+	if rift_signal == RiftSignal.UNSTABLE:
+		queue_redraw()
+	_body_signal_line.visible = body_signal != BodySignal.NONE
+	if not _body_signal_line.visible:
+		return
+	var pulse: float = sin(_now_seconds * (2.2 if body_signal == BodySignal.STEADY_BREATH else 8.0))
+	_body_signal_line.scale = Vector2.ONE * (1.0 + pulse * (0.035 if body_signal == BodySignal.STEADY_BREATH else 0.08))
+	_body_signal_line.default_color = Color(0.68, 0.86, 0.8, 0.72) \
+		if body_signal == BodySignal.STEADY_BREATH else Color(0.88, 0.44, 0.35, 0.82)
+
+
+func _build_environment_placeholders() -> void:
+	_narration_label = Label.new()
+	_narration_label.name = "FinalNightWorldNarration"
+	_narration_label.visible = false
+	_narration_label.z_index = 20
+	add_child(_narration_label)
+	_body_signal_line = Line2D.new()
+	_body_signal_line.name = "ExtractionBodySignal"
+	_body_signal_line.width = 2.0
+	_body_signal_line.points = PackedVector2Array([
+		Vector2(-11.0, -24.0), Vector2(0.0, -29.0), Vector2(11.0, -24.0)])
+	_host_player.add_child(_body_signal_line)
+
+
+func _draw() -> void:
+	var color := Color(0.28, 0.34, 0.4, 0.35)
+	var offset := Vector2.ZERO
+	if rift_signal == RiftSignal.CALM:
+		color = Color(0.47, 0.82, 0.75, 0.82)
+	elif rift_signal == RiftSignal.UNSTABLE:
+		color = Color(0.9, 0.3, 0.25, 0.9)
+		offset = Vector2(sin(_now_seconds * 19.0), cos(_now_seconds * 23.0)) * 4.0
+	draw_arc(offset, 42.0, -2.45, 2.45, 20, color, 5.0)
+	draw_line(offset + Vector2(-12.0, -35.0), offset + Vector2(8.0, 34.0), color, 3.0)
 
 
 func _escape_outcome() -> Outcome:
@@ -242,6 +359,14 @@ func _has_active_bleeding() -> bool:
 	return false
 
 
+func _has_active_chase() -> bool:
+	for node: Node in get_tree().get_nodes_in_group(&"raptor"):
+		var raptor := node as Raptor
+		if raptor != null and raptor.multiplayer == multiplayer and raptor.state == Raptor.State.CHASE:
+			return true
+	return false
+
+
 func _anyone_alive() -> bool:
 	if _host_player.health.is_alive():
 		return true
@@ -255,6 +380,19 @@ func _anyone_alive() -> bool:
 ## 10Hz 판정 — get_children() 배열 할당 없이 인덱스로 돌고, sqrt 없이 제곱 비교한다.
 func _anyone_at_extraction() -> bool:
 	var radius_squared: float = extraction_radius * extraction_radius
+	if _host_player.global_position.distance_squared_to(global_position) <= radius_squared:
+		return true
+	for index: int in range(_container.get_child_count()):
+		var avatar: Player = _container.get_child(index) as Player
+		if avatar != null and avatar.global_position.distance_squared_to(global_position) <= radius_squared:
+			return true
+	return false
+
+
+func _is_anyone_near_extraction() -> bool:
+	## 표현은 판정보다 조금 먼저 읽혀야 하므로 접근 반경을 1.75배 넓힌다.
+	var signal_radius: float = extraction_radius * 1.75
+	var radius_squared: float = signal_radius * signal_radius
 	if _host_player.global_position.distance_squared_to(global_position) <= radius_squared:
 		return true
 	for index: int in range(_container.get_child_count()):

@@ -46,6 +46,11 @@ func _make_side(side_name: String) -> Dictionary:
 	container.name = "Players"
 	root.add_child(container)
 
+	var base: Node2D = Node2D.new()
+	base.name = "Base"
+	base.position = Vector2(120.0, 80.0)
+	root.add_child(base)
+
 	var net_move: NetMovement = NetMovement.new()
 	net_move.name = "NetMovement"
 	net_move.session_path = ^"../NetSession"
@@ -70,11 +75,12 @@ func _make_side(side_name: String) -> Dictionary:
 	objective.session_path = ^"../NetSession"
 	objective.host_player_path = ^"../Player"
 	objective.players_container_path = ^"../Players"
+	objective.base_camp_path = ^"../Base"
 	root.add_child(objective)
 
 	var side: Dictionary = {
 		root = root, session = session, host_player = host_player,
-		container = container, net_move = net_move, clock = clock, objective = objective,
+		container = container, base = base, net_move = net_move, clock = clock, objective = objective,
 	}
 	_sides.append(side)
 	return side
@@ -132,6 +138,66 @@ func test_active_bleeding_produces_forced_escape() -> void:
 
 	assert_eq((side.objective as LoopObjective).outcome, LoopObjective.Outcome.FORCED_ESCAPE)
 	assert_true((side.objective as LoopObjective).narrative_text().contains("대가"))
+
+
+func test_rift_and_body_signals_mirror_escape_readiness_without_changing_outcome() -> void:
+	var side: Dictionary = _make_side("Solo")
+	var player := side.host_player as Player
+	var objective := side.objective as LoopObjective
+	player.global_position = EXTRACTION + Vector2(120.0, 0.0)
+	player.health.start_bleeding()
+	await wait_physics_frames(2)
+
+	assert_eq(objective.expected_rift_signal(), LoopObjective.RiftSignal.UNSTABLE)
+	assert_eq(objective.rift_signal, LoopObjective.RiftSignal.UNSTABLE)
+	assert_eq(objective.body_signal, LoopObjective.BodySignal.GUARDED)
+	assert_eq(objective.outcome, LoopObjective.Outcome.PENDING,
+		"접근 표현은 판정을 앞당기지 않는다")
+
+	player.health.stop_bleeding()
+	get_node("/root/EventBus").campfire_lit.emit(side.root, Vector2.ZERO, 100.0)
+	await wait_physics_frames(2)
+
+	assert_eq(objective._escape_outcome(), LoopObjective.Outcome.STABLE_ESCAPE)
+	assert_eq(objective.expected_rift_signal(), LoopObjective.RiftSignal.CALM)
+	assert_eq(objective.rift_signal, LoopObjective.RiftSignal.CALM)
+	assert_eq(objective.body_signal, LoopObjective.BodySignal.STEADY_BREATH)
+
+
+func test_final_night_near_base_emits_world_narration_once() -> void:
+	var side: Dictionary = _make_side("Solo")
+	var objective := side.objective as LoopObjective
+	var player := side.host_player as Player
+	player.global_position = (side.base as Node2D).global_position
+	watch_signals(objective)
+
+	(side.clock as SessionClock).advance(DAY_SECONDS * 2.0 + 8.1)
+	await wait_physics_frames(2)
+
+	assert_signal_emit_count(objective, "environmental_narration", 1)
+	assert_eq(objective.last_environmental_narration, LoopObjective.FINAL_NIGHT_TEXT)
+	assert_true((objective.get_node("FinalNightWorldNarration") as Label).visible,
+		"서술은 HUD가 아니라 거점 위 월드 Label로 보인다")
+	objective._on_clock_phase_changed(SessionClock.Phase.NIGHT)
+	assert_signal_emit_count(objective, "environmental_narration", 1,
+		"마지막 밤 서술은 한 번만 난다")
+
+
+func test_result_summaries_name_each_outcome_cause_and_forced_cost() -> void:
+	var objective := (_make_side("Solo").objective as LoopObjective)
+	objective.record_cause_event(&"lure")
+	objective.outcome = LoopObjective.Outcome.STABLE_ESCAPE
+	assert_true(objective.narrative_text().contains("남긴 위험은 없었다"))
+	objective.outcome = LoopObjective.Outcome.FORCED_ESCAPE
+	assert_true(objective.narrative_text().contains("장비") \
+		and objective.narrative_text().contains("남긴 위험") \
+		and objective.narrative_text().contains("고기 냄새"))
+	objective.outcome = LoopObjective.Outcome.REMAIN
+	assert_true(objective.narrative_text().contains("불을 지켜") \
+		and objective.narrative_text().contains("떠나지 않고"))
+	objective.outcome = LoopObjective.Outcome.FAILED
+	assert_true(objective.narrative_text().contains("고기 냄새"),
+		"실패도 기존 사망 원인 문장 체계를 재사용한다")
 
 
 ## 출혈은 피 냄새를 만들어 랩터를 부른다 = 위험 노출이다 (설계서 5.2/5.4).
