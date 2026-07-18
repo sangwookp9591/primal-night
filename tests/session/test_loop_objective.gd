@@ -250,6 +250,8 @@ func test_death_cause_templates_cover_sense_and_context_combinations() -> void:
 	var lure_still := objective.compose_death_cause(&"lure", Raptor.State.INVESTIGATE, Vector2.ZERO)
 	var sight_chase := objective.compose_death_cause(&"sight", Raptor.State.CHASE, Vector2.ZERO)
 	var sight_patrol := objective.compose_death_cause(&"sight", Raptor.State.WANDER, Vector2.ZERO)
+	var poison := objective.compose_death_cause(&"poison")
+	var food_poison := objective.compose_death_cause(&"food_poison")
 
 	assert_true(blood_wind.contains("피 냄새") and blood_wind.contains("풍"))
 	assert_true(blood_still.contains("발밑"))
@@ -259,6 +261,8 @@ func test_death_cause_templates_cover_sense_and_context_combinations() -> void:
 	assert_true(lure_still.contains("고기 냄새"))
 	assert_true(sight_chase.contains("시야") and sight_chase.contains("추격"))
 	assert_true(sight_patrol.contains("순찰선"))
+	assert_true(poison.contains("독버섯"))
+	assert_true(food_poison.contains("익히지 않은 고기"))
 
 
 ## 참가·재접속한 클라이언트는 호스트의 세션 시간·노출·판정을 스냅샷으로 되찾는다.

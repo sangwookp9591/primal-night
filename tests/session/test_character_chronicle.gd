@@ -62,3 +62,13 @@ func test_reflection_is_short_narrative_not_statistics_screen() -> void:
 	var text := chronicle.reflection_text(2)
 	assert_eq(text, "12일을 살았다. 흉터 셋.\n창보다 미끼를 믿었다.")
 	assert_eq(text.count("\n"), 1)
+
+
+func test_snapshot_round_trip_preserves_food_safety_status() -> void:
+	player.stats.apply_food_risk(true, 0.75)
+	var saved := chronicle.snapshot()
+	player.stats.clear_food_safety()
+	assert_true(chronicle.apply_snapshot(saved))
+	assert_gt(player.stats.food_poison_remaining, 0.0)
+	assert_gt(player.stats.poison_remaining, 0.0)
+	assert_eq(player.stats.poison_potency, 0.75)

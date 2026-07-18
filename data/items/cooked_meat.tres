@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cooked_meat"
+display_name = "구운 고기"
+stackable = true
+max_stack = 6
+weight = 0.9
+emits_smell = true
+smell_strength = 15.0
+smell_interval_seconds = 1.0
+smell_kind = &"cooked_meat"
+nutrition = 45.0

@@ -27,6 +27,11 @@ const FIRE_DRY_PER_SECOND: float = 0.018
 const WET_TEMPERATURE_DRAIN_BONUS: float = 2.0
 const WET_FLAG: int = 1
 const CLOTHING_SMELL_BASE: float = 3.0
+const FOOD_POISON_DURATION_SECONDS: float = 90.0
+const POISON_DURATION_SECONDS: float = 120.0
+const FOOD_POISON_DRAIN_MULTIPLIER: float = 4.0
+const VOMIT_INTERVAL_SECONDS: float = 12.0
+const POISON_DAMAGE_PER_SECOND: float = 0.6
 
 const STAGE_GOOD: StringName = &"양호"
 const STAGE_WARN: StringName = &"주의"
@@ -39,6 +44,9 @@ var water: float = STAT_MAX
 var food: float = STAT_MAX
 var fatigue: float = 0.0
 var wetness: float = 0.0
+var food_poison_remaining: float = 0.0
+var poison_remaining: float = 0.0
+var poison_potency: float = 0.0
 
 var _body: Node2D = null
 var _campfire_registry: Node = null
@@ -47,6 +55,11 @@ var _campfire_registry: Node = null
 var _last_position: Vector2 = Vector2.ZERO
 var _rest_multiplier: float = 1.0
 var _smell_grid: SmellGrid = null
+var _vomit_elapsed: float = 0.0
+var _status_elapsed: float = 0.0
+var _noise_emitter := NoiseEmitter.new()
+var _vomit_profile := NoiseProfile.new()
+var _event_bus: Node = null
 
 
 func _ready() -> void:
@@ -55,6 +68,12 @@ func _ready() -> void:
 		_last_position = _body.global_position
 	if has_node("/root/CampfireRegistry"):
 		_campfire_registry = get_node("/root/CampfireRegistry")
+	if has_node("/root/EventBus"):
+		_event_bus = get_node("/root/EventBus")
+	_vomit_profile.id = &"vomit"
+	_vomit_profile.radius = 160.0
+	_vomit_profile.merge_window_seconds = 1.0
+	_vomit_profile.merge_distance_px = 24.0
 	if _body is Player:
 		var equipment := _body.get_node_or_null("EquipmentComponent") as EquipmentComponent
 		if equipment != null:
@@ -77,6 +96,7 @@ func simulate(delta: float) -> void:
 
 	water = maxf(water - config.water_drain_per_second * delta, 0.0)
 	food = maxf(food - config.food_drain_per_second * delta, 0.0)
+	_simulate_food_safety(delta)
 	if _body is Player:
 		var player := _body as Player
 		if player.health.is_alive() and not player.health.is_bleeding:
@@ -153,6 +173,74 @@ func restore_food(amount: float) -> void:
 func restore_water(amount: float) -> void:
 	if amount > 0.0 and is_finite(amount):
 		water = minf(water + amount, STAT_MAX)
+
+
+func apply_food_risk(food_poisoned: bool, potency: float) -> void:
+	if food_poisoned:
+		food_poison_remaining = maxf(food_poison_remaining, FOOD_POISON_DURATION_SECONDS)
+		_vomit_elapsed = 0.0
+	if potency > 0.0 and is_finite(potency):
+		poison_potency = maxf(poison_potency, clampf(potency, 0.0, 1.0))
+		poison_remaining = maxf(poison_remaining, POISON_DURATION_SECONDS)
+
+
+func food_safety_snapshot() -> Dictionary:
+	return {
+		"food_poison_remaining": food_poison_remaining,
+		"poison_remaining": poison_remaining,
+		"poison_potency": poison_potency,
+	}
+
+
+func apply_food_safety_snapshot(state: Dictionary, death_recovery: bool = false) -> bool:
+	if death_recovery:
+		clear_food_safety()
+		return true
+	for key: String in ["food_poison_remaining", "poison_remaining", "poison_potency"]:
+		if not state.has(key) or not (state[key] is float or state[key] is int) \
+				or not is_finite(float(state[key])):
+			return false
+	food_poison_remaining = maxf(float(state.food_poison_remaining), 0.0)
+	poison_remaining = maxf(float(state.poison_remaining), 0.0)
+	poison_potency = clampf(float(state.poison_potency), 0.0, 1.0)
+	return true
+
+
+func clear_food_safety() -> void:
+	food_poison_remaining = 0.0
+	poison_remaining = 0.0
+	poison_potency = 0.0
+	_vomit_elapsed = 0.0
+
+
+func _simulate_food_safety(delta: float) -> void:
+	_status_elapsed += delta
+	if food_poison_remaining > 0.0:
+		food_poison_remaining = maxf(food_poison_remaining - delta, 0.0)
+		water = maxf(water - config.water_drain_per_second
+			* (FOOD_POISON_DRAIN_MULTIPLIER - 1.0) * delta, 0.0)
+		food = maxf(food - config.food_drain_per_second
+			* (FOOD_POISON_DRAIN_MULTIPLIER - 1.0) * delta, 0.0)
+		_vomit_elapsed += delta
+		if _vomit_elapsed >= VOMIT_INTERVAL_SECONDS:
+			_vomit_elapsed -= VOMIT_INTERVAL_SECONDS
+			if _body is Player:
+				_noise_emitter.emit_profile(_event_bus, _vomit_profile,
+					_body.global_position, _body, _status_elapsed, true)
+	if poison_remaining > 0.0:
+		poison_remaining = maxf(poison_remaining - delta, 0.0)
+		if _body is Player:
+			_record_status_cause(&"poison")
+			(_body as Player).health.take_damage(
+				POISON_DAMAGE_PER_SECOND * poison_potency * delta, &"poison")
+		if poison_remaining <= 0.0:
+			poison_potency = 0.0
+
+
+func _record_status_cause(kind: StringName) -> void:
+	var objective := get_tree().get_first_node_in_group(&"loop_objective")
+	if objective != null and objective.has_method("record_cause_event"):
+		objective.record_cause_event(kind, _body.global_position)
 
 func set_rest_multiplier(value: float) -> void:
 	_rest_multiplier = clampf(value, 1.0, 20.0) if is_finite(value) else 1.0

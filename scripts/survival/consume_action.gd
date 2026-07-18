@@ -4,8 +4,8 @@ extends RefCounted
 ## 섭취 트랜잭션 실행부. 회복량·수량은 ItemData와 호스트 인벤토리만 믿는다.
 
 
-static func consume(player: Player, item: ItemData) -> bool:
-	if player == null or item == null or (item.nutrition <= 0.0 and item.hydration <= 0.0):
+static func consume(player: Player, item: ItemData, risk_roll: float = -1.0) -> bool:
+	if player == null or item == null or not item.is_consumable():
 		return false
 	if not player.inventory.has_item(item.id, 1):
 		return false
@@ -13,4 +13,8 @@ static func consume(player: Player, item: ItemData) -> bool:
 		return false
 	player.stats.restore_food(item.nutrition)
 	player.stats.restore_water(item.hydration)
+	var roll := randf() if risk_roll < 0.0 else clampf(risk_roll, 0.0, 1.0)
+	player.stats.apply_food_risk(
+		item.food_poison_chance > 0.0 and roll < item.food_poison_chance,
+		item.poison_potency)
 	return true

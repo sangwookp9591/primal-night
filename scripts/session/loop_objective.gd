@@ -72,6 +72,7 @@ var _body_signal_line: Line2D
 
 
 func _ready() -> void:
+	add_to_group(&"loop_objective")
 	_clock = get_node(clock_path)
 	_session = get_node(session_path)
 	_host_player = get_node(host_player_path)
@@ -158,6 +159,7 @@ func _on_damage_taken(target: Node, _amount: float, _kind: StringName) -> void:
 		return
 	death_cause_text = compose_death_cause()
 	death_cause_changed.emit(death_cause_text)
+	(target as Player).stats.clear_food_safety()
 
 
 func record_cause_event(kind: StringName, position: Vector2 = Vector2.ZERO) -> void:
@@ -182,6 +184,10 @@ func compose_death_cause(cause_override: StringName = &"", raptor_state_override
 	var wind: Vector2 = _current_wind_direction() if wind_override == Vector2.INF else wind_override
 	var wind_name: String = _wind_name(wind)
 	match cause:
+		&"poison":
+			return "구별하지 못한 독버섯의 독이 천천히 몸을 무너뜨렸다."
+		&"food_poison":
+			return "익히지 않은 고기가 속에서 탈을 일으켜 끝내 버티지 못했다."
 		&"blood":
 			if not wind_name.is_empty():
 				return "멎지 않은 피 냄새가 %s을 타고 랩터의 순찰 구역까지 퍼졌다." % wind_name

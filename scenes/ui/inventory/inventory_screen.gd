@@ -74,7 +74,7 @@ func _input(event: InputEvent) -> void:
 			if _storage != null:
 				_transfer_selected_to_storage()
 			else:
-				_toggle_selected_equipment()
+				_activate_selected_item()
 		elif event.is_action_pressed(&"ui_cancel"):
 			_unequip_selected_slot()
 		get_viewport().set_input_as_handled()
@@ -219,9 +219,14 @@ func _refresh() -> void:
 		var item: ItemData = _game_data.get_item(slot["id"])
 		var display_name: String = item.display_name if item != null else String(slot["id"])
 		var equipped_marker: String = " [장착]" if _is_equipped(slot["id"]) else ""
-		_slot_labels[index].text = "%s%02d %s x%d%s" % [
+		var action_hint := ""
+		if item is WearableData:
+			action_hint = " [Enter: 장착]"
+		elif item != null and item.is_consumable():
+			action_hint = " [Enter: 먹기]"
+		_slot_labels[index].text = "%s%02d %s x%d%s%s" % [
 			"> " if index == _selected_inventory_index else "",
-			index + 1, display_name, int(slot["count"]), equipped_marker]
+			index + 1, display_name, int(slot["count"]), equipped_marker, action_hint]
 	for slot_index: int in range(EquipmentComponent.SLOTS.size()):
 		var equip_slot: StringName = EquipmentComponent.SLOTS[slot_index]
 		var item_id: StringName = _player.equipment.get_equipped(equip_slot)
@@ -282,13 +287,15 @@ func _transfer_selected_from_storage() -> void:
 			return
 
 
-func _toggle_selected_equipment() -> void:
+func _activate_selected_item() -> void:
 	var selected: Dictionary = _player.inventory.get_slot(_selected_inventory_index)
 	if selected.is_empty():
 		return
 	var item_id := StringName(selected["id"])
 	var item: ItemData = _game_data.get_item(item_id)
 	if not item is WearableData:
+		if item != null and item.is_consumable():
+			_player.request_consume(item_id)
 		return
 	var wearable := item as WearableData
 	var net_equipment := _find_net_equipment()

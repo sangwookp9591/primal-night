@@ -254,6 +254,10 @@ func request_consume(item_id: StringName) -> void:
 		if node.has_method("request_consume_for") and node.owns(self):
 			node.request_consume_for(self, item_id)
 			return
+	# 독립 UI/플레이어 장면도 같은 진입점을 쓸 수 있게 하는 오프라인 폴백.
+	# 실제 게임의 멀티플레이 브랜치에서는 위 NetSurvival 호스트 경로가 항상 우선한다.
+	var item := get_node("/root/GameData").get_item(item_id) as ItemData
+	ConsumeAction.consume(self, item)
 
 
 ## 로컬 입력 편의를 위한 후보 선택만 한다. 최종 재료·무게·슬롯 판정과 소비는

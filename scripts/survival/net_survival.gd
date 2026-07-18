@@ -15,8 +15,8 @@ const SNAPSHOT_MAX_ENTRIES: int = 8
 const SNAPSHOT_ENTRY_BYTES: int = 64
 const HURT_PAYLOAD_BYTES: int = 8
 const CONSUME_ITEM_ID_MAX_LENGTH: int = 48
-## 스냅샷 한 명분 생존 수치 개수: [체온, 수분, 포만, 피로] (설계서 5.1).
-const STATS_PER_ENTRY: int = 5
+## [체온, 수분, 포만, 피로, 젖음, 식중독 남은 시간, 독 남은 시간, 독성].
+const STATS_PER_ENTRY: int = 8
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -185,6 +185,11 @@ func apply_survival_snapshot(ids: PackedStringArray, healths: PackedFloat32Array
 			continue
 		avatar.health.apply_replicated(health_value, bleedings[index] != 0)
 		avatar.stats.apply_from(stats, index * STATS_PER_ENTRY)
+		avatar.stats.apply_food_safety_snapshot({
+			food_poison_remaining = stats[index * STATS_PER_ENTRY + 5],
+			poison_remaining = stats[index * STATS_PER_ENTRY + 6],
+			poison_potency = stats[index * STATS_PER_ENTRY + 7],
+		})
 		avatar.injury.apply_replicated(part, injury_kind)
 
 
@@ -395,6 +400,9 @@ func _fill_snapshot_entry(index: int, player_id: StringName, avatar: Player) -> 
 	_snapshot_healths[index] = avatar.health.current_health
 	_snapshot_bleedings[index] = 1 if avatar.health.is_bleeding else 0
 	avatar.stats.fill_into(_snapshot_stats, index * STATS_PER_ENTRY)
+	_snapshot_stats[index * STATS_PER_ENTRY + 5] = avatar.stats.food_poison_remaining
+	_snapshot_stats[index * STATS_PER_ENTRY + 6] = avatar.stats.poison_remaining
+	_snapshot_stats[index * STATS_PER_ENTRY + 7] = avatar.stats.poison_potency
 	_snapshot_body_parts[index] = String(avatar.injury.body_part)
 	_snapshot_injuries[index] = String(avatar.injury.injury_kind)
 

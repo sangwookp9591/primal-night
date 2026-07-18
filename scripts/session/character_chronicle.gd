@@ -21,6 +21,7 @@ var solution_counts: Dictionary = {
 	&"escape": 0,
 }
 var session_results: Array[Dictionary] = []
+var food_safety_state: Dictionary = {}
 
 var _player: Player
 var _clock: SessionClock
@@ -59,6 +60,8 @@ func _ready() -> void:
 
 func snapshot() -> Dictionary:
 	_refresh_derived_state()
+	if _player != null:
+		food_safety_state = _player.stats.food_safety_snapshot()
 	return {
 		"survival_days": survival_days,
 		"scar_count": scar_count,
@@ -66,6 +69,7 @@ func snapshot() -> Dictionary:
 		"discovered_principle_count": discovered_principle_count,
 		"solution_counts": _string_key_counts(),
 		"session_results": session_results.duplicate(true),
+		"food_safety": food_safety_state.duplicate(),
 	}
 
 
@@ -82,6 +86,11 @@ func apply_snapshot(state: Dictionary) -> bool:
 	session_results = []
 	for raw: Variant in state.get("session_results", []):
 		session_results.append((raw as Dictionary).duplicate(true))
+	var food_safety: Variant = state.get("food_safety", {})
+	food_safety_state = (food_safety as Dictionary).duplicate()
+	if not food_safety_state.is_empty() and _player != null \
+			and not _player.stats.apply_food_safety_snapshot(food_safety_state):
+		return false
 	apply_scar_visual()
 	return true
 
@@ -99,6 +108,9 @@ static func validate_snapshot(state: Variant) -> bool:
 	for raw: Variant in results:
 		if not raw is Dictionary:
 			return false
+	var food_safety: Variant = (state as Dictionary).get("food_safety", {})
+	if not food_safety is Dictionary:
+		return false
 	return true
 
 

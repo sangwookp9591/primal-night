@@ -123,6 +123,22 @@ func test_equipment_slots_and_keyboard_equip_unequip_are_available() -> void:
 	assert_eq(player.inventory.count_of(&"white_underwear"), 0)
 
 
+func test_enter_consumes_selected_food_but_keeps_equipment_routing() -> void:
+	var made: Dictionary = await _make_player_and_screen()
+	var player: Player = made.player
+	var screen: InventoryScreen = made.screen
+	player.inventory.add_item(&"berry", 1)
+	player.stats.food = 20.0
+	screen.open()
+	_opened_screen = screen
+	assert_true(screen.slot_text(0).contains("Enter: 먹기"))
+
+	_press_key(KEY_ENTER)
+
+	assert_eq(player.inventory.count_of(&"berry"), 0)
+	assert_gt(player.stats.food, 20.0)
+
+
 func test_storage_mode_space_takes_first_item_from_storage() -> void:
 	var made: Dictionary = await _make_storage_screen()
 	var player: Player = made.player
