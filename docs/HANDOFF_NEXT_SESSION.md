@@ -8,8 +8,8 @@
 
 ## 1. 현재 상태 스냅샷
 
-- **HEAD**: `f816229` (main). 작업 트리 클린. **origin/main(26e3c7e)보다 다수 커밋 앞섬 — push는 사용자 결정 대기. 임의 push 금지.**
-- **테스트**: GUT **573/573 실패 0** (99 scripts). 하네스 전부 초록.
+- **HEAD**: `e06dcd4` (main, 2026-07-18 4차 세션 종료 시점). 작업 트리 클린. **origin/main(26e3c7e)보다 다수 커밋 앞섬 — push는 사용자 결정 대기. 임의 push 금지.**
+- **테스트**: GUT **583/583 실패 0** (101 scripts). 하네스 전부 초록. export 템플릿 설치됨(macOS zip·Windows exe 생성 확인).
 - **CI 하네스 목록** (.github/workflows/ci.yml): GUT, two_player, network_conditions, two_player_coop, two_player_goal_scene(×5), goal_scene_replay, sense_loop(10시드), three_day_slice, four_player_equipment(host+3), two_player_combat(host+1), four_player_soak(압축 0.5분).
 - **60분 soak 관문 통과 기록**: docs/technical/FOUR_PLAYER_SOAK_GATE_RECORD.md (69,178주기·치명 오류 0).
 - 완성된 축: 감지 루프(냄새·바람·소리), 장비 3부작(데이터/VisualRig/넷 복제), 창·활·횃불 전투, 3구역 수직 절편(Z01→Z02→Z03), 세션 4결과(STABLE/FORCED/REMAIN/FAILED), 난이도 3종(4축 실규칙), Title→난이도→Play 진입, 입력 재바인딩, 거점(보관함·건조대·잠자리), 저장·이어하기·일시정지·사망 복구(JSON v1), 비·젖음·의상 특성, 재료 다용도·옷 수선, 사망 원인 문장·랩터 텔레그래프, 캐릭터 기록(Chronicle), 청소동물, 장비 오버레이 아트 8종(BaseBody 기본 신체화 완료).
@@ -64,16 +64,16 @@ GUI 실기 자동화: 게임 pid를 잡아 `osascript`로 frontmost 지정 후 k
 
 ## 6. 남은 작업 큐 (우선순위 순, 담당 모델)
 
+2026-07-18 4차 세션에서 완료: ~~#1 플레이테스트 준비~~(`a8a8655` 관찰지 + `0ceb049` export 검증), ~~#3 리스폰~~(`82a1b90`), ~~#4 small_pack~~(`7c3cfdf`), ~~#6 문서 정본화~~(`e06dcd4`). GUI 실기 잔여분(#2)도 대부분 완료: 조작 설정·재바인딩, 보관함 넣기/꺼내기, 잠자리, 사망→복구 — 이 과정에서 실결함 2건 발견·수정(`2036409` 마우스 바인딩 소실, `0042633` Space 꺼내기 불가).
+
 | # | 작업 | 담당 | 비고 |
 |---|---|---|---|
-| 1 | **사람 플레이테스트 준비**: 관찰 체크리스트·기록지 작성(좀보이드 문서 §8 기준 6개), 테스트 빌드 export 확인 | Fable 5 작성, gpt-5.5 보조 | 플레이테스트 자체는 사용자+5명 필요. **통과 전 신규 콘텐츠 확장 금지(§6)** |
-| 2 | GUI 세부 실기 잔여: 거점 상호작용(보관함 넣기/꺼내기·건조대·잠자리), 조작 설정 화면, 전투(창 제작→랩터), 사망→원인 문장→복구 흐름 | Fable 5 (실기) → 버그 발견 시 gpt-5.6-sol | 저장/이어하기·이동·줍기·인벤은 실기 검증 완료 |
-| 3 | 자원·플레이어 리스폰 시스템 (난이도 축 미연결분: resource_respawn_time_multiplier, 사망 복구 규칙 완성) | gpt-5.6-sol | DifficultyConfig 필드만 존재, 런타임 미연결 |
-| 4 | small_pack 등 가방을 정식 WearableData(back)로 승격 + 제작 레시피 | gpt-5.5 | 현재 placeholder_back 시각 ID만 존재. torch 승격 전례(data/items/torch.tres) 따라가기 |
-| 5 | 알려진 플레이크 추적: combat 하네스 '사체 복제' 타이밍 1회 관측 이력 — 재발 시 안정화 태스크 | gpt-5.5 | tests/senses stealth 안정화(f353128) 패턴 참조 |
-| 6 | 구 설계 문서(GAME_SCENARIO_WORLD_TILEMAP.md) 대량 정본화 — 정렬표 16행 반영 | gpt-5.5 | 새 기능을 "구현됨"으로 덧쓰기 금지 원칙 유지 |
-| 7 | **2단계 장기 생존 모드**(좀보이드 문서 §5: 3~10시간, 탈출은 선택) 착수 여부 판단 | **opus 4.8 크리틱 선행** → 계획 통과 시 gpt-5.6-sol | **1단계 플레이테스트 재미 증명 전 착수 금지** |
-| 8 | push 결정 | **사용자** | 로컬 main이 origin보다 앞섬. goal_scene_replay CI 수정(e28593f)도 미push라 원격 CI는 빨간 상태일 수 있음 |
+| 1 | **사람 플레이테스트 실행** — docs/playtest/PLAYTEST_01_OBSERVATION_SHEET.md 사용 | **사용자**+5명 | **통과 전 신규 콘텐츠 확장 금지(§6)**. 함정: 인벤 UI Esc=장착 해제, 닫기=Tab (혼동 관찰 포인트) |
+| 2 | GUI 실기 잔여: 건조대(날고기 필요)·전투(창 제작→랩터, sinew 필요) — 사냥 흐름으로 이어서 검증 | Fable 5 (실기) | 날고기·sinew는 랩터 사냥/해체로 획득. 바닥 날고기는 청소동물이 먹어치움(실관측) |
+| 3 | small_pack 장착 기반 소지 용량 확장 경로 — capacity_slots/weight는 현재 modifiers 수치만 존재, 인벤토리 미연결 | gpt-5.6-sol | 큐 #4 승격 시 이월된 부채. 인벤토리 슬롯/무게 시스템에 장비 modifier 반영 설계 필요 |
+| 4 | 알려진 플레이크 추적: combat 하네스 '사체 복제' 타이밍 1회 관측 이력 — 재발 시 안정화 태스크 | gpt-5.5 | tests/senses stealth 안정화(f353128) 패턴 참조 |
+| 5 | **2단계 장기 생존 모드**(좀보이드 문서 §5: 3~10시간, 탈출은 선택) 착수 여부 판단 | **opus 4.8 크리틱 선행** → 계획 통과 시 gpt-5.6-sol | **1단계 플레이테스트 재미 증명 전 착수 금지** |
+| 6 | push 결정 | **사용자** | 로컬 main이 origin보다 앞섬. goal_scene_replay CI 수정(e28593f)도 미push라 원격 CI는 빨간 상태일 수 있음 |
 
 ## 7. 함정 모음 (요약)
 
