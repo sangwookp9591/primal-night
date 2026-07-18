@@ -5,6 +5,7 @@ signal equipment_changed(slot: StringName, item_id: StringName)
 
 const SLOTS: Array[StringName] = [&"outfit", &"back", &"main_hand"]
 const EMPTY_ITEM: StringName = &""
+const DAMAGED_FLAG: int = 1 << 3
 
 @export var inventory_path: NodePath = ^"../Inventory"
 @export var starting_item_id: StringName = &""
@@ -64,6 +65,18 @@ func get_snapshot() -> Dictionary:
 		main_hand = StringName(_equipped.main_hand),
 		condition_flags = condition_flags,
 	}
+
+
+func can_repair_outfit() -> bool:
+	return get_equipped(&"outfit") != EMPTY_ITEM and (condition_flags & DAMAGED_FLAG) != 0
+
+
+func repair_outfit() -> bool:
+	if not can_repair_outfit():
+		return false
+	condition_flags &= ~DAMAGED_FLAG
+	equipment_changed.emit(&"outfit", get_equipped(&"outfit"))
+	return true
 
 
 ## 저장/복제 공통 경로. 전체를 먼저 검증하고 전부 유효할 때만 확정한다.

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="2"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("2")
+id = &"repair_outfit"
+duration = 4.0
+noise = 15.0
+
+[resource]
+script = ExtResource("1")
+id = &"repair_outfit"
+ingredients = {&"fiber": 2, &"hide": 1}
+repairs_outfit = true
+action = SubResource("Action")
+observation_hint = "찢어진 옷은 가죽 조각을 대고 섬유로 꿰맬 수 있다."
+observation_success = "상처처럼 남은 솔기가 이 옷이 버틴 밤을 보여 준다."

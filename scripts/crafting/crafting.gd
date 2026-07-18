@@ -7,13 +7,27 @@ var _noise_emitter := NoiseEmitter.new()
 
 
 func craft(actor: Node, recipe: RecipeData) -> bool:
-	if actor == null or recipe == null or recipe.result == null or recipe.result_count <= 0: return false
+	if actor == null or recipe == null:
+		return false
 	var inv: Inventory = actor.inventory
 	for id in recipe.ingredients:
-		if not inv.has_item(StringName(id), int(recipe.ingredients[id])): return false
-	if not _can_fit_result(inv, recipe): return false
-	for id in recipe.ingredients: inv.remove_item(StringName(id), int(recipe.ingredients[id]))
-	assert(inv.add_item(recipe.result.id, recipe.result_count) == recipe.result_count)
+		if not inv.has_item(StringName(id), int(recipe.ingredients[id])):
+			return false
+	if recipe.repairs_outfit:
+		var equipment: EquipmentComponent = actor.get(&"equipment") as EquipmentComponent
+		if equipment == null or not equipment.can_repair_outfit():
+			return false
+		for id in recipe.ingredients:
+			inv.remove_item(StringName(id), int(recipe.ingredients[id]))
+		assert(equipment.repair_outfit())
+	else:
+		if recipe.result == null or recipe.result_count <= 0:
+			return false
+		if not _can_fit_result(inv, recipe):
+			return false
+		for id in recipe.ingredients:
+			inv.remove_item(StringName(id), int(recipe.ingredients[id]))
+		assert(inv.add_item(recipe.result.id, recipe.result_count) == recipe.result_count)
 	_emit_crafting_noise(actor, recipe)
 	crafted.emit(recipe.id)
 	return true

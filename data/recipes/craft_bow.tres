@@ -13,7 +13,7 @@ noise = 90.0
 [resource]
 script = ExtResource("1")
 id = &"craft_bow"
-ingredients = {&"wood": 2, &"sinew": 2, &"fiber": 1}
+ingredients = {&"wood": 2, &"sinew": 1, &"fiber": 1}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")

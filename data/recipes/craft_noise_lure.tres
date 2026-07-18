@@ -13,9 +13,9 @@ noise = 120.0
 [resource]
 script = ExtResource("1")
 id = &"craft_noise_lure"
-ingredients = {&"smartphone": 1, &"fiber": 2}
+ingredients = {&"bone": 1, &"fiber": 2}
 result = ExtResource("2")
 result_count = 1
 action = SubResource("Action")
-observation_hint = "휴대전화는 전원이 없어도 금속음을 낸다."
-observation_success = "섬유로 고정하니 흔들릴 때 큰 소리가 난다."
+observation_hint = "마른 뼈 조각끼리 부딪치면 멀리까지 딱딱거린다."
+observation_success = "섬유로 뼈를 엮으니 흔들릴 때 큰 소리가 난다."

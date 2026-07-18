@@ -11,6 +11,7 @@ const QUICK_CRAFT_PRIORITY: Array[StringName] = [
 	&"craft_storage_cache",
 	&"craft_drying_rack",
 	&"craft_bedding",
+	&"repair_outfit",
 ]
 const FACING_VECTORS: Array[Vector2] = [
 	Vector2.UP, Vector2(0.70710678, -0.70710678), Vector2.RIGHT,
@@ -262,6 +263,8 @@ func select_quick_craft_recipe() -> StringName:
 	for recipe_id: StringName in QUICK_CRAFT_PRIORITY:
 		var recipe: RecipeData = game_data.get_recipe(recipe_id)
 		if recipe == null:
+			continue
+		if recipe.repairs_outfit and (equipment == null or not equipment.can_repair_outfit()):
 			continue
 		var has_all_ingredients := true
 		for item_id: Variant in recipe.ingredients:

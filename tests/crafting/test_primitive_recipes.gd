@@ -13,7 +13,7 @@ func test_primitive_recipe_resources_define_mvp_chain() -> void:
 		&"craft_stone_knife": {&"stone": 2, &"fiber": 1},
 		&"craft_torch": {&"wood": 1, &"fiber": 1},
 		&"craft_bone_scraper": {&"bone": 2, &"sinew": 1},
-		&"craft_noise_lure": {&"smartphone": 1, &"fiber": 2},
+		&"craft_noise_lure": {&"bone": 1, &"fiber": 2},
 	}
 	for recipe_id: StringName in RECIPE_PATHS:
 		var recipe: RecipeData = load(RECIPE_PATHS[recipe_id])
@@ -42,7 +42,6 @@ func test_crafting_each_recipe_consumes_exact_ingredients() -> void:
 		"res://data/items/stone_knife.tres",
 		"res://data/items/torch.tres",
 		"res://data/items/bone_scraper.tres",
-		"res://data/items/smartphone.tres",
 		"res://data/items/noise_lure.tres",
 	]:
 		var item: ItemData = load(path)

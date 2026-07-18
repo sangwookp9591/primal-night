@@ -19,7 +19,7 @@ func test_quick_craft_selects_first_craftable_recipe_by_priority() -> void:
 
 
 func test_quick_craft_falls_through_chain_and_returns_empty_when_none_fit() -> void:
-	var lure_player := _player_with({&"smartphone": 1, &"fiber": 2, &"raw_meat": 1})
+	var lure_player := _player_with({&"bone": 1, &"fiber": 2, &"raw_meat": 1})
 	assert_eq(lure_player.select_quick_craft_recipe(), &"craft_noise_lure",
 		"상위 세 제작이 불가능하면 소음 미끼를 미끼보다 우선해야 한다")
 
