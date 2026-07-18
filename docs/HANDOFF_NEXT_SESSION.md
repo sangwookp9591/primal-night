@@ -8,8 +8,9 @@
 
 ## 1. 현재 상태 스냅샷
 
-- **HEAD**: `e06dcd4` (main, 2026-07-18 4차 세션 종료 시점). 작업 트리 클린. **origin/main(26e3c7e)보다 다수 커밋 앞섬 — push는 사용자 결정 대기. 임의 push 금지.**
-- **테스트**: GUT **583/583 실패 0** (101 scripts). 하네스 전부 초록. export 템플릿 설치됨(macOS zip·Windows exe 생성 확인).
+- **HEAD**: `f56dbf2` (main, 2026-07-18 5차 세션). 작업 트리 클린. origin은 `328e6ad`까지 push됨(사용자 지시) — 이후 아트 3커밋(`c8b57cf` 줌 3.0, `24c03b4` 맵 아트, `f56dbf2` 캐릭터 정합)은 미push, 사용자 결정 대기. **임의 push 금지.**
+- **테스트**: GUT **586/586 실패 0**. 하네스 전부 초록. export 템플릿 설치됨(macOS zip·Windows exe 생성 확인).
+- **비주얼**: 좀보이드 레퍼런스 정합 완료 — 줌 3.0(캐릭터 화면높이 ~13%), 밝은 초지 타일(이음선 없음), 식생 장식 레이어(해시 결정론·충돌 없음), 캠프 가구·청소동물 실렌더, 캐릭터 원화 정합. 아트 후속 후보: 랩터 사체 어두운 날개/뼈 파트, 보관함 상자 렌더.
 - **CI 하네스 목록** (.github/workflows/ci.yml): GUT, two_player, network_conditions, two_player_coop, two_player_goal_scene(×5), goal_scene_replay, sense_loop(10시드), three_day_slice, four_player_equipment(host+3), two_player_combat(host+1), four_player_soak(압축 0.5분).
 - **60분 soak 관문 통과 기록**: docs/technical/FOUR_PLAYER_SOAK_GATE_RECORD.md (69,178주기·치명 오류 0).
 - 완성된 축: 감지 루프(냄새·바람·소리), 장비 3부작(데이터/VisualRig/넷 복제), 창·활·횃불 전투, 3구역 수직 절편(Z01→Z02→Z03), 세션 4결과(STABLE/FORCED/REMAIN/FAILED), 난이도 3종(4축 실규칙), Title→난이도→Play 진입, 입력 재바인딩, 거점(보관함·건조대·잠자리), 저장·이어하기·일시정지·사망 복구(JSON v1), 비·젖음·의상 특성, 재료 다용도·옷 수선, 사망 원인 문장·랩터 텔레그래프, 캐릭터 기록(Chronicle), 청소동물, 장비 오버레이 아트 8종(BaseBody 기본 신체화 완료).
