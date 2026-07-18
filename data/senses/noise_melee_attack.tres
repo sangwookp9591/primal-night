@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="NoiseProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/senses/noise_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"melee_attack"
+radius = 260.0
+merge_window_seconds = 0.15
+merge_distance_px = 24.0

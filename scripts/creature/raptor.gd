@@ -10,6 +10,8 @@ enum State { WANDER, INVESTIGATE, CHASE, FLEE }
 
 signal state_changed(previous_state: int, new_state: int)
 signal chase_started()
+signal health_changed(current_health: float, max_health: float)
+signal died(carcass: Carcass)
 
 const DEFAULT_DATA: CreatureData = preload("res://data/creatures/raptor.tres")
 const STATE_NAMES: Array[StringName] = [&"wander", &"investigate", &"chase", &"flee"]
@@ -17,6 +19,7 @@ const STATE_NAMES: Array[StringName] = [&"wander", &"investigate", &"chase", &"f
 const TERRAIN_MASK: int = 1
 const SNAPSHOT_INTERVAL_SECONDS: float = 0.2
 const CLIENT_INTERPOLATION_SPEED: float = 8.0
+const CARCASS_SCENE: PackedScene = preload("res://scenes/props/carcass.tscn")
 
 @export var data: CreatureData = DEFAULT_DATA
 
@@ -65,10 +68,13 @@ var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 ## 디버그 시각화 (설계서 13장): 상태, 감지 반경, 목표 지점, 경로.
 var debug_enabled: bool = false
+var current_health: float = 0.0
+var _dead: bool = false
 
 func _ready() -> void:
 	add_to_group(&"raptor")
 	_base_data = data
+	current_health = data.max_health
 	move_target = global_position
 	_replicated_position = global_position
 	rng.randomize()
@@ -84,6 +90,8 @@ func _ready() -> void:
 		_campfire_registry = get_node("/root/CampfireRegistry")
 
 func _physics_process(delta: float) -> void:
+	if _dead:
+		return
 	if not is_multiplayer_authority():
 		var visual_velocity: Vector2 = _replicated_position - global_position
 		global_position = global_position.lerp(_replicated_position,
@@ -120,6 +128,62 @@ func _physics_process(delta: float) -> void:
 
 	if debug_enabled:
 		queue_redraw()
+
+func is_dead() -> bool:
+	return _dead
+
+func take_damage(amount: float, direction: Vector2, source: Node = null) -> bool:
+	if not is_multiplayer_authority() or _dead or amount <= 0.0:
+		return false
+	current_health = maxf(current_health - amount, 0.0)
+	health_changed.emit(current_health, data.max_health)
+	if has_node("/root/EventBus"):
+		get_node("/root/EventBus").damage_taken.emit(self, amount, &"melee")
+	_hit_feedback(direction)
+	if current_health <= 0.0:
+		_confirm_death()
+	elif source is Node2D:
+		var away := global_position - (source as Node2D).global_position
+		if away.is_zero_approx():
+			away = -direction
+		move_target = global_position + away.normalized() * 160.0
+		_change_state(State.FLEE)
+	if multiplayer.get_peers().size() > 0:
+		apply_damage_result.rpc(current_health, global_position, _dead)
+	return true
+
+@rpc("authority", "call_remote", "reliable")
+func apply_damage_result(health: float, position: Vector2, dead: bool) -> void:
+	if is_multiplayer_authority() or not is_finite(health) or health < 0.0 or not position.is_finite():
+		return
+	current_health = health
+	global_position = position
+	health_changed.emit(current_health, data.max_health)
+	_hit_feedback(Vector2.ZERO)
+	if dead and not _dead:
+		_confirm_death()
+
+func _hit_feedback(direction: Vector2) -> void:
+	var visual := _sprite_animator as CanvasItem
+	if visual != null:
+		visual.modulate = Color(1.0, 0.35, 0.35)
+		var tween := create_tween()
+		tween.tween_property(visual, "modulate", Color.WHITE, 0.16)
+	if not direction.is_zero_approx():
+		global_position += direction.normalized() * 7.0
+
+func _confirm_death() -> void:
+	if _dead:
+		return
+	_dead = true
+	collision_layer = 0
+	collision_mask = 0
+	var carcass := CARCASS_SCENE.instantiate() as Carcass
+	carcass.name = "%sCarcass" % name
+	carcass.global_position = global_position
+	get_parent().add_child(carcass)
+	died.emit(carcass)
+	queue_free()
 
 func _tick_alert(delta: float) -> void:
 	if _alert_remaining <= 0.0:

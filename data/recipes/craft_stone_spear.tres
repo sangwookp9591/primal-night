@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/stone_spear.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_stone_spear"
+duration = 5.0
+noise = 180.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_stone_spear"
+ingredients = {&"wood": 2, &"stone": 2, &"sinew": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "곧은 나무 끝에 돌날을 단단히 묶을 수 있다."
+observation_success = "긴 사거리의 돌창을 만들었다."

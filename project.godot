@@ -29,6 +29,10 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [input]
 
+attack={
+"deadzone": 0.5,
+"events": [Object(InputEventMouseButton,"button_index":1), Object(InputEventJoypadButton,"button_index":2), Object(InputEventKey,"physical_keycode":32)]
+}
 quick_craft={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":67)]

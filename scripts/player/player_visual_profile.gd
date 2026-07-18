@@ -19,6 +19,14 @@ const VISUALS: Dictionary = {
 		layer = &"main_hand",
 		color = Color(0.55, 0.62, 0.68, 0.95),
 	},
+	&"stone_spear": {
+		layer = &"main_hand",
+		color = Color(0.46, 0.31, 0.16, 1.0),
+	},
+	&"stone_knife": {
+		layer = &"main_hand",
+		color = Color(0.62, 0.67, 0.70, 1.0),
+	},
 	&"placeholder_state_overlay": {
 		layer = &"state_overlay",
 		color = Color(0.25, 0.65, 1.0, 0.35),

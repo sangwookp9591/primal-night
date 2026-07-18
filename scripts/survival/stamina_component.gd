@@ -18,6 +18,14 @@ func _ready() -> void:
 func can_run() -> bool:
 	return not is_exhausted and current_stamina > 0.0
 
+func try_spend(amount: float) -> bool:
+	if amount <= 0.0 or current_stamina < amount:
+		return false
+	current_stamina -= amount
+	if current_stamina <= 0.0:
+		is_exhausted = true
+	return true
+
 ## fatigue_ratio 는 0(쌩쌩)..1(탈진) 이다 (SurvivalStats.fatigue_ratio).
 ## 피로하면 같은 달리기에 스태미나를 더 쓰고 회복도 느리다 (설계서 5.1: 피로는 달리기에 영향).
 ## 기본값 0 이라 피로를 넘기지 않는 호출부는 기존 동작 그대로다.

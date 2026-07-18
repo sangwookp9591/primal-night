@@ -9,6 +9,12 @@ const QUICK_CRAFT_PRIORITY: Array[StringName] = [
 	&"craft_noise_lure",
 	&"craft_bait",
 ]
+const FACING_VECTORS: Array[Vector2] = [
+	Vector2.UP, Vector2(0.70710678, -0.70710678), Vector2.RIGHT,
+	Vector2(0.70710678, 0.70710678), Vector2.DOWN,
+	Vector2(-0.70710678, 0.70710678), Vector2.LEFT,
+	Vector2(-0.70710678, -0.70710678),
+]
 
 ## 이동 자세 — 소음 프로필 선택과 호스트 교차검증의 공통 어휘 (설계서 5.6/7.4).
 ## 세기 순서: CROUCH < WALK < RUN. NetMovement 가 이 순서로 위조 주장을 강등한다.
@@ -77,6 +83,8 @@ func _physics_process(delta: float) -> void:
 			_request_quick_craft(recipe_id)
 	if Input.is_action_just_pressed("place_lure"):
 		_request_place_lure()
+	if Input.is_action_just_pressed("attack"):
+		_request_attack()
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -156,6 +164,25 @@ func _request_place_lure() -> void:
 		if node.has_method("request_place_noise_lure_for"):
 			node.request_place_noise_lure_for(self)
 			return
+
+func _request_attack() -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_attack"):
+			node.request_attack(self, facing_direction())
+			return
+	push_warning("Player: 공격 시스템을 찾을 수 없습니다.")
+
+func facing_direction() -> Vector2:
+	if visual_rig == null or visual_rig.base_body == null:
+		return Vector2.DOWN
+	return FACING_VECTORS[visual_rig.base_body.last_direction]
+
+func play_attack_feedback(direction: Vector2) -> void:
+	if visual_rig == null:
+		return
+	var tween := create_tween()
+	tween.tween_property(visual_rig, "position", direction.normalized() * 10.0, 0.08)
+	tween.tween_property(visual_rig, "position", Vector2.ZERO, 0.12)
 
 
 func request_consume(item_id: StringName) -> void:

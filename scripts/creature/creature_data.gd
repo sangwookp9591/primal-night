@@ -5,6 +5,7 @@ extends Resource
 
 @export var walk_speed: float = 90.0
 @export var chase_speed: float = 200.0
+@export var max_health: float = 60.0
 
 ## 이 거리 안에서 플레이어를 실제로 지각하면 추격에 들어간다.
 @export var sight_radius: float = 180.0
