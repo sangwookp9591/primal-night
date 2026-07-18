@@ -108,6 +108,36 @@ func test_file_round_trip_restores_food_safety_status() -> void:
 		"중독 잔여 시간은 실제 파일 왕복 뒤에도 복원된다")
 	assert_almost_eq(player.stats.poison_potency, 0.75, 0.001)
 
+
+func test_file_round_trip_restores_extended_death_chronicle() -> void:
+	var chronicle := main.get_node("CharacterChronicle") as CharacterChronicle
+	chronicle.distance_traveled_px = 4321.5
+	chronicle.visited_zones = PackedStringArray(["Z01", "Z02"])
+	chronicle.equipment_usage_seconds[&"outfit"] = {&"work_clothes": 73.5}
+	chronicle.timeline = [{
+		"time": 125.5,
+		"text": "1일 낮, 불에 익힌 고기를 챙겼다.",
+		"category": "food",
+	}]
+	assert_true(service.save_now())
+	main.queue_free()
+	await wait_process_frames(2)
+
+	assert_true(SaveService.prepare_continue(TEST_SAVE).ok)
+	main = add_child_autofree(MainScene.instantiate())
+	service = main.get_node("SaveService") as SaveService
+	service.save_path = TEST_SAVE
+	await wait_process_frames(4)
+
+	chronicle = main.get_node("CharacterChronicle") as CharacterChronicle
+	assert_almost_eq(chronicle.distance_traveled_px, 4321.5, 0.001)
+	assert_eq(Array(chronicle.visited_zones), ["Z01", "Z02"])
+	assert_almost_eq(float(chronicle.equipment_usage_seconds[&"outfit"].get(
+		"work_clothes", chronicle.equipment_usage_seconds[&"outfit"].get(
+			&"work_clothes", 0.0))), 73.5, 0.001)
+	assert_eq(chronicle.timeline.size(), 1)
+	assert_eq(chronicle.timeline[0].text, "1일 낮, 불에 익힌 고기를 챙겼다.")
+
 func test_pending_snapshot_restores_clock_after_fresh_main_is_ready() -> void:
 	var clock := main.get_node("SessionClock") as SessionClock
 	clock.apply_replicated(1, 77.2, true)
