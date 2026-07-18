@@ -66,6 +66,16 @@ func get_snapshot() -> Dictionary:
 		condition_flags = condition_flags,
 	}
 
+func get_modifier(slot: StringName, modifier: StringName, fallback: float = 0.0) -> float:
+	var item_id: StringName = get_equipped(slot)
+	if item_id == EMPTY_ITEM:
+		return fallback
+	var wearable: WearableData = _get_wearable(item_id)
+	if wearable == null:
+		return fallback
+	var value: Variant = wearable.modifiers.get(modifier, fallback)
+	return float(value) if value is int or value is float else fallback
+
 
 func can_repair_outfit() -> bool:
 	return get_equipped(&"outfit") != EMPTY_ITEM and (condition_flags & DAMAGED_FLAG) != 0
@@ -101,6 +111,12 @@ func apply_snapshot(snapshot: Dictionary) -> bool:
 	for key: StringName in SLOTS:
 		_equipped[key] = StringName(snapshot[key])
 	condition_flags = int(flags)
+	if not _refresh_inventory_capacity():
+		for key: StringName in SLOTS:
+			_equipped[key] = previous[key]
+		condition_flags = int(previous.condition_flags)
+		push_error("EquipmentComponent: snapshot exceeds equipment capacity")
+		return false
 	for key: StringName in SLOTS:
 		if previous[key] != _equipped[key]:
 			equipment_changed.emit(key, _equipped[key])
@@ -139,6 +155,11 @@ func _commit_equip(command: Dictionary) -> bool:
 		_inventory.restore_transaction_snapshot(inventory_before)
 		return false
 	_equipped[slot] = item_id
+	if not _refresh_inventory_capacity():
+		_equipped[slot] = previous
+		_inventory.restore_transaction_snapshot(inventory_before)
+		_refresh_inventory_capacity()
+		return false
 	equipment_changed.emit(slot, item_id)
 	return true
 
@@ -151,6 +172,11 @@ func _commit_unequip(command: Dictionary) -> bool:
 		return false
 	var slot: StringName = command.slot
 	_equipped[slot] = EMPTY_ITEM
+	if not _refresh_inventory_capacity():
+		_equipped[slot] = item_id
+		_inventory.restore_transaction_snapshot(inventory_before)
+		_refresh_inventory_capacity()
+		return false
 	equipment_changed.emit(slot, EMPTY_ITEM)
 	return true
 
@@ -161,6 +187,7 @@ func _confirm_starting_item(item_id: StringName) -> void:
 		push_error("EquipmentComponent: invalid starting item %s; leaving slot empty" % item_id)
 		return
 	_equipped[wearable.equip_slot] = item_id
+	_refresh_inventory_capacity()
 	equipment_changed.emit(wearable.equip_slot, item_id)
 
 
@@ -172,3 +199,11 @@ func _get_wearable(item_id: StringName) -> WearableData:
 		push_warning("EquipmentComponent: item %s is not wearable" % item_id)
 		return null
 	return item as WearableData
+
+
+func _refresh_inventory_capacity() -> bool:
+	if _inventory == null:
+		return false
+	var slots: int = roundi(get_modifier(&"back", &"capacity_slots"))
+	var weight: float = get_modifier(&"back", &"capacity_weight")
+	return _inventory.set_capacity_bonus(maxi(slots, 0), maxf(weight, 0.0))

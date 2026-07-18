@@ -33,9 +33,13 @@ const CARRIED_SMELL_MAX_MULTIPLIER: float = 3.0
 var _slots: Array[Dictionary] = []
 var _game_data: Node = null
 var _carried_smell_grid: SmellGrid = null
+var _base_slot_count: int = 0
+var _base_max_weight: float = 0.0
 
 func _ready() -> void:
 	_game_data = get_node("/root/GameData")
+	_base_slot_count = slot_count
+	_base_max_weight = max_weight
 	_slots.resize(slot_count)
 	for i: int in range(slot_count):
 		_slots[i] = {}
@@ -133,12 +137,43 @@ func get_transaction_snapshot() -> Array[Dictionary]:
 
 ## 장비 교환 중간 실패 시 정확히 이전 슬롯 배열로 되돌린다.
 func restore_transaction_snapshot(snapshot: Array[Dictionary]) -> bool:
-	if snapshot.size() != _slots.size():
+	# Save files may contain the expanded array before EquipmentComponent restores
+	# the backpack. Accept only a modest, sane expansion here; equipment immediately
+	# reconciles the effective capacity after its snapshot is applied.
+	if snapshot.size() < _base_slot_count or snapshot.size() > _base_slot_count + 32:
 		push_error("Inventory: invalid transaction snapshot size")
 		return false
-	for index: int in range(_slots.size()):
-		_slots[index].clear()
-		_slots[index].merge(snapshot[index], true)
+	_slots.resize(snapshot.size())
+	for index: int in range(snapshot.size()):
+		_slots[index] = snapshot[index].duplicate()
+	changed.emit()
+	return true
+
+## Back-slot equipment is the sole writer of these bonuses. A contraction is
+## rejected unless every stack and all carried weight fit the smaller inventory.
+func set_capacity_bonus(extra_slots: int, extra_weight: float) -> bool:
+	if extra_slots < 0 or not is_finite(extra_weight) or extra_weight < 0.0:
+		return false
+	var target_slots: int = _base_slot_count + extra_slots
+	var target_weight: float = _base_max_weight + extra_weight
+	if used_slots() > target_slots or total_weight() > target_weight + 0.0001:
+		return false
+
+	if target_slots < _slots.size():
+		var packed: Array[Dictionary] = []
+		for slot: Dictionary in _slots:
+			if not slot.is_empty():
+				packed.append(slot.duplicate())
+		_slots.resize(target_slots)
+		for index: int in range(target_slots):
+			_slots[index] = packed[index] if index < packed.size() else {}
+	elif target_slots > _slots.size():
+		var old_size: int = _slots.size()
+		_slots.resize(target_slots)
+		for index: int in range(old_size, target_slots):
+			_slots[index] = {}
+	slot_count = target_slots
+	max_weight = target_weight
 	changed.emit()
 	return true
 

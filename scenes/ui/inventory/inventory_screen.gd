@@ -206,6 +206,10 @@ func _rebuild_equipment_labels() -> void:
 func _refresh() -> void:
 	if _player == null:
 		return
+	if _slot_labels.size() != _player.inventory.slot_count:
+		_selected_inventory_index = mini(
+			_selected_inventory_index, _player.inventory.slot_count - 1)
+		_rebuild_slot_labels()
 	_weight_label.text = "무게 %.1f / %.1f" % [
 		_player.inventory.total_weight(), _player.inventory.max_weight]
 	for index: int in range(_slot_labels.size()):

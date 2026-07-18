@@ -5,6 +5,9 @@ extends Node
 ## 출혈 중에만 _process 를 켠다 — 평상시 매 프레임 비용 0 (성능문서 6.1).
 
 const DEFAULT_CONFIG: SurvivalConfig = preload("res://data/survival/survival_config.tres")
+const PROTECTED_DAMAGE_KINDS: Array[StringName] = [
+	&"laceration", &"claw", &"arrow", &"melee", &"debug",
+]
 
 @export var config: SurvivalConfig = DEFAULT_CONFIG
 
@@ -45,10 +48,15 @@ func _process(delta: float) -> void:
 func take_damage(amount: float, kind: StringName = &"generic") -> void:
 	if amount <= 0.0 or not is_alive():
 		return
+	var final_amount: float = amount
+	if kind in PROTECTED_DAMAGE_KINDS:
+		final_amount *= 1.0 - _injury_protection()
+	if final_amount <= 0.0:
+		return
 
-	current_health = maxf(current_health - amount, 0.0)
+	current_health = maxf(current_health - final_amount, 0.0)
 	if _event_bus != null:
-		_event_bus.damage_taken.emit(_body, amount, kind)
+		_event_bus.damage_taken.emit(_body, final_amount, kind)
 
 	if not is_alive():
 		stop_bleeding()
@@ -79,6 +87,13 @@ func stop_bleeding() -> void:
 
 func is_alive() -> bool:
 	return current_health > 0.0
+
+
+func _injury_protection() -> float:
+	var player := _body as Player
+	if player == null or player.equipment == null:
+		return 0.0
+	return clampf(player.equipment.get_modifier(&"outfit", &"injury_protection"), 0.0, 1.0)
 
 ## 호스트 확정 상태를 복제본에 적용한다 (클라이언트, NetSurvival 스냅샷 경로).
 ## 시뮬 부작용 없이 상태만 맞춘다 — HUD 신호(bleeding_*)는 전이 시에만 나간다.

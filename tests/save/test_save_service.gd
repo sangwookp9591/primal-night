@@ -64,6 +64,30 @@ func test_round_trip_restores_all_save_sections_and_player_state() -> void:
 		assert_eq(JSON.stringify(actual[key]), JSON.stringify(expected[key]),
 			"%s는 실제 JSON 파일 왕복 뒤에도 보존된다" % key)
 
+func test_file_round_trip_restores_backpack_capacity() -> void:
+	var player := main.get_node("Player") as Player
+	assert_eq(player.inventory.add_item(&"small_pack", 1), 1)
+	assert_true(player.equipment.request_equip(&"small_pack"))
+	var expected_slots: int = player.inventory.slot_count
+	var expected_weight: float = player.inventory.max_weight
+	assert_gt(expected_slots, 16)
+	assert_true(service.save_now())
+	main.queue_free()
+	await wait_process_frames(2)
+
+	assert_true(SaveService.prepare_continue(TEST_SAVE).ok)
+	main = add_child_autofree(MainScene.instantiate())
+	service = main.get_node("SaveService") as SaveService
+	service.save_path = TEST_SAVE
+	await wait_process_frames(4)
+
+	player = main.get_node("Player") as Player
+	assert_eq(player.equipment.get_equipped(&"back"), &"small_pack",
+		"가방 장착은 실제 파일 왕복 뒤에도 복원된다")
+	assert_eq(player.inventory.slot_count, expected_slots,
+		"확장 슬롯 수는 실제 파일 왕복 뒤에도 유지된다")
+	assert_almost_eq(player.inventory.max_weight, expected_weight, 0.001)
+
 func test_file_round_trip_restores_food_safety_status() -> void:
 	var player := main.get_node("Player") as Player
 	player.stats.apply_food_risk(true, 0.75)

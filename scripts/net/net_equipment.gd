@@ -168,18 +168,36 @@ func _apply_snapshot_to_avatar(player_id: StringName, avatar: Player, outfit: St
 		back: String, main_hand: String, condition_flags: int,
 		inventory_item_ids: PackedStringArray,
 		inventory_item_counts: PackedInt32Array) -> void:
+	for index: int in range(inventory_item_ids.size()):
+		if inventory_item_ids[index].is_empty() \
+				or inventory_item_ids[index].length() > ITEM_ID_MAX_LENGTH \
+				or inventory_item_counts[index] <= 0:
+			push_warning("NetEquipment: 유효하지 않은 인벤토리 스냅샷 player=%s" % player_id)
+			return
 	var inventory_before: Array[Dictionary] = avatar.inventory.get_transaction_snapshot()
-	if not _replace_inventory(avatar.inventory, inventory_item_ids, inventory_item_counts):
-		push_warning("NetEquipment: 유효하지 않은 인벤토리 스냅샷 player=%s" % player_id)
-		return
+	var equipment_before: Dictionary = avatar.equipment.get_snapshot()
+	_clear_inventory(avatar.inventory)
 	if not avatar.equipment.apply_snapshot({
 			outfit = StringName(outfit),
 			back = StringName(back),
 			main_hand = StringName(main_hand),
 			condition_flags = condition_flags,
-		}):
+	}):
+		avatar.equipment.apply_snapshot(equipment_before)
 		avatar.inventory.restore_transaction_snapshot(inventory_before)
 		push_warning("NetEquipment: 유효하지 않은 장비 스냅샷 player=%s" % player_id)
+		return
+	if not _replace_inventory(avatar.inventory, inventory_item_ids, inventory_item_counts):
+		_clear_inventory(avatar.inventory)
+		avatar.equipment.apply_snapshot(equipment_before)
+		avatar.inventory.restore_transaction_snapshot(inventory_before)
+		push_warning("NetEquipment: 유효하지 않은 인벤토리 스냅샷 player=%s" % player_id)
+
+
+func _clear_inventory(inventory: Inventory) -> void:
+	for slot: Dictionary in inventory.get_transaction_snapshot():
+		if not slot.is_empty():
+			inventory.remove_item(StringName(slot.id), int(slot.count))
 
 
 func _apply_pending_snapshots() -> void:
