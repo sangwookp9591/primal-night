@@ -46,6 +46,7 @@ func _run() -> void:
 	var host_session: LocalSessionService = host_main.get_node("NetSession")
 	var client_session: LocalSessionService = client_main.get_node("NetSession")
 	var host_net: NetMovement = host_main.get_node("NetMovement")
+	var client_net: NetMovement = client_main.get_node("NetMovement")
 	var host_player: Player = host_main.get_node("Player")
 	var client_view_of_host: Player = client_main.get_node("Player")
 	_log("main.tscn 2개 로드 완료. NetSession/NetMovement/Players 연결 확인")
@@ -110,6 +111,8 @@ func _run() -> void:
 	var client_sync_error: float = host_view_of_client.global_position.distance_to(client_avatar.global_position)
 	_log("동기화 오차: 호스트→클라 %.1fpx / 클라→호스트 %.1fpx (허용 %.0fpx)" % [
 		host_sync_error, client_sync_error, SYNC_TOLERANCE_PX])
+	_log("스냅샷 계측: host(unrel_sent,key_sent,unrel_recv,key_recv,accept,reject)=%s / client=%s" % [
+		host_net.debug_snapshot_counts(), client_net.debug_snapshot_counts()])
 	if host_sync_error > SYNC_TOLERANCE_PX:
 		return _fail("호스트 위치가 클라이언트로 동기화되지 않았다")
 	if client_sync_error > SYNC_TOLERANCE_PX:

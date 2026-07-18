@@ -303,6 +303,10 @@ func test_host_rejects_a_butcher_claim_from_out_of_range() -> void:
 	var client_carcass: Carcass = _carcass_on(client, "Carcass")
 
 	# 호스트 월드에서 아바타를 사체에서 멀리 떨어뜨린다 (클라이언트만 가까운 척).
+	# NetMovement 는 마지막 unreliable 위치가 유실돼도 복구하도록 정지 중에도 최신
+	# 의도를 재전송한다. 이 테스트는 해체 RPC의 위조만 격리해야 하므로 위치 동기화를
+	# 멈춰, 클라이언트가 가까운 좌표를 계속 정직하게 재주장하는 상황과 섞지 않는다.
+	(client.net_move as NetMovement).set_physics_process(false)
 	host_view_client.global_position = Vector2(4000.0, 4000.0)
 	await _butcher_one_stage(client_carcass, client_avatar)
 	await wait_physics_frames(30)

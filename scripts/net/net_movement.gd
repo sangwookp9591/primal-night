@@ -18,6 +18,8 @@ const SPAWN_ID_MAX_LENGTH: int = 32
 const SNAPSHOT_MAX_ENTRIES: int = 8
 ## 스폰·스냅샷 같은 저빈도 호스트 RPC 의 초당 상한 (프로토콜 내부 값).
 const CONTROL_RPC_MAX_PER_SECOND: int = 30
+const SNAPSHOT_KEYFRAME_INTERVAL_TICKS: int = 30
+const SNAPSHOT_KEYFRAME_MAX_PER_SECOND: int = 4
 const DISCONNECT_DESPAWN_SECONDS: float = 30.0
 
 @export var session_path: NodePath = ^"../NetSession"
@@ -34,6 +36,7 @@ var _guard: RpcGuard
 var _avatars: Dictionary = {}
 var _local_avatar: Player = null
 var _last_sent_position: Vector2 = Vector2.INF
+var _last_intent_sent_tick: int = 0
 var _last_intent_ticks: Dictionary = {}
 var _ticks: int = 0
 var _now_seconds: float = 0.0
@@ -41,6 +44,11 @@ var _tick_delta: float = 1.0 / 60.0
 var _snapshot_ids: PackedStringArray = PackedStringArray()
 var _snapshot_positions: PackedVector2Array = PackedVector2Array()
 var _pending_despawn_seconds: Dictionary = {}
+var _debug_snapshots_sent: int = 0
+var _debug_keyframes_sent: int = 0
+var _debug_snapshots_received: int = 0
+var _debug_keyframes_received: int = 0
+var _debug_snapshots_accepted: int = 0
 
 
 func _ready() -> void:
@@ -58,6 +66,8 @@ func _ready() -> void:
 		CONTROL_RPC_MAX_PER_SECOND, config.spawn_max_payload_bytes)
 	_guard.register_rule(&"apply_snapshot", true,
 		CONTROL_RPC_MAX_PER_SECOND, config.snapshot_max_payload_bytes)
+	_guard.register_rule(&"apply_snapshot_keyframe", true,
+		SNAPSHOT_KEYFRAME_MAX_PER_SECOND, config.snapshot_max_payload_bytes)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	# 참가·재접속·이탈에 따른 발신자 명부 유지는 RpcGuard 가 소유한다 (W2-T5).
 	# 아래 구독들은 스폰·제거 등 이 노드 고유 작업만 담당한다.
@@ -77,18 +87,36 @@ func _physics_process(delta: float) -> void:
 		_tick_pending_despawns(delta)
 		if _ticks % config.snapshot_interval_ticks == 0 and multiplayer.get_peers().size() > 0:
 			_broadcast_snapshot()
+		if _ticks % SNAPSHOT_KEYFRAME_INTERVAL_TICKS == 0 \
+				and multiplayer.get_peers().size() > 0:
+			_broadcast_snapshot_keyframe()
 	elif _local_avatar != null:
-		# 이동·방향은 비신뢰 최신값 전송 (설계서 7.2). 멈춰 있으면 보내지 않는다.
+		# 이동·방향은 비신뢰 최신값 전송 (설계서 7.2).
 		# 자세(웅크림/걷기/달리기)도 함께 보낸다 — 호스트가 실측 속도로 교차검증한다
 		# (설계서 7.4, 은신 소음이 원격 아바타에도 적용되려면 필수).
 		var position: Vector2 = _local_avatar.global_position
-		if position.distance_squared_to(_last_sent_position) > 0.01:
+		var position_changed: bool = position.distance_squared_to(_last_sent_position) > 0.01
+		# 마지막 unreliable 의도가 유실된 채 플레이어가 멈추면 이후 전송이 영원히
+		# 없어 호스트가 뒤처진 위치에 고정된다. 스냅샷 주기마다 최신 상태를
+		# 재전송해 패킷 유실을 복구한다(최대 10Hz, 90/s 제한보다 충분히 낮음).
+		var retransmit_due: bool = _ticks - _last_intent_sent_tick \
+			>= config.snapshot_interval_ticks
+		if position_changed or retransmit_due:
 			_last_sent_position = position
+			_last_intent_sent_tick = _ticks
 			submit_move_intent.rpc_id(RpcGuard.HOST_PEER_ID, position, _local_avatar.stance)
 
 
 func get_move_violation_count(player_id: StringName) -> int:
 	return _authority.get_violation_count(player_id)
+
+
+func debug_snapshot_counts() -> PackedInt32Array:
+	return PackedInt32Array([
+		_debug_snapshots_sent, _debug_keyframes_sent,
+		_debug_snapshots_received, _debug_keyframes_received, _debug_snapshots_accepted,
+		_guard.get_violation_count(RpcGuard.HOST_PEER_ID),
+	])
 
 
 ## 호스트 권위 순간이동 (재접속 상태 복원 등, W2-T5). 아바타 위치와 함께
@@ -175,9 +203,28 @@ func despawn_avatar(player_id: String) -> void:
 ## 호스트 → 클라이언트: 위치 스냅샷 (비신뢰 최신값).
 @rpc("authority", "call_remote", "unreliable")
 func apply_snapshot(ids: PackedStringArray, positions: PackedVector2Array) -> void:
+	_debug_snapshots_received += 1
 	if not _guard.check(&"apply_snapshot", multiplayer.get_remote_sender_id(),
 			ids.size() * SNAPSHOT_ENTRY_BYTES, _now_seconds):
 		return
+	_debug_snapshots_accepted += 1
+	_apply_snapshot_entries(ids, positions)
+
+
+## 저지연 스냅샷이 스케줄링 지연이나 혼잡으로 연속 유실돼도 마지막 권위 상태를
+## 반드시 복구하는 저빈도 키프레임. 이동 스트림 전체를 reliable 로 만들어 오래된
+## 위치가 밀려오게 하지 않고, 2Hz 최종 상태만 별도 채널에서 보장한다.
+@rpc("authority", "call_remote", "reliable", 1)
+func apply_snapshot_keyframe(ids: PackedStringArray, positions: PackedVector2Array) -> void:
+	_debug_keyframes_received += 1
+	if not _guard.check(&"apply_snapshot_keyframe", multiplayer.get_remote_sender_id(),
+			ids.size() * SNAPSHOT_ENTRY_BYTES, _now_seconds):
+		return
+	_debug_snapshots_accepted += 1
+	_apply_snapshot_entries(ids, positions)
+
+
+func _apply_snapshot_entries(ids: PackedStringArray, positions: PackedVector2Array) -> void:
 	if ids.size() != positions.size() or ids.size() > SNAPSHOT_MAX_ENTRIES:
 		push_warning("NetMovement: apply_snapshot 스키마 위반 — 폐기")
 		return
@@ -267,6 +314,7 @@ func _spawn(player_id: StringName, controller_peer_id: int, position: Vector2) -
 	if controller_peer_id == multiplayer.get_unique_id():
 		_local_avatar = avatar
 		_last_sent_position = position
+		_last_intent_sent_tick = _ticks
 		var camera: Camera2D = avatar.get_node_or_null("Camera2D")
 		if camera != null:
 			camera.make_current()
@@ -285,6 +333,18 @@ func _despawn(player_id: StringName) -> void:
 
 
 func _broadcast_snapshot() -> void:
+	_fill_snapshot_buffers()
+	_debug_snapshots_sent += 1
+	apply_snapshot.rpc(_snapshot_ids, _snapshot_positions)
+
+
+func _broadcast_snapshot_keyframe() -> void:
+	_fill_snapshot_buffers()
+	_debug_keyframes_sent += 1
+	apply_snapshot_keyframe.rpc(_snapshot_ids, _snapshot_positions)
+
+
+func _fill_snapshot_buffers() -> void:
 	var count: int = _avatars.size()
 	if _snapshot_ids.size() != count:
 		_snapshot_ids.resize(count)
@@ -294,7 +354,6 @@ func _broadcast_snapshot() -> void:
 		_snapshot_ids[index] = String(player_id)
 		_snapshot_positions[index] = (_avatars[player_id] as Player).global_position
 		index += 1
-	apply_snapshot.rpc(_snapshot_ids, _snapshot_positions)
 
 
 func _tick_pending_despawns(delta: float) -> void:
