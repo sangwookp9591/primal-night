@@ -20,6 +20,12 @@ var _equipment: EquipmentComponent = null
 
 func _ready() -> void:
 	_equipment = get_node_or_null(equipment_path) as EquipmentComponent
+	# All layers use the same 48x64 atlas coordinate system. BaseBody applies
+	# this offset in PlayerSpriteAnimator._ready(); mirror it here or overlays
+	# render exactly half a cell (32 px) below the character.
+	for layer: AnimatedSprite2D in [outfit, back, main_hand, state_overlay]:
+		layer.centered = base_body.centered
+		layer.offset = base_body.offset
 	base_body.frame_changed.connect(_sync_layers)
 	base_body.animation_changed.connect(_sync_layers)
 	if _equipment != null:

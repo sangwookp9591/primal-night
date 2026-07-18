@@ -37,12 +37,13 @@ func test_failed_swap_rolls_back_inventory_and_equipment_without_loss_or_duplica
 	var equipment: EquipmentComponent = pair.equipment
 	inventory.add_item(&"white_underwear", 1)
 	assert_true(equipment.request_equip(&"white_underwear"))
-	inventory.add_item(&"torch", 1)
+	inventory.add_item(&"wood", 1)
 	var before_inventory: Array[Dictionary] = inventory.get_transaction_snapshot()
 	var before_equipment: Dictionary = equipment.get_snapshot()
 
-	# torch 는 WearableData 가 아니므로 검증 단계에서 상태를 전혀 건드리지 않아야 한다.
-	assert_false(equipment.request_equip(&"torch"))
+	# wood 는 WearableData 가 아니므로 검증 단계에서 상태를 전혀 건드리지 않아야 한다.
+	# (torch 는 main_hand 착용 장비로 승격되어 더 이상 비착용 픽스처가 아니다.)
+	assert_false(equipment.request_equip(&"wood"))
 
 	assert_eq(inventory.get_transaction_snapshot(), before_inventory)
 	assert_eq(equipment.get_snapshot(), before_equipment)

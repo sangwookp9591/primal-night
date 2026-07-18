@@ -32,6 +32,38 @@ func test_equipment_sheets_register_48_atlas_frames_per_visual() -> void:
 		assert_eq(frame_total, 48, visual_id)
 
 
+func test_equipment_overlay_centroids_stay_in_anatomical_bands() -> void:
+	var outfit_ids: Array[StringName] = [
+		&"white_underwear", &"work_clothes", &"leather_armor",
+	]
+	var hand_ids: Array[StringName] = [&"stone_knife", &"stone_spear", &"bow", &"torch"]
+	for visual_id: StringName in outfit_ids + hand_ids:
+		var texture := load(String(PlayerVisualProfile.VISUALS[visual_id].sheet)) as Texture2D
+		var image := texture.get_image()
+		assert_false(image.is_empty(), visual_id)
+		for row: int in range(6):
+			for direction: int in range(8):
+				var centroid := _alpha_centroid(image, direction, row)
+				assert_between(centroid.x, 5.0, 43.0, "%s d%d f%d x" % [
+					visual_id, direction, row])
+				if visual_id in outfit_ids:
+					assert_between(centroid.y, 18.0, 42.0, "%s d%d f%d torso y" % [
+						visual_id, direction, row])
+				else:
+					assert_between(centroid.y, 18.0, 46.0, "%s d%d f%d hand y" % [
+						visual_id, direction, row])
+
+
+func test_visual_layers_share_base_body_anchor() -> void:
+	var player := PLAYER_SCENE.instantiate()
+	add_child_autofree(player)
+	var rig: PlayerVisualRig = player.get_node("VisualRig")
+	for layer_name: StringName in [&"outfit", &"back", &"main_hand", &"state_overlay"]:
+		var layer := rig.get_layer(layer_name)
+		assert_eq(layer.offset, rig.base_body.offset, layer_name)
+		assert_eq(layer.centered, rig.base_body.centered, layer_name)
+
+
 func test_placeholder_visuals_keep_generated_fallback_textures() -> void:
 	for visual_id: StringName in [&"placeholder_main_hand", &"placeholder_state_overlay"]:
 		assert_false(PlayerVisualProfile.has_registered_sheet(visual_id), visual_id)
@@ -101,3 +133,17 @@ func test_equipment_signal_toggles_outfit_layer() -> void:
 	assert_false(rig.outfit.visible)
 	equipment.equipment_changed.emit(&"outfit", &"white_underwear")
 	assert_true(rig.outfit.visible)
+
+
+func _alpha_centroid(image: Image, column: int, row: int) -> Vector2:
+	var weighted := Vector2.ZERO
+	var total_alpha := 0.0
+	for y: int in range(PlayerVisualProfile.CELL_SIZE.y):
+		for x: int in range(PlayerVisualProfile.CELL_SIZE.x):
+			var alpha := image.get_pixel(
+				column * PlayerVisualProfile.CELL_SIZE.x + x,
+				row * PlayerVisualProfile.CELL_SIZE.y + y).a
+			weighted += Vector2(x, y) * alpha
+			total_alpha += alpha
+	assert_gt(total_alpha, 0.0, "overlay cell must not be empty")
+	return weighted / total_alpha
