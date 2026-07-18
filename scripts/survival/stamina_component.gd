@@ -30,11 +30,13 @@ func try_spend(amount: float) -> bool:
 ## 피로하면 같은 달리기에 스태미나를 더 쓰고 회복도 느리다 (설계서 5.1: 피로는 달리기에 영향).
 ## 기본값 0 이라 피로를 넘기지 않는 호출부는 기존 동작 그대로다.
 func update(running: bool, moving: bool, delta: float, fatigue_ratio: float = 0.0,
-		water_wellness: float = 1.0) -> void:
+		water_wellness: float = 1.0, run_drain_modifier: float = 0.0) -> void:
 	var fatigue: float = clampf(fatigue_ratio, 0.0, 1.0)
 	var dehydration: float = 1.0 - clampf(water_wellness, 0.0, 1.0)
 	if running and can_run():
-		var drain: float = config.stamina_run_drain * (1.0 + fatigue * config.fatigue_run_drain_bonus)
+		var drain: float = config.stamina_run_drain * (1.0
+			+ fatigue * config.fatigue_run_drain_bonus
+			+ clampf(run_drain_modifier, 0.0, 2.0))
 		current_stamina = maxf(current_stamina - drain * delta, 0.0)
 		if current_stamina <= 0.0:
 			is_exhausted = true

@@ -21,6 +21,12 @@ const DEFAULT_CONFIG: SurvivalConfig = preload("res://data/survival/survival_con
 ## 네 수치 모두 0..100 이다. 피로만 방향이 반대다 — 높을수록 나쁘다.
 const STAT_MAX: float = 100.0
 const STATS: Array[StringName] = [&"temperature", &"water", &"food", &"fatigue"]
+const RAIN_WET_GAIN_PER_SECOND: float = 0.006
+const DRY_PER_SECOND: float = 0.0025
+const FIRE_DRY_PER_SECOND: float = 0.018
+const WET_TEMPERATURE_DRAIN_BONUS: float = 2.0
+const WET_FLAG: int = 1
+const CLOTHING_SMELL_BASE: float = 3.0
 
 const STAGE_GOOD: StringName = &"양호"
 const STAGE_WARN: StringName = &"주의"
@@ -32,6 +38,7 @@ var temperature: float = STAT_MAX
 var water: float = STAT_MAX
 var food: float = STAT_MAX
 var fatigue: float = 0.0
+var wetness: float = 0.0
 
 var _body: Node2D = null
 var _campfire_registry: Node = null
@@ -39,6 +46,7 @@ var _campfire_registry: Node = null
 ## (호스트는 남의 입력을 모르지만 남의 좌표는 안다).
 var _last_position: Vector2 = Vector2.ZERO
 var _rest_multiplier: float = 1.0
+var _smell_grid: SmellGrid = null
 
 
 func _ready() -> void:
@@ -47,6 +55,11 @@ func _ready() -> void:
 		_last_position = _body.global_position
 	if has_node("/root/CampfireRegistry"):
 		_campfire_registry = get_node("/root/CampfireRegistry")
+	if _body is Player:
+		var equipment := _body.get_node_or_null("EquipmentComponent") as EquipmentComponent
+		if equipment != null:
+			equipment.equipment_changed.connect(_on_equipment_changed)
+		_refresh_clothing_smell.call_deferred()
 
 
 func _physics_process(delta: float) -> void:
@@ -70,10 +83,17 @@ func simulate(delta: float) -> void:
 			player.health.heal(config.natural_health_regen_per_second
 				* natural_health_regen_multiplier() * delta)
 
+	_simulate_wetness(delta)
+	var outfit := _outfit()
+	var warmth := clampf(float(outfit.modifiers.get("warmth", 0.0)) if outfit != null else 0.0,
+		0.0, 0.8)
 	if _near_fire():
 		temperature = minf(temperature + config.temperature_regen_near_fire * delta, STAT_MAX)
 	else:
-		temperature = maxf(temperature - config.temperature_drain_per_second * delta, 0.0)
+		var drain_multiplier := (1.0 - warmth * 0.6) \
+			* (1.0 + wetness * WET_TEMPERATURE_DRAIN_BONUS)
+		temperature = maxf(temperature
+			- config.temperature_drain_per_second * drain_multiplier * delta, 0.0)
 
 	# 움직이면 지치고(많이 움직일수록 더), 제자리에서 쉬면 풀린다.
 	# 쉬는 것이 곧 회복이다 — 가만히 있는데도 지치면 플레이어에게 줄 선택지가 없다.
@@ -115,6 +135,10 @@ func fatigue_ratio() -> float:
 func water_wellness() -> float:
 	return water / STAT_MAX
 
+func wet_run_drain_penalty() -> float:
+	var outfit := _outfit()
+	return wetness * (outfit.wet_weight_penalty if outfit != null else 0.15)
+
 
 func natural_health_regen_multiplier() -> float:
 	var hunger: float = 1.0 - food / STAT_MAX
@@ -136,11 +160,13 @@ func set_rest_multiplier(value: float) -> void:
 
 ## 호스트 확정 수치를 복제본에 적용한다 (NetSurvival 스냅샷 경로).
 func apply_replicated(temperature_value: float, water_value: float,
-		food_value: float, fatigue_value: float) -> void:
+		food_value: float, fatigue_value: float, wetness_value: float = 0.0) -> void:
 	temperature = clampf(temperature_value, 0.0, STAT_MAX)
 	water = clampf(water_value, 0.0, STAT_MAX)
 	food = clampf(food_value, 0.0, STAT_MAX)
 	fatigue = clampf(fatigue_value, 0.0, STAT_MAX)
+	wetness = clampf(wetness_value, 0.0, 1.0)
+	_apply_wet_feedback()
 
 
 ## 평면 배열 직렬화의 순서는 이 두 함수만 안다 (STATS 순서). NetSurvival 스냅샷이
@@ -150,10 +176,12 @@ func fill_into(target: PackedFloat32Array, base: int) -> void:
 	target[base + 1] = water
 	target[base + 2] = food
 	target[base + 3] = fatigue
+	target[base + 4] = wetness
 
 
 func apply_from(source: PackedFloat32Array, base: int) -> void:
-	apply_replicated(source[base], source[base + 1], source[base + 2], source[base + 3])
+	apply_replicated(source[base], source[base + 1], source[base + 2], source[base + 3],
+		source[base + 4])
 
 
 func reset_motion_baseline() -> void:
@@ -166,3 +194,70 @@ func _near_fire() -> bool:
 		return false
 	return _campfire_registry != null \
 		and _campfire_registry.is_position_protected(_body.global_position)
+
+func _is_raining() -> bool:
+	var weather := get_tree().get_first_node_in_group(&"weather") as NetWeather
+	return weather != null and weather.raining
+
+func _rain_intensity() -> float:
+	var weather := get_tree().get_first_node_in_group(&"weather") as NetWeather
+	return weather.intensity if weather != null else 0.0
+
+func _outfit() -> WearableData:
+	if not _body is Player:
+		return null
+	var equipment := _body.get_node_or_null("EquipmentComponent") as EquipmentComponent
+	if equipment == null:
+		return null
+	var item_id := equipment.get_equipped(&"outfit")
+	if item_id == &"":
+		return null
+	return get_node("/root/GameData").get_item(item_id) as WearableData
+
+func _simulate_wetness(delta: float) -> void:
+	var outfit := _outfit()
+	if _is_raining():
+		var wet_rate := RAIN_WET_GAIN_PER_SECOND * _rain_intensity() \
+			* maxf(0.1, 1.0 + (outfit.wetness_modifier if outfit != null else 0.0))
+		wetness = minf(wetness + wet_rate * delta, 1.0)
+	else:
+		var drying := outfit.drying_speed if outfit != null else 1.0
+		var rate := FIRE_DRY_PER_SECOND if _near_fire() else DRY_PER_SECOND * drying
+		wetness = maxf(wetness - rate * delta, 0.0)
+	_apply_wet_feedback()
+
+func _apply_wet_feedback() -> void:
+	if not _body is Player:
+		return
+	var player := _body as Player
+	if wetness >= 0.05:
+		player.equipment.condition_flags |= WET_FLAG
+	else:
+		player.equipment.condition_flags &= ~WET_FLAG
+	if player.visual_rig != null:
+		player.visual_rig.apply_visual(&"state_overlay",
+			&"placeholder_state_overlay" if wetness >= 0.05 else &"")
+		if player.visual_rig.state_overlay != null:
+			player.visual_rig.state_overlay.modulate.a = clampf(wetness, 0.2, 0.8)
+	_refresh_clothing_smell()
+
+func _on_equipment_changed(_slot: StringName, _item_id: StringName) -> void:
+	_refresh_clothing_smell()
+
+func _refresh_clothing_smell() -> void:
+	if not _body is Player or not is_inside_tree():
+		return
+	if _smell_grid == null:
+		_smell_grid = SmellGrid.find_in(get_tree())
+	if _smell_grid == null:
+		return
+	_smell_grid.unregister_smell_source(self)
+	var player := _body as Player
+	var outfit := _outfit()
+	if outfit != null and outfit.smell_modifier > 0.0:
+		_smell_grid.register_smell_source(self, Callable(self, "_smell_position"),
+			CLOTHING_SMELL_BASE * outfit.smell_modifier * (1.0 + wetness),
+			0.75, &"clothing")
+
+func _smell_position() -> Vector2:
+	return _body.global_position if _body != null else Vector2.ZERO

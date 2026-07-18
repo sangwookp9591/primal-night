@@ -11,6 +11,14 @@ const VISUALS: Dictionary = {
 		layer = &"outfit",
 		color = Color(0.88, 0.91, 0.94, 0.72),
 	},
+	&"work_clothes": {
+		layer = &"outfit",
+		color = Color(0.28, 0.38, 0.22, 0.88),
+	},
+	&"leather_armor": {
+		layer = &"outfit",
+		color = Color(0.30, 0.17, 0.09, 0.94),
+	},
 	&"placeholder_back": {
 		layer = &"back",
 		color = Color(0.27, 0.18, 0.10, 0.9),

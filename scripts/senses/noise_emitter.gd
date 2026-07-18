@@ -8,7 +8,8 @@ var _last_by_profile: Dictionary = {}
 
 ## now_seconds 를 생략하면 엔진 시계를 쓴다. 테스트만 결정성을 위해 주입한다.
 func emit_profile(event_bus: Node, profile: NoiseProfile, position: Vector2, source: Node,
-		now_seconds: float = -1.0, authority_only: bool = true) -> bool:
+		now_seconds: float = -1.0, authority_only: bool = true,
+		radius_multiplier: float = 1.0) -> bool:
 	if event_bus == null or profile == null or profile.radius <= 0.0 or not position.is_finite():
 		return false
 	if authority_only:
@@ -30,7 +31,7 @@ func emit_profile(event_bus: Node, profile: NoiseProfile, position: Vector2, sou
 	var perf: Node = _perf_monitor()
 	if perf != null:
 		perf.begin_sample(&"noise")
-	event_bus.noise_emitted.emit(position, profile.radius, source)
+	event_bus.noise_emitted.emit(position, profile.radius * maxf(radius_multiplier, 0.0), source)
 	if perf != null:
 		perf.end_sample(&"noise")
 	return true

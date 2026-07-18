@@ -110,7 +110,8 @@ func _physics_process(delta: float) -> void:
 	if bow_aiming:
 		speed *= NetCombat.BOW_AIM_MOVE_MULTIPLIER
 
-	stamina.update(running, moving, delta, stats.fatigue_ratio(), stats.water_wellness())
+	stamina.update(running, moving, delta, stats.fatigue_ratio(), stats.water_wellness(),
+		stats.wet_run_drain_penalty())
 
 	velocity = input_vector * speed
 	move_and_slide()
@@ -122,12 +123,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var profile: NoiseProfile = get_noise_profile_for_stance(stance)
-	_noise_radius = profile.radius
+	_noise_radius = profile.radius * clothing_noise_multiplier()
 	_noise_emit_elapsed += delta
 	if _noise_emit_elapsed >= config.noise_emit_interval:
 		_noise_emit_elapsed = 0.0
 		if _event_bus != null:
-			_noise_emitter.emit_profile(_event_bus, profile, global_position, self)
+			_noise_emitter.emit_profile(_event_bus, profile, global_position, self, -1.0, true,
+				clothing_noise_multiplier())
 
 
 func _refresh_visual_animation() -> void:
@@ -136,6 +138,25 @@ func _refresh_visual_animation() -> void:
 
 func get_noise_radius() -> float:
 	return _noise_radius
+
+func equipped_outfit() -> WearableData:
+	if equipment == null:
+		return null
+	var item_id := equipment.get_equipped(&"outfit")
+	if item_id == &"":
+		return null
+	return get_node("/root/GameData").get_item(item_id) as WearableData
+
+func clothing_noise_multiplier() -> float:
+	var outfit := equipped_outfit()
+	if outfit == null:
+		return 1.0
+	# 젖은 옷은 급한 움직임에서 더 크게 철벅인다.
+	return maxf(0.1, 1.0 + outfit.noise_modifier + stats.wetness * 0.22)
+
+func clothing_smell_multiplier() -> float:
+	var outfit := equipped_outfit()
+	return maxf(0.0, 1.0 + (outfit.smell_modifier if outfit != null else 0.0))
 
 ## 자세별 소음 프로필. 로컬(자기 입력 기준)과 원격(호스트 검증 자세 기준,
 ## SmellGrid._emit_remote_player_noise) 이 이 표를 공유해 판정이 갈라지지 않는다.

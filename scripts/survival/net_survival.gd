@@ -16,7 +16,7 @@ const SNAPSHOT_ENTRY_BYTES: int = 64
 const HURT_PAYLOAD_BYTES: int = 8
 const CONSUME_ITEM_ID_MAX_LENGTH: int = 48
 ## 스냅샷 한 명분 생존 수치 개수: [체온, 수분, 포만, 피로] (설계서 5.1).
-const STATS_PER_ENTRY: int = 4
+const STATS_PER_ENTRY: int = 5
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"

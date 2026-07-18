@@ -1,4 +1,4 @@
-[gd_scene load_steps=32 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=33 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -31,6 +31,7 @@
 [ext_resource type="Script" path="res://scripts/props/net_base_camp.gd" id="29_netbasecamp"]
 [ext_resource type="Script" path="res://scripts/save/save_service.gd" id="30_save"]
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="31_pause"]
+[ext_resource type="Script" path="res://scripts/weather/net_weather.gd" id="32_weather"]
 
 [node name="Main" type="Node2D"]
 
@@ -156,6 +157,9 @@ daylight_duration_seconds = 420.0
 dusk_duration_seconds = 60.0
 night_duration_seconds = 120.0
 total_days = 3
+
+[node name="NetWeather" type="CanvasLayer" parent="."]
+script = ExtResource("32_weather")
 
 ; 루프 판정: 위험 노출(출혈) → 랩터 회피 → 이 지점 도달 = 성공 / 시간 만료 = 실패.
 ; 지점은 스폰(-384,200)의 반대편 남동쪽 평지다 — 랩터 스폰(-800,800)을 지나칠 필요는

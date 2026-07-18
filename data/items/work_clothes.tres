@@ -4,14 +4,15 @@
 
 [resource]
 script = ExtResource("1")
-id = &"white_underwear"
-display_name = "흰 나시 + 흰 반바지"
-weight = 0.4
+id = &"work_clothes"
+display_name = "튼튼한 작업복"
+weight = 1.6
 equip_slot = &"outfit"
-visual_id = &"white_underwear"
+visual_id = &"work_clothes"
 modifiers = {
-"warmth": 0.05
+"brush_protection": 0.45,
+"warmth": 0.35
 }
-wetness_modifier = 0.25
-drying_speed = 1.8
-wet_weight_penalty = 0.08
+wetness_modifier = 0.0
+drying_speed = 0.75
+wet_weight_penalty = 0.48

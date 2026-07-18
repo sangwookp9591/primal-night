@@ -88,6 +88,7 @@ func collect_snapshot() -> Dictionary:
 			"time": clock.time_of_day_seconds,
 			"running": clock.running,
 		},
+		"weather": _weather_snapshot(),
 		"objective": {
 			"outcome": int(objective.outcome),
 			"risk_exposed": objective.risk_exposed,
@@ -119,6 +120,9 @@ func apply_snapshot(snapshot: Dictionary, death_recovery: bool = false) -> bool:
 	var clock := _root.get_node("SessionClock") as SessionClock
 	clock.apply_replicated(int(snapshot.clock.day), float(snapshot.clock.time),
 		bool(snapshot.clock.running))
+	var weather := _root.get_node_or_null("NetWeather") as NetWeather
+	if weather != null and snapshot.has("weather") and snapshot.weather is Dictionary:
+		weather.apply_snapshot(snapshot.weather)
 	var objective := _root.get_node("LoopObjective") as LoopObjective
 	var state: Dictionary = snapshot.objective
 	objective.outcome = int(state.outcome) as LoopObjective.Outcome
@@ -188,6 +192,7 @@ func _player_snapshot(player: Player) -> Dictionary:
 		"stats": {
 			"temperature": player.stats.temperature, "water": player.stats.water,
 			"food": player.stats.food, "fatigue": player.stats.fatigue,
+			"wetness": player.stats.wetness,
 		},
 		"health": {
 			"current": player.health.current_health,
@@ -205,7 +210,7 @@ func _apply_player(player: Player, state: Dictionary) -> bool:
 	player.global_position = _unvec(state.get("position", [0.0, 0.0]))
 	var stats: Dictionary = state.stats
 	player.stats.apply_replicated(float(stats.temperature), float(stats.water),
-		float(stats.food), float(stats.fatigue))
+		float(stats.food), float(stats.fatigue), float(stats.get("wetness", 0.0)))
 	var health: Dictionary = state.health
 	player.health.apply_replicated(float(health.current), bool(health.bleeding))
 	var slots: Array[Dictionary] = []
@@ -216,6 +221,10 @@ func _apply_player(player: Player, state: Dictionary) -> bool:
 	if not player.inventory.restore_transaction_snapshot(slots):
 		return false
 	return player.equipment.apply_snapshot(state.equipment)
+
+func _weather_snapshot() -> Dictionary:
+	var weather := _root.get_node_or_null("NetWeather") as NetWeather
+	return weather.snapshot() if weather != null else {}
 
 func _world_item_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

@@ -266,7 +266,8 @@ func _emit_remote_player_noise() -> void:
 		if previous is Vector2 and (previous as Vector2).distance_to(player.global_position) >= REMOTE_PLAYER_NOISE_MIN_DISTANCE:
 			var profile: NoiseProfile = player.get_noise_profile_for_stance(
 				player.last_validated_stance)
-			_event_bus.noise_emitted.emit(player.global_position, profile.radius, player)
+			_event_bus.noise_emitted.emit(player.global_position,
+				profile.radius * player.clothing_noise_multiplier(), player)
 	for id: int in _remote_player_positions.keys():
 		if not live_ids.has(id):
 			_remote_player_positions.erase(id)
