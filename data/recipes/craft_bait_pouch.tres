@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/bait_pouch.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_bait_pouch"
+duration = 1.5
+
+[resource]
+script = ExtResource("1")
+id = &"craft_bait_pouch"
+ingredients = {&"hide": 1, &"raw_meat": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "생고기를 가죽에 싸면 멀리 던져도 냄새가 오래 남는다."
+observation_success = "먹을 고기를 흔적으로 바꾸었다."

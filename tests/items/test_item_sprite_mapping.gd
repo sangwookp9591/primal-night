@@ -23,11 +23,13 @@ const EXPECTED_INDICES := {
 	&"mushroom": 15,
 	&"toxic_mushroom": 16,
 	&"cooked_meat": 17,
+	&"bone_flute": 18,
+	&"bait_pouch": 19,
 }
 
 
-func test_all_eighteen_item_ids_map_to_the_documented_atlas_cells() -> void:
-	assert_eq(WorldItem.ITEM_ATLAS_INDICES.size(), 18)
+func test_all_twenty_item_ids_map_to_the_documented_atlas_cells() -> void:
+	assert_eq(WorldItem.ITEM_ATLAS_INDICES.size(), 20)
 	for id: StringName in EXPECTED_INDICES:
 		var index: int = EXPECTED_INDICES[id]
 		assert_eq(WorldItem.atlas_index_for(id), index, String(id))
@@ -36,6 +38,7 @@ func test_all_eighteen_item_ids_map_to_the_documented_atlas_cells() -> void:
 		assert_eq(texture.region, Rect2(index * 64.0, 0.0, 64.0, 128.0), String(id))
 	assert_eq(WorldItem.atlas_index_for(&"unknown"), -1)
 	assert_null(WorldItem.icon_texture(&"unknown"))
+	assert_eq((WorldItem.ITEM_SHEET as Texture2D).get_width(), 1280)
 
 
 func test_world_item_scene_uses_atlas_sprite_and_hides_placeholder() -> void:

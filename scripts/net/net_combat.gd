@@ -7,6 +7,8 @@ extends Node
 const ATTACK_NOISE: NoiseProfile = preload("res://data/senses/noise_melee_attack.tres")
 const BOW_SHOT_NOISE: NoiseProfile = preload("res://data/senses/noise_bow_shot.tres")
 const ARROW_IMPACT_NOISE: NoiseProfile = preload("res://data/senses/noise_arrow_impact.tres")
+const THROW_IMPACT_NOISE: NoiseProfile = preload("res://data/senses/noise_throw.tres")
+const FLUTE_NOISE: NoiseProfile = preload("res://data/senses/noise_lure.tres")
 const ArrowProjectileScript = preload("res://scripts/combat/arrow_projectile.gd")
 const WorldItemScene: PackedScene = preload("res://scenes/items/world_item.tscn")
 const REQUEST_MAX_PER_SECOND := 8
@@ -27,6 +29,10 @@ const BOW_HIT_RADIUS := 24.0
 const BOW_RELOAD_SECONDS := 1.0
 const BOW_AIM_MOVE_MULTIPLIER := 0.45
 const ARROW_RECOVERY_RATE := 1.0
+const THROW_RANGE := 360.0
+const THROW_SPEED := 600.0
+const FLUTE_COOLDOWN_SECONDS := 3.0
+const THROWABLE_PRIORITY: Array[StringName] = [&"bait_pouch", &"stone"]
 
 @export var session_path: NodePath = ^"../NetSession"
 @export var host_player_path: NodePath = ^"../Player"
@@ -38,11 +44,14 @@ var _container: Node2D
 var _guard: RpcGuard
 var _now_seconds := 0.0
 var _next_attack_at: Dictionary = {}
+var _next_flute_at: Dictionary = {}
 var _noise_emitter := NoiseEmitter.new()
 var _event_bus: Node
 var _rejection_count := 0
 var _aiming: Dictionary = {}
 var _projectiles: Dictionary = {}
+var _throw_aiming: Dictionary = {}
+var _throws: Dictionary = {}
 var _next_projectile_id := 1
 
 func _ready() -> void:
@@ -59,6 +68,12 @@ func _ready() -> void:
 	_guard.register_rule(&"apply_bow_aim_feedback", true, RESULT_MAX_PER_SECOND, 96)
 	_guard.register_rule(&"spawn_arrow_result", true, RESULT_MAX_PER_SECOND, 128)
 	_guard.register_rule(&"finish_arrow_result", true, RESULT_MAX_PER_SECOND, 128)
+	_guard.register_rule(&"submit_throw_aim_intent", false, REQUEST_MAX_PER_SECOND, 96)
+	_guard.register_rule(&"submit_throw_fire_intent", false, REQUEST_MAX_PER_SECOND, 96)
+	_guard.register_rule(&"apply_throw_aim_feedback", true, RESULT_MAX_PER_SECOND, 96)
+	_guard.register_rule(&"spawn_throw_result", true, RESULT_MAX_PER_SECOND, 160)
+	_guard.register_rule(&"finish_throw_result", true, RESULT_MAX_PER_SECOND, 160)
+	_guard.register_rule(&"submit_flute_intent", false, REQUEST_MAX_PER_SECOND, 64)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_guard.watch_session(_session)
 
@@ -69,6 +84,137 @@ func _physics_process(delta: float) -> void:
 	else:
 		for state: Dictionary in _projectiles.values():
 			(state.node as ArrowProjectile).advance(BOW_SPEED * delta)
+	_tick_throws(delta)
+
+
+func request_throw_aim(avatar: Player, active: bool, direction: Vector2) -> bool:
+	if avatar == null or avatar.controller_peer_id != multiplayer.get_unique_id():
+		return _reject("로컬 소유가 아닌 아바타")
+	var player_id := _player_id_of(avatar)
+	if multiplayer.is_server():
+		return _confirm_throw_aim(player_id, active, direction)
+	submit_throw_aim_intent.rpc_id(RpcGuard.HOST_PEER_ID, String(player_id), active, direction)
+	return true
+
+
+func request_throw_fire(avatar: Player, direction: Vector2) -> bool:
+	if avatar == null or avatar.controller_peer_id != multiplayer.get_unique_id():
+		return _reject("로컬 소유가 아닌 아바타")
+	var player_id := _player_id_of(avatar)
+	if multiplayer.is_server():
+		return _confirm_throw_fire(player_id, direction)
+	submit_throw_fire_intent.rpc_id(RpcGuard.HOST_PEER_ID, String(player_id), direction)
+	return true
+
+
+func request_bone_flute(avatar: Player) -> bool:
+	if avatar == null or avatar.controller_peer_id != multiplayer.get_unique_id():
+		return _reject("로컬 소유가 아닌 아바타")
+	var player_id := _player_id_of(avatar)
+	if multiplayer.is_server():
+		return _confirm_bone_flute(player_id)
+	submit_flute_intent.rpc_id(RpcGuard.HOST_PEER_ID, String(player_id))
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_throw_aim_intent(claimed_player_id: String, active: bool, direction: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"submit_throw_aim_intent", sender,
+			claimed_player_id.length() + 17, _now_seconds):
+		return
+	var actual := _session.get_player_id_for_peer(sender)
+	if claimed_player_id.length() > PLAYER_ID_MAX_LENGTH or String(actual) != claimed_player_id:
+		_reject("타인 아바타 투척 조준 변조")
+		return
+	_confirm_throw_aim(actual, active, direction)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_throw_fire_intent(claimed_player_id: String, direction: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"submit_throw_fire_intent", sender,
+			claimed_player_id.length() + 16, _now_seconds):
+		return
+	var actual := _session.get_player_id_for_peer(sender)
+	if claimed_player_id.length() > PLAYER_ID_MAX_LENGTH or String(actual) != claimed_player_id:
+		_reject("타인 아바타 투척 변조")
+		return
+	_confirm_throw_fire(actual, direction)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_flute_intent(claimed_player_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not _guard.check(&"submit_flute_intent", sender, claimed_player_id.length(),
+			_now_seconds):
+		return
+	var actual := _session.get_player_id_for_peer(sender)
+	if claimed_player_id.length() > PLAYER_ID_MAX_LENGTH or String(actual) != claimed_player_id:
+		_reject("타인 아바타 피리 사용 변조")
+		return
+	_confirm_bone_flute(actual)
+
+
+func _confirm_throw_aim(player_id: StringName, active: bool, direction: Vector2) -> bool:
+	var avatar := _avatar_of(player_id)
+	if avatar == null or not direction.is_finite() or direction.is_zero_approx():
+		return _reject("잘못된 투척 조준")
+	var item_id := _first_throwable(avatar)
+	if active and item_id == &"":
+		return _reject("던질 유인물 없음")
+	_throw_aiming[player_id] = item_id if active else &""
+	var facing := snap_direction_8(direction)
+	avatar.set_throw_aim_feedback(active, facing)
+	if not multiplayer.get_peers().is_empty():
+		apply_throw_aim_feedback.rpc(String(player_id), active, facing)
+	return true
+
+
+func _confirm_throw_fire(player_id: StringName, direction: Vector2) -> bool:
+	var avatar := _avatar_of(player_id)
+	var item_id := StringName(_throw_aiming.get(player_id, &""))
+	if avatar == null or item_id == &"":
+		return _reject("조준 없이 투척")
+	if not direction.is_finite() or direction.is_zero_approx():
+		return _reject("잘못된 투척 방향")
+	if not avatar.inventory.remove_item(item_id, 1):
+		_confirm_throw_aim(player_id, false, direction)
+		return _reject("투척물 없음")
+	_confirm_throw_aim(player_id, false, direction)
+	var facing := snap_direction_8(direction)
+	var projectile_id := _next_projectile_id
+	_next_projectile_id += 1
+	_spawn_throw(projectile_id, player_id, item_id, avatar.global_position, facing)
+	if not multiplayer.get_peers().is_empty():
+		spawn_throw_result.rpc(projectile_id, String(player_id), String(item_id),
+			avatar.global_position, facing)
+	return true
+
+
+func _confirm_bone_flute(player_id: StringName) -> bool:
+	var avatar := _avatar_of(player_id)
+	if avatar == null or not avatar.inventory.has_item(&"bone_flute", 1):
+		return _reject("뼈 피리 없음")
+	if _now_seconds < float(_next_flute_at.get(player_id, 0.0)):
+		return _reject("피리 숨 고르는 중")
+	_next_flute_at[player_id] = _now_seconds + FLUTE_COOLDOWN_SECONDS
+	_noise_emitter.emit_profile(_event_bus, FLUTE_NOISE, avatar.global_position, avatar,
+		_now_seconds)
+	return true
+
+
+func _first_throwable(avatar: Player) -> StringName:
+	for item_id: StringName in THROWABLE_PRIORITY:
+		if avatar.inventory.has_item(item_id, 1):
+			return item_id
+	return &""
 
 func request_bow_aim(avatar: Player, active: bool, direction: Vector2) -> bool:
 	if avatar == null or avatar.controller_peer_id != multiplayer.get_unique_id():
@@ -169,6 +315,60 @@ func _spawn_projectile(projectile_id: int, player_id: StringName, origin: Vector
 		traveled = 0.0,
 	}
 
+
+func _spawn_throw(projectile_id: int, player_id: StringName, item_id: StringName,
+		origin: Vector2, direction: Vector2) -> void:
+	var projectile := Node2D.new()
+	projectile.name = "Thrown%s%d" % [String(item_id).to_pascal_case(), projectile_id]
+	get_parent().add_child(projectile)
+	projectile.global_position = origin
+	_throws[projectile_id] = {
+		node = projectile,
+		player_id = player_id,
+		item_id = item_id,
+		direction = direction.normalized(),
+		traveled = 0.0,
+	}
+
+
+func _tick_throws(delta: float) -> void:
+	var distance := THROW_SPEED * delta
+	for projectile_id: int in _throws.keys():
+		var state: Dictionary = _throws[projectile_id]
+		var projectile := state.node as Node2D
+		var remaining: float = THROW_RANGE - float(state.traveled)
+		var step := minf(distance, remaining)
+		projectile.global_position += (state.direction as Vector2) * step
+		state.traveled = float(state.traveled) + step
+		if float(state.traveled) >= THROW_RANGE and multiplayer.is_server():
+			_finish_throw(projectile_id, projectile.global_position)
+
+
+func _finish_throw(projectile_id: int, endpoint: Vector2) -> void:
+	var state: Dictionary = _throws.get(projectile_id, {})
+	if state.is_empty():
+		return
+	var projectile := state.node as Node2D
+	var item_id := StringName(state.item_id)
+	_throws.erase(projectile_id)
+	projectile.queue_free()
+	_noise_emitter.emit_profile(_event_bus, THROW_IMPACT_NOISE, endpoint, projectile,
+		_now_seconds)
+	if item_id == &"bait_pouch":
+		_spawn_landed_bait_pouch(projectile_id, endpoint)
+	if multiplayer.is_server() and not multiplayer.get_peers().is_empty():
+		finish_throw_result.rpc(projectile_id, String(item_id), endpoint)
+
+
+func _spawn_landed_bait_pouch(projectile_id: int, endpoint: Vector2) -> WorldItem:
+	var item := WorldItemScene.instantiate() as WorldItem
+	item.name = "LandedBaitPouch%d" % projectile_id
+	item.item_id = &"bait_pouch"
+	item.count = 1
+	get_parent().add_child(item)
+	item.global_position = endpoint
+	return item
+
 func _tick_projectiles(delta: float) -> void:
 	var distance := BOW_SPEED * delta
 	for projectile_id: int in _projectiles.keys():
@@ -255,6 +455,45 @@ func finish_arrow_result(projectile_id: int, endpoint: Vector2, recoverable: boo
 		_projectiles.erase(projectile_id)
 	if recoverable:
 		_spawn_recovered_arrow(projectile_id, endpoint)
+
+
+@rpc("authority", "call_remote", "reliable")
+func apply_throw_aim_feedback(player_id: String, active: bool, direction: Vector2) -> void:
+	if not _guard.check(&"apply_throw_aim_feedback", multiplayer.get_remote_sender_id(),
+			player_id.length() + 17, _now_seconds):
+		return
+	var avatar := _avatar_of(StringName(player_id))
+	if avatar != null:
+		avatar.set_throw_aim_feedback(active, direction)
+
+
+@rpc("authority", "call_remote", "reliable")
+func spawn_throw_result(projectile_id: int, player_id: String, item_id: String,
+		origin: Vector2, direction: Vector2) -> void:
+	if not _guard.check(&"spawn_throw_result", multiplayer.get_remote_sender_id(),
+			player_id.length() + item_id.length() + 40, _now_seconds) \
+			or projectile_id <= 0 or StringName(item_id) not in THROWABLE_PRIORITY:
+		return
+	var avatar := _avatar_of(StringName(player_id))
+	if avatar != null:
+		avatar.inventory.remove_item(StringName(item_id), 1)
+		avatar.set_throw_aim_feedback(false, direction)
+	_spawn_throw(projectile_id, StringName(player_id), StringName(item_id), origin, direction)
+
+
+@rpc("authority", "call_remote", "reliable")
+func finish_throw_result(projectile_id: int, item_id: String, endpoint: Vector2) -> void:
+	if not _guard.check(&"finish_throw_result", multiplayer.get_remote_sender_id(),
+			item_id.length() + 32, _now_seconds) or projectile_id <= 0 \
+			or StringName(item_id) not in THROWABLE_PRIORITY or not endpoint.is_finite():
+		return
+	var state: Dictionary = _throws.get(projectile_id, {})
+	if not state.is_empty():
+		(state.node as Node2D).queue_free()
+		_throws.erase(projectile_id)
+	if StringName(item_id) == &"bait_pouch":
+		_spawn_landed_bait_pouch(projectile_id, endpoint)
+
 
 func request_attack(avatar: Player, direction: Vector2) -> bool:
 	if avatar == null or avatar.controller_peer_id != multiplayer.get_unique_id():

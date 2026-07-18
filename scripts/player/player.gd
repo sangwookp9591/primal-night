@@ -1,12 +1,16 @@
 class_name Player
 extends CharacterBody2D
 
+signal listening_hint(direction: Vector2)
+
 const DEFAULT_CONFIG: PlayerConfig = preload("res://resources/player/player_config.tres")
 const QUICK_CRAFT_PRIORITY: Array[StringName] = [
 	&"craft_stone_knife",
 	&"craft_torch",
 	&"craft_bone_scraper",
 	&"craft_noise_lure",
+	&"craft_bone_flute",
+	&"craft_bait_pouch",
 	&"craft_bait",
 	&"craft_storage_cache",
 	&"craft_drying_rack",
@@ -42,6 +46,7 @@ var actions: ActionController = ActionController.new()
 ## 치료 중에는 양쪽 모두 이동이 제한된다 (설계서 5.2).
 var movement_locked: bool = false
 var bow_aiming: bool = false
+var throw_aiming: bool = false
 
 ## StealthZone(수풀)이 겹침으로 직접 설정한다 (설계서 5.6). Player 는 트리를 뒤지지 않는다.
 var in_bush: bool = false
@@ -64,6 +69,11 @@ var _noise_radius: float = 0.0
 var _noise_emit_elapsed: float = 0.0
 var _event_bus: Node = null
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
+var _listen_elapsed: float = 0.0
+var _listening: bool = false
+var _last_external_noise_direction: Vector2 = Vector2.ZERO
+const LISTEN_HOLD_SECONDS: float = 0.65
+const BUSH_HIDDEN_SPEED_MULTIPLIER: float = 0.16
 
 func _ready() -> void:
 	add_to_group("player")
@@ -79,6 +89,7 @@ func _ready() -> void:
 	add_child(actions)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
+		_event_bus.noise_emitted.connect(_on_external_noise)
 	var blood_trail := BloodTrailScript.new() as BloodTrail
 	blood_trail.name = "BloodTrail"
 	blood_trail.player = self
@@ -87,19 +98,29 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if controller_peer_id != multiplayer.get_unique_id():
 		return
+	_update_listening(delta)
 	if Input.is_action_just_pressed("quick_craft"):
 		var recipe_id: StringName = select_quick_craft_recipe()
 		if recipe_id != &"":
 			_request_quick_craft(recipe_id)
 	if Input.is_action_just_pressed("place_lure"):
-		_request_place_lure()
+		if inventory.has_item(&"bone_flute", 1):
+			_request_bone_flute()
+		else:
+			_request_place_lure()
 	if Input.is_action_just_pressed("attack"):
 		if equipment.get_equipped(&"main_hand") == &"bow":
 			_request_bow_aim(true)
+		elif equipment.get_equipped(&"main_hand") != &"":
+			_request_attack()
+		elif inventory.has_item(&"bait_pouch", 1) or inventory.has_item(&"stone", 1):
+			_request_throw_aim(true)
 		else:
 			_request_attack()
 	if Input.is_action_just_released("attack") and bow_aiming:
 		_request_bow_fire()
+	elif Input.is_action_just_released("attack") and throw_aiming:
+		_request_throw_fire()
 	var input_vector: Vector2 = Vector2.ZERO if movement_locked else _get_input_vector()
 	var moving: bool = not input_vector.is_zero_approx()
 	var crouching: bool = Input.is_action_pressed("crouch")
@@ -108,7 +129,9 @@ func _physics_process(delta: float) -> void:
 	stance = Stance.CROUCH if crouching else (Stance.RUN if running else Stance.WALK)
 	var speed: float = (config.crouch_speed if crouching else \
 		(config.run_speed if running else config.walk_speed)) * injury.movement_multiplier()
-	if bow_aiming:
+	if crouching and in_bush:
+		speed *= BUSH_HIDDEN_SPEED_MULTIPLIER
+	if bow_aiming or throw_aiming:
 		speed *= NetCombat.BOW_AIM_MOVE_MULTIPLIER
 
 	stamina.update(running, moving, delta, stats.fatigue_ratio(), stats.water_wellness(),
@@ -131,6 +154,34 @@ func _physics_process(delta: float) -> void:
 		if _event_bus != null:
 			_noise_emitter.emit_profile(_event_bus, profile, global_position, self, -1.0, true,
 				clothing_noise_multiplier())
+
+
+func is_hidden_in_bush() -> bool:
+	return in_bush and stance == Stance.CROUCH
+
+
+func _on_external_noise(position: Vector2, _radius: float, source: Node) -> void:
+	if source == self:
+		return
+	var offset := position - global_position
+	if not offset.is_zero_approx():
+		_last_external_noise_direction = offset.normalized()
+
+
+func _update_listening(delta: float) -> void:
+	var pressed := Input.is_action_pressed("cycle_target")
+	if pressed and velocity.is_zero_approx() and not movement_locked:
+		_listen_elapsed += delta
+		if _listen_elapsed >= LISTEN_HOLD_SECONDS:
+			_listening = true
+			movement_locked = true
+			if not _last_external_noise_direction.is_zero_approx():
+				listening_hint.emit(_last_external_noise_direction)
+	elif not pressed:
+		if _listening:
+			movement_locked = false
+		_listening = false
+		_listen_elapsed = 0.0
 
 
 func _refresh_visual_animation() -> void:
@@ -222,8 +273,38 @@ func _request_bow_fire() -> void:
 			node.request_bow_fire(self, facing_direction())
 			return
 
+func _request_throw_aim(active: bool) -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_throw_aim"):
+			node.request_throw_aim(self, active, facing_direction())
+			return
+
+
+func _request_throw_fire() -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_throw_fire"):
+			node.request_throw_fire(self, facing_direction())
+			return
+
+
+func _request_bone_flute() -> void:
+	for node in get_tree().get_nodes_in_group(&"net_combat"):
+		if node.has_method("request_bone_flute"):
+			node.request_bone_flute(self)
+			return
+
+
+func set_throw_aim_feedback(active: bool, direction: Vector2) -> void:
+	throw_aiming = active
+	_set_aim_line(active, direction, Color(0.72, 0.78, 0.64, 0.72))
+
+
 func set_bow_aim_feedback(active: bool, direction: Vector2) -> void:
 	bow_aiming = active
+	_set_aim_line(active, direction, Color(0.93, 0.76, 0.3, 0.72))
+
+
+func _set_aim_line(active: bool, direction: Vector2, color: Color) -> void:
 	if visual_rig == null:
 		return
 	var line := visual_rig.get_node_or_null("AimPlaceholder") as Line2D
@@ -231,8 +312,8 @@ func set_bow_aim_feedback(active: bool, direction: Vector2) -> void:
 		line = Line2D.new()
 		line.name = "AimPlaceholder"
 		line.width = 2.0
-		line.default_color = Color(0.93, 0.76, 0.3, 0.72)
 		visual_rig.add_child(line)
+	line.default_color = color
 	line.points = PackedVector2Array([Vector2.ZERO, direction.normalized() * 72.0])
 	line.visible = active
 

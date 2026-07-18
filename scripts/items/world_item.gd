@@ -26,6 +26,8 @@ const ITEM_ATLAS_INDICES := {
 	&"mushroom": 15,
 	&"toxic_mushroom": 16,
 	&"cooked_meat": 17,
+	&"bone_flute": 18,
+	&"bait_pouch": 19,
 }
 
 @export var item_id: StringName = &"stone"

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bait_pouch"
+display_name = "미끼 주머니"
+stackable = true
+max_stack = 5
+weight = 0.8
+emits_smell = true
+smell_strength = 72.0
+smell_interval_seconds = 0.5
+smell_kind = &"bait"
