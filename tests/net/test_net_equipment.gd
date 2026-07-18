@@ -85,25 +85,53 @@ func test_client_unequip_and_equip_round_trip_is_host_authoritative() -> void:
 	assert_eq(client_avatar.equipment.get_equipped(&"outfit"), &"white_underwear")
 	assert_true(await rig.pump_until(func() -> bool:
 		return host_avatar.equipment.get_equipped(&"outfit") == &"" \
-			and client_avatar.equipment.get_equipped(&"outfit") == &"", 3.0))
+			and client_avatar.equipment.get_equipped(&"outfit") == &"" \
+			and client_avatar.inventory.count_of(&"white_underwear") == 1, 3.0))
 	assert_eq(host_avatar.inventory.count_of(&"white_underwear"), 1)
 
 	assert_true(client.equipment.request_equip(client_avatar, &"white_underwear"))
 	assert_true(await rig.pump_until(func() -> bool:
 		return host_avatar.equipment.get_equipped(&"outfit") == &"white_underwear" \
-			and client_avatar.equipment.get_equipped(&"outfit") == &"white_underwear", 3.0))
+			and client_avatar.equipment.get_equipped(&"outfit") == &"white_underwear" \
+			and client_avatar.inventory.count_of(&"white_underwear") == 0, 3.0))
 	assert_eq(host_avatar.inventory.count_of(&"white_underwear"), 0)
+
+
+func test_client_equipment_replacement_replicates_inventory_atomically() -> void:
+	var player_id := await _join()
+	var host_avatar := _host_avatar(player_id)
+	var client_avatar := _client_avatar(player_id)
+	assert_eq(host_avatar.inventory.add_item(&"bow", 1), 1)
+	assert_eq(client_avatar.inventory.add_item(&"bow", 1), 1)
+	assert_eq(host_avatar.inventory.add_item(&"stone_spear", 1), 1)
+	assert_eq(client_avatar.inventory.add_item(&"stone_spear", 1), 1)
+
+	assert_true(client.equipment.request_equip(client_avatar, &"bow"))
+	assert_true(await rig.pump_until(func() -> bool:
+		return client_avatar.equipment.get_equipped(&"main_hand") == &"bow" \
+			and client_avatar.inventory.count_of(&"bow") == 0, 3.0))
+	assert_true(client.equipment.request_equip(client_avatar, &"stone_spear"))
+	assert_true(await rig.pump_until(func() -> bool:
+		return client_avatar.equipment.get_equipped(&"main_hand") == &"stone_spear" \
+			and client_avatar.inventory.count_of(&"stone_spear") == 0 \
+			and client_avatar.inventory.count_of(&"bow") == 1, 3.0))
+	assert_eq(client_avatar.inventory.count_of(&"bow"),
+		host_avatar.inventory.count_of(&"bow"))
+	assert_eq(client_avatar.inventory.count_of(&"stone_spear"),
+		host_avatar.inventory.count_of(&"stone_spear"))
 
 
 func test_late_join_receives_existing_host_snapshot() -> void:
 	assert_eq(rig.start_host(host.session), OK)
 	assert_true(host.equipment.request_unequip(host.host_player, &"outfit"))
 	assert_eq(host.host_player.equipment.get_equipped(&"outfit"), &"")
+	assert_eq(host.host_player.inventory.count_of(&"white_underwear"), 1)
 
 	assert_eq(rig.connect_client(client.session, host.session), OK)
 	assert_true(await rig.pump_until(func() -> bool:
-		return client.host_player.equipment.get_equipped(&"outfit") == &"", 5.0),
-		"늦은 참가자는 기존 호스트 장비 스냅샷을 받아야 한다")
+		return client.host_player.equipment.get_equipped(&"outfit") == &"" \
+			and client.host_player.inventory.count_of(&"white_underwear") == 1, 5.0),
+		"늦은 참가자는 기존 호스트 장비와 권위 인벤토리 스냅샷을 받아야 한다")
 
 
 func test_reconnect_restores_equipment_and_remote_visual() -> void:
@@ -125,6 +153,8 @@ func test_reconnect_restores_equipment_and_remote_visual() -> void:
 	assert_false(restored_client.visual_rig.outfit.visible)
 	assert_eq(_host_avatar(player_id).equipment.get_snapshot(),
 		restored_client.equipment.get_snapshot())
+	assert_eq(_host_avatar(player_id).inventory.count_of(&"white_underwear"),
+		restored_client.inventory.count_of(&"white_underwear"))
 
 
 func test_tampered_other_avatar_and_unknown_item_are_rejected() -> void:

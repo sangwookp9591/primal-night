@@ -8,9 +8,10 @@ extends Node
 const REQUEST_MAX_PER_SECOND: int = 12
 const SNAPSHOT_MAX_PER_SECOND: int = 64
 const REQUEST_PAYLOAD_BYTES: int = 96
-const SNAPSHOT_PAYLOAD_BYTES: int = 256
+const SNAPSHOT_PAYLOAD_BYTES: int = 2048
 const PLAYER_ID_MAX_LENGTH: int = 32
 const ITEM_ID_MAX_LENGTH: int = 64
+const SNAPSHOT_MAX_ITEMS: int = 16
 
 const ACTION_EQUIP: int = 0
 const ACTION_UNEQUIP: int = 1
@@ -129,20 +130,27 @@ func _confirm_intent(player_id: StringName, action: int, value: StringName) -> b
 ## 발생시키므로 원격 PlayerVisualRig도 로컬과 동일한 레이어 경로로 갱신된다.
 @rpc("authority", "call_remote", "reliable")
 func apply_equipment_snapshot(player_id: String, outfit: String, back: String,
-		main_hand: String, condition_flags: int) -> void:
+		main_hand: String, condition_flags: int, inventory_item_ids: PackedStringArray,
+		inventory_item_counts: PackedInt32Array) -> void:
 	var payload := player_id.length() + outfit.length() + back.length() \
-		+ main_hand.length() + 16
+		+ main_hand.length() + inventory_item_ids.size() * 72 + 16
 	if not _guard.check(&"apply_equipment_snapshot",
 			multiplayer.get_remote_sender_id(), payload, _now_seconds):
 		return
 	if player_id.is_empty() or player_id.length() > PLAYER_ID_MAX_LENGTH \
 			or outfit.length() > ITEM_ID_MAX_LENGTH or back.length() > ITEM_ID_MAX_LENGTH \
-			or main_hand.length() > ITEM_ID_MAX_LENGTH or condition_flags < 0:
+			or main_hand.length() > ITEM_ID_MAX_LENGTH or condition_flags < 0 \
+			or inventory_item_ids.size() != inventory_item_counts.size() \
+			or inventory_item_ids.size() > SNAPSHOT_MAX_ITEMS:
 		push_warning("NetEquipment: 장비 스냅샷 스키마 위반 — 폐기")
 		return
 	var avatar: Player = _avatar_of(StringName(player_id))
 	if avatar == null:
 		push_warning("NetEquipment: 장비 스냅샷 대상 없음 player=%s" % player_id)
+		return
+	var inventory_before: Array[Dictionary] = avatar.inventory.get_transaction_snapshot()
+	if not _replace_inventory(avatar.inventory, inventory_item_ids, inventory_item_counts):
+		push_warning("NetEquipment: 유효하지 않은 인벤토리 스냅샷 player=%s" % player_id)
 		return
 	if not avatar.equipment.apply_snapshot({
 			outfit = StringName(outfit),
@@ -150,6 +158,7 @@ func apply_equipment_snapshot(player_id: String, outfit: String, back: String,
 			main_hand = StringName(main_hand),
 			condition_flags = condition_flags,
 		}):
+		avatar.inventory.restore_transaction_snapshot(inventory_before)
 		push_warning("NetEquipment: 유효하지 않은 장비 스냅샷 player=%s" % player_id)
 
 
@@ -202,15 +211,54 @@ func _on_session_ended() -> void:
 func _broadcast_snapshot(player_id: StringName, snapshot: Dictionary) -> void:
 	if multiplayer.get_peers().is_empty():
 		return
+	var avatar := _avatar_of(player_id)
+	if avatar == null:
+		return
+	var inventory := _inventory_snapshot(avatar.inventory)
 	apply_equipment_snapshot.rpc(String(player_id), String(snapshot.outfit),
-		String(snapshot.back), String(snapshot.main_hand), int(snapshot.condition_flags))
+		String(snapshot.back), String(snapshot.main_hand), int(snapshot.condition_flags),
+		inventory.ids, inventory.counts)
 
 
 func _send_snapshot_to(peer_id: int, player_id: StringName, snapshot: Dictionary) -> void:
 	if peer_id <= 0:
 		return
+	var avatar := _avatar_of(player_id)
+	if avatar == null:
+		return
+	var inventory := _inventory_snapshot(avatar.inventory)
 	apply_equipment_snapshot.rpc_id(peer_id, String(player_id), String(snapshot.outfit),
-		String(snapshot.back), String(snapshot.main_hand), int(snapshot.condition_flags))
+		String(snapshot.back), String(snapshot.main_hand), int(snapshot.condition_flags),
+		inventory.ids, inventory.counts)
+
+
+func _inventory_snapshot(inventory: Inventory) -> Dictionary:
+	var ids := PackedStringArray()
+	var counts := PackedInt32Array()
+	for index: int in range(inventory.slot_count):
+		var slot: Dictionary = inventory.get_slot(index)
+		if slot.is_empty():
+			continue
+		ids.append(String(slot.id))
+		counts.append(int(slot.count))
+	return {ids = ids, counts = counts}
+
+
+func _replace_inventory(inventory: Inventory, ids: PackedStringArray,
+		counts: PackedInt32Array) -> bool:
+	var before: Array[Dictionary] = inventory.get_transaction_snapshot()
+	for index: int in range(ids.size()):
+		if ids[index].is_empty() or ids[index].length() > ITEM_ID_MAX_LENGTH \
+				or counts[index] <= 0:
+			return false
+	for slot: Dictionary in before:
+		if not slot.is_empty():
+			inventory.remove_item(StringName(slot.id), int(slot.count))
+	for index: int in range(ids.size()):
+		if inventory.add_item(StringName(ids[index]), counts[index]) != counts[index]:
+			inventory.restore_transaction_snapshot(before)
+			return false
+	return true
 
 
 func _all_player_ids() -> Array[StringName]:
