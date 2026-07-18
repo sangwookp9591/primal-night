@@ -67,11 +67,16 @@ text = "호스트 시작"
 [node name="Join" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Host")
-focus_neighbor_bottom = NodePath("../Quit")
+focus_neighbor_bottom = NodePath("../Controls")
 text = "참가"
-[node name="Quit" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+[node name="Controls" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Join")
+focus_neighbor_bottom = NodePath("../Quit")
+text = "조작 설정"
+[node name="Quit" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Controls")
 text = "종료"
 
 [node name="DifficultyMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
@@ -120,6 +125,31 @@ text = "접속"
 [node name="Back" type="Button" parent="Center/MenuPanel/Content/JoinMenu"]
 layout_mode = 2
 focus_neighbor_top = NodePath("../Connect")
+text = "뒤로"
+
+[node name="ControlsMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Heading" type="Label" parent="Center/MenuPanel/Content/ControlsMenu"]
+layout_mode = 2
+text = "조작 설정"
+horizontal_alignment = 1
+[node name="Help" type="Label" parent="Center/MenuPanel/Content/ControlsMenu"]
+layout_mode = 2
+text = "항목을 선택하고 다음 키 또는 패드 버튼을 누르세요."
+horizontal_alignment = 1
+[node name="Bindings" type="ScrollContainer" parent="Center/MenuPanel/Content/ControlsMenu"]
+custom_minimum_size = Vector2(0, 480)
+layout_mode = 2
+[node name="Rows" type="VBoxContainer" parent="Center/MenuPanel/Content/ControlsMenu/Bindings"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+[node name="Restore" type="Button" parent="Center/MenuPanel/Content/ControlsMenu"]
+layout_mode = 2
+text = "기본값 복원"
+[node name="Back" type="Button" parent="Center/MenuPanel/Content/ControlsMenu"]
+layout_mode = 2
 text = "뒤로"
 
 [node name="Status" type="Label" parent="Center/MenuPanel/Content"]

@@ -16,6 +16,7 @@ EventBus="*res://scripts/core/event_bus.gd"
 CampfireRegistry="*res://scripts/props/campfire_registry.gd"
 PerfMonitor="*res://scripts/core/perf_monitor.gd"
 GameData="*res://scripts/core/game_data.gd"
+InputBindings="*res://scripts/input/input_binding_service.gd"
 
 [display]
 

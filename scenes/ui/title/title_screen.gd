@@ -6,16 +6,36 @@ const MAIN_SCENE := "res://scenes/main.tscn"
 @onready var _main_menu: VBoxContainer = $Center/MenuPanel/Content/MainMenu
 @onready var _difficulty_menu: VBoxContainer = $Center/MenuPanel/Content/DifficultyMenu
 @onready var _join_menu: VBoxContainer = $Center/MenuPanel/Content/JoinMenu
+@onready var _controls_menu: VBoxContainer = $Center/MenuPanel/Content/ControlsMenu
+@onready var _binding_rows: VBoxContainer = $Center/MenuPanel/Content/ControlsMenu/Bindings/Rows
 @onready var _address: LineEdit = $Center/MenuPanel/Content/JoinMenu/Address
 @onready var _status: Label = $Center/MenuPanel/Content/Status
 @onready var _session: LocalSessionService = $NetSession
 
 var _launch_mode: StringName = &"single"
+var _waiting_action: StringName = &""
+var _binding_buttons: Dictionary = {}
+
+const ACTION_LABELS := {
+	&"move_up": "위로 이동",
+	&"move_down": "아래로 이동",
+	&"move_left": "왼쪽 이동",
+	&"move_right": "오른쪽 이동",
+	&"attack": "공격",
+	&"run": "달리기",
+	&"crouch": "웅크리기",
+	&"interact": "상호작용 / 줍기",
+	&"cycle_target": "대상 전환",
+	&"toggle_inventory": "인벤토리",
+	&"quick_craft": "빠른 제작",
+	&"place_lure": "미끼 놓기",
+}
 
 func _ready() -> void:
 	$Center/MenuPanel/Content/MainMenu/Single.pressed.connect(_choose_mode.bind(&"single"))
 	$Center/MenuPanel/Content/MainMenu/Host.pressed.connect(_choose_mode.bind(&"host"))
 	$Center/MenuPanel/Content/MainMenu/Join.pressed.connect(show_join)
+	$Center/MenuPanel/Content/MainMenu/Controls.pressed.connect(show_controls)
 	$Center/MenuPanel/Content/MainMenu/Quit.pressed.connect(get_tree().quit)
 	$Center/MenuPanel/Content/DifficultyMenu/Gentle.pressed.connect(_launch_with_difficulty.bind(&"gentle"))
 	$Center/MenuPanel/Content/DifficultyMenu/Standard.pressed.connect(_launch_with_difficulty.bind(&"standard"))
@@ -23,6 +43,9 @@ func _ready() -> void:
 	$Center/MenuPanel/Content/DifficultyMenu/Back.pressed.connect(show_main)
 	$Center/MenuPanel/Content/JoinMenu/Connect.pressed.connect(_join)
 	$Center/MenuPanel/Content/JoinMenu/Back.pressed.connect(show_main)
+	$Center/MenuPanel/Content/ControlsMenu/Restore.pressed.connect(_restore_bindings)
+	$Center/MenuPanel/Content/ControlsMenu/Back.pressed.connect(show_main)
+	_build_binding_rows()
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	show_main()
@@ -37,6 +60,14 @@ func show_join() -> void:
 	_status.text = "호스트 주소를 입력하세요. 예: 127.0.0.1:8910"
 	_address.grab_focus.call_deferred()
 
+func show_controls() -> void:
+	_waiting_action = &""
+	_show_only(_controls_menu)
+	_status.text = "바꿀 조작을 선택한 뒤 키 또는 패드 버튼을 누르세요."
+	_refresh_binding_text()
+	if not _binding_buttons.is_empty():
+		(_binding_buttons.values()[0] as Button).grab_focus.call_deferred()
+
 func _choose_mode(mode: StringName) -> void:
 	_launch_mode = mode
 	_show_only(_difficulty_menu)
@@ -47,6 +78,75 @@ func _show_only(menu: Control) -> void:
 	_main_menu.visible = menu == _main_menu
 	_difficulty_menu.visible = menu == _difficulty_menu
 	_join_menu.visible = menu == _join_menu
+	_controls_menu.visible = menu == _controls_menu
+
+func _build_binding_rows() -> void:
+	var previous: Control = null
+	for action in InputBindingService.ACTIONS:
+		var row := HBoxContainer.new()
+		var label := Label.new()
+		label.text = ACTION_LABELS.get(action, String(action))
+		label.custom_minimum_size.x = 180
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var button := Button.new()
+		button.custom_minimum_size.x = 210
+		button.pressed.connect(_begin_rebind.bind(action))
+		row.add_child(label)
+		row.add_child(button)
+		_binding_rows.add_child(row)
+		_binding_buttons[action] = button
+		if previous != null:
+			previous.focus_neighbor_bottom = previous.get_path_to(button)
+			button.focus_neighbor_top = button.get_path_to(previous)
+		previous = button
+	var restore := $Center/MenuPanel/Content/ControlsMenu/Restore as Button
+	var back := $Center/MenuPanel/Content/ControlsMenu/Back as Button
+	if previous != null:
+		previous.focus_neighbor_bottom = previous.get_path_to(restore)
+		restore.focus_neighbor_top = restore.get_path_to(previous)
+	restore.focus_neighbor_bottom = restore.get_path_to(back)
+	back.focus_neighbor_top = back.get_path_to(restore)
+	_refresh_binding_text()
+
+func _begin_rebind(action: StringName) -> void:
+	_waiting_action = action
+	_status.text = "%s: 다음 키 또는 패드 버튼을 누르세요. (뒤로: 취소)" % ACTION_LABELS.get(action, action)
+	(_binding_buttons[action] as Button).text = "입력 대기 중…"
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _waiting_action.is_empty():
+		return
+	if event.is_action_pressed("ui_cancel"):
+		_waiting_action = &""
+		_status.text = "재바인딩을 취소했습니다."
+		_refresh_binding_text()
+		get_viewport().set_input_as_handled()
+		return
+	var accepted: bool = (event is InputEventKey and event.pressed and not event.echo) \
+		or (event is InputEventJoypadButton and event.pressed)
+	if not accepted:
+		return
+	var action := _waiting_action
+	_waiting_action = &""
+	var conflict: StringName = InputBindings.rebind(action, event)
+	_refresh_binding_text()
+	if conflict.is_empty():
+		_status.text = "%s 조작을 저장했습니다." % ACTION_LABELS.get(action, action)
+	else:
+		_status.text = "충돌: %s의 입력을 제거하고 %s에 지정했습니다." % [
+			ACTION_LABELS.get(conflict, conflict), ACTION_LABELS.get(action, action)]
+	(_binding_buttons[action] as Button).grab_focus()
+	get_viewport().set_input_as_handled()
+
+func _restore_bindings() -> void:
+	InputBindings.restore_defaults()
+	_waiting_action = &""
+	_refresh_binding_text()
+	_status.text = "모든 조작을 기본값으로 복원하고 저장했습니다."
+
+func _refresh_binding_text() -> void:
+	for action in _binding_buttons:
+		(_binding_buttons[action] as Button).text = InputBindings.binding_text(action)
 
 func _launch_with_difficulty(id: StringName) -> void:
 	DifficultyRuntime.select_for_next_game(id)
