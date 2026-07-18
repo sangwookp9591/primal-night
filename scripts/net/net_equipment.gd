@@ -26,6 +26,7 @@ var _container: Node2D
 var _guard: RpcGuard
 var _now_seconds: float = 0.0
 var _saved_snapshots: Dictionary = {}
+var _pending_snapshots: Dictionary = {}
 var _rejection_count: int = 0
 
 
@@ -49,6 +50,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_now_seconds += delta
+	_apply_pending_snapshots()
 
 
 ## UI/게임플레이의 단일 네트워크 진입점. 오프라인/호스트도 같은 호스트 확정
@@ -146,8 +148,26 @@ func apply_equipment_snapshot(player_id: String, outfit: String, back: String,
 		return
 	var avatar: Player = _avatar_of(StringName(player_id))
 	if avatar == null:
-		push_warning("NetEquipment: 장비 스냅샷 대상 없음 player=%s" % player_id)
+		# Movement와 Equipment는 서로 다른 RPC 메서드라 reliable 전송이라도
+		# 재접속 창에서 장비가 스폰보다 먼저 관측될 수 있다. 최신 권위 스냅샷을
+		# PlayerId별로 하나만 보류하고 아바타가 생긴 다음 물리 틱에 적용한다.
+		_pending_snapshots[StringName(player_id)] = {
+			outfit = outfit,
+			back = back,
+			main_hand = main_hand,
+			condition_flags = condition_flags,
+			inventory_item_ids = inventory_item_ids,
+			inventory_item_counts = inventory_item_counts,
+		}
 		return
+	_apply_snapshot_to_avatar(StringName(player_id), avatar, outfit, back, main_hand,
+		condition_flags, inventory_item_ids, inventory_item_counts)
+
+
+func _apply_snapshot_to_avatar(player_id: StringName, avatar: Player, outfit: String,
+		back: String, main_hand: String, condition_flags: int,
+		inventory_item_ids: PackedStringArray,
+		inventory_item_counts: PackedInt32Array) -> void:
 	var inventory_before: Array[Dictionary] = avatar.inventory.get_transaction_snapshot()
 	if not _replace_inventory(avatar.inventory, inventory_item_ids, inventory_item_counts):
 		push_warning("NetEquipment: 유효하지 않은 인벤토리 스냅샷 player=%s" % player_id)
@@ -160,6 +180,18 @@ func apply_equipment_snapshot(player_id: String, outfit: String, back: String,
 		}):
 		avatar.inventory.restore_transaction_snapshot(inventory_before)
 		push_warning("NetEquipment: 유효하지 않은 장비 스냅샷 player=%s" % player_id)
+
+
+func _apply_pending_snapshots() -> void:
+	for player_id: StringName in _pending_snapshots.keys():
+		var avatar := _avatar_of(player_id)
+		if avatar == null:
+			continue
+		var snapshot: Dictionary = _pending_snapshots[player_id]
+		_pending_snapshots.erase(player_id)
+		_apply_snapshot_to_avatar(player_id, avatar, snapshot.outfit, snapshot.back,
+			snapshot.main_hand, snapshot.condition_flags,
+			snapshot.inventory_item_ids, snapshot.inventory_item_counts)
 
 
 func _on_player_joined(player_id: StringName) -> void:
@@ -206,6 +238,7 @@ func _on_player_reconnected(player_id: StringName) -> void:
 
 func _on_session_ended() -> void:
 	_saved_snapshots.clear()
+	_pending_snapshots.clear()
 
 
 func _broadcast_snapshot(player_id: StringName, snapshot: Dictionary) -> void:

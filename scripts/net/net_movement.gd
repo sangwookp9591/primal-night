@@ -204,14 +204,7 @@ func _on_player_joined(player_id: StringName) -> void:
 		return
 	var peer: int = _session.get_peer_for_player(player_id)
 	_last_intent_ticks[peer] = _ticks
-	# 늦은 참가자는 호스트 정적 Player 외에 이미 접속해 있던 원격 아바타를 모른다.
-	# 새 아바타 브로드캐스트보다 먼저 기존 스폰을 새 피어에게 reliable로 재전송한다.
-	for existing_id: StringName in _avatars:
-		var existing: Player = _avatars[existing_id]
-		if existing == _host_player or existing_id == player_id:
-			continue
-		spawn_avatar.rpc_id(peer, String(existing_id),
-			existing.controller_peer_id, existing.global_position)
+	_send_existing_avatars_to(peer, player_id)
 	var spawn_position: Vector2 = _host_player.global_position + config.client_spawn_offset
 	_spawn(player_id, peer, spawn_position)
 	spawn_avatar.rpc(String(player_id), peer, spawn_position)
@@ -237,7 +230,22 @@ func _on_player_reconnected(player_id: StringName) -> void:
 		_on_player_joined(player_id)
 		return
 	avatar.controller_peer_id = peer
+	# 재접속은 player_joined를 발신하지 않는다. 복귀한 기계는 세션 종료 때
+	# 복제 아바타를 모두 비웠으므로, 자기 아바타뿐 아니라 기존 원격 아바타도
+	# 신규 참가와 동일하게 먼저 다시 받아야 한다.
+	_send_existing_avatars_to(peer, player_id)
 	spawn_avatar.rpc_id(peer, String(player_id), peer, avatar.global_position)
+
+
+func _send_existing_avatars_to(peer: int, joining_player_id: StringName) -> void:
+	# 호스트 정적 Player는 각 기계의 씬에 이미 존재한다. 원격 아바타만 reliable
+	# 스폰 큐에 넣고, 호출자가 마지막에 참가/복귀자 자신의 스폰을 보낸다.
+	for existing_id: StringName in _avatars:
+		var existing: Player = _avatars[existing_id]
+		if existing == _host_player or existing_id == joining_player_id:
+			continue
+		spawn_avatar.rpc_id(peer, String(existing_id),
+			existing.controller_peer_id, existing.global_position)
 
 
 func _on_session_ended() -> void:

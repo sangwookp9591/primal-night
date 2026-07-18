@@ -6,18 +6,20 @@ const RECONNECT_ID: StringName = &"76561198000000999"
 var rig: NetTestRig
 var host: Dictionary
 var client: Dictionary
+var sides: Array[Dictionary] = []
 
 
 func before_each() -> void:
 	rig = NetTestRig.new(get_tree())
+	sides.clear()
 	host = _make_side("EquipmentHost")
 	client = _make_side("EquipmentClient")
 
 
 func after_each() -> void:
 	rig.disconnect_all()
-	get_tree().set_multiplayer(null, host.root.get_path())
-	get_tree().set_multiplayer(null, client.root.get_path())
+	for side: Dictionary in sides:
+		get_tree().set_multiplayer(null, side.root.get_path())
 
 
 func _make_side(side_name: String) -> Dictionary:
@@ -47,7 +49,7 @@ func _make_side(side_name: String) -> Dictionary:
 	var equipment := NetEquipment.new()
 	equipment.name = "NetEquipment"
 	root.add_child(equipment)
-	return {
+	var side := {
 		root = root,
 		session = session,
 		host_player = host_player,
@@ -55,6 +57,8 @@ func _make_side(side_name: String) -> Dictionary:
 		movement = movement,
 		equipment = equipment,
 	}
+	sides.append(side)
+	return side
 
 
 func _join(player_id: StringName = &"") -> StringName:
@@ -155,6 +159,38 @@ func test_reconnect_restores_equipment_and_remote_visual() -> void:
 		restored_client.equipment.get_snapshot())
 	assert_eq(_host_avatar(player_id).inventory.count_of(&"white_underwear"),
 		restored_client.inventory.count_of(&"white_underwear"))
+
+
+func test_reconnect_receives_existing_remote_avatar_equipment_and_inventory() -> void:
+	var returning_id := await _join(RECONNECT_ID)
+	var observer := _make_side("EquipmentObserver")
+	var observer_id: StringName = &"76561198000000888"
+	assert_eq(rig.connect_client(observer.session, host.session, observer_id), OK)
+	assert_true(await rig.pump_until(func() -> bool:
+		return host.players.has_node(NodePath(String(observer_id))) \
+			and client.players.has_node(NodePath(String(observer_id))) \
+			and observer.players.has_node(NodePath(String(observer_id))), 5.0))
+	var observer_avatar: Player = observer.players.get_node(String(observer_id))
+	assert_true(observer.equipment.request_unequip(observer_avatar, &"outfit"))
+	assert_true(await rig.pump_until(func() -> bool:
+		var authoritative := _host_avatar(observer_id)
+		return authoritative != null \
+			and authoritative.equipment.get_equipped(&"outfit") == &"" \
+			and authoritative.inventory.count_of(&"white_underwear") == 1, 3.0))
+
+	client.session.leave_session()
+	assert_true(await rig.pump_until(func() -> bool:
+		return host.session.has_reconnect_slot(returning_id), 3.0))
+	client = _make_side("EquipmentReconnectClient")
+	assert_eq(rig.connect_client(client.session, host.session, returning_id), OK)
+	assert_true(await rig.pump_until(func() -> bool:
+		var restored_remote := _client_avatar(observer_id)
+		return restored_remote != null \
+			and restored_remote.equipment.get_equipped(&"outfit") == &"" \
+			and restored_remote.inventory.count_of(&"white_underwear") == 1, 5.0),
+		"복귀 클라이언트에 기존 원격 아바타와 장비/인벤토리가 함께 수렴해야 한다")
+	assert_eq(client.players.get_child_count(), host.players.get_child_count(),
+		"복귀 클라이언트와 호스트의 원격 아바타 수가 같아야 한다")
 
 
 func test_tampered_other_avatar_and_unknown_item_are_rejected() -> void:
