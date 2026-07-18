@@ -1,11 +1,42 @@
 extends GutTest
 
 const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
+const SHEET_VISUAL_IDS: Array[StringName] = [
+	&"white_underwear",
+	&"work_clothes",
+	&"leather_armor",
+	&"placeholder_back",
+	&"stone_knife",
+	&"stone_spear",
+	&"bow",
+	&"torch",
+]
 
 
 func test_registered_visuals_have_all_direction_action_frame_keys() -> void:
 	for visual_id: StringName in PlayerVisualProfile.registered_visual_ids():
 		assert_true(PlayerVisualProfile.has_complete_frame_keys(visual_id), visual_id)
+
+
+func test_equipment_sheets_register_48_atlas_frames_per_visual() -> void:
+	for visual_id: StringName in SHEET_VISUAL_IDS:
+		assert_true(PlayerVisualProfile.has_registered_sheet(visual_id), visual_id)
+		var frames := PlayerVisualProfile.build_frames(visual_id)
+		var frame_total := 0
+		for direction: int in range(PlayerVisualProfile.DIRECTION_COUNT):
+			for walking: bool in [false, true]:
+				var animation := PlayerSpriteAnimator.animation_name(walking, direction)
+				frame_total += frames.get_frame_count(animation)
+				for frame_index: int in range(frames.get_frame_count(animation)):
+					assert_is(frames.get_frame_texture(animation, frame_index), AtlasTexture, visual_id)
+		assert_eq(frame_total, 48, visual_id)
+
+
+func test_placeholder_visuals_keep_generated_fallback_textures() -> void:
+	for visual_id: StringName in [&"placeholder_main_hand", &"placeholder_state_overlay"]:
+		assert_false(PlayerVisualProfile.has_registered_sheet(visual_id), visual_id)
+		var frames := PlayerVisualProfile.build_frames(visual_id)
+		assert_is(frames.get_frame_texture(&"idle_S", 0), ImageTexture, visual_id)
 
 
 func test_layers_copy_owner_animation_and_frame_in_same_tick() -> void:

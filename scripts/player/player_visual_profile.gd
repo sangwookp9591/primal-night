@@ -10,18 +10,22 @@ const VISUALS: Dictionary = {
 	&"white_underwear": {
 		layer = &"outfit",
 		color = Color(0.88, 0.91, 0.94, 0.72),
+		sheet = "res://assets/sprites/player/equipment/white_underwear_sheet.png",
 	},
 	&"work_clothes": {
 		layer = &"outfit",
 		color = Color(0.28, 0.38, 0.22, 0.88),
+		sheet = "res://assets/sprites/player/equipment/work_clothes_sheet.png",
 	},
 	&"leather_armor": {
 		layer = &"outfit",
 		color = Color(0.30, 0.17, 0.09, 0.94),
+		sheet = "res://assets/sprites/player/equipment/leather_armor_sheet.png",
 	},
 	&"placeholder_back": {
 		layer = &"back",
 		color = Color(0.27, 0.18, 0.10, 0.9),
+		sheet = "res://assets/sprites/player/equipment/placeholder_back_sheet.png",
 	},
 	&"placeholder_main_hand": {
 		layer = &"main_hand",
@@ -30,14 +34,22 @@ const VISUALS: Dictionary = {
 	&"stone_spear": {
 		layer = &"main_hand",
 		color = Color(0.46, 0.31, 0.16, 1.0),
+		sheet = "res://assets/sprites/player/equipment/stone_spear_sheet.png",
 	},
 	&"stone_knife": {
 		layer = &"main_hand",
 		color = Color(0.62, 0.67, 0.70, 1.0),
+		sheet = "res://assets/sprites/player/equipment/stone_knife_sheet.png",
 	},
 	&"bow": {
 		layer = &"main_hand",
 		color = Color(0.58, 0.36, 0.16, 1.0),
+		sheet = "res://assets/sprites/player/equipment/bow_sheet.png",
+	},
+	&"torch": {
+		layer = &"main_hand",
+		color = Color(0.82, 0.39, 0.12, 1.0),
+		sheet = "res://assets/sprites/player/equipment/torch_sheet.png",
 	},
 	&"placeholder_state_overlay": {
 		layer = &"state_overlay",
@@ -89,10 +101,17 @@ static func build_frames(visual_id: StringName) -> SpriteFrames:
 	var result := SpriteFrames.new()
 	result.remove_animation(&"default")
 	var color: Color = VISUALS[visual_id].color
+	var sheet: Texture2D = _load_sheet(visual_id)
 	for direction: int in range(DIRECTION_COUNT):
-		_add_animation(result, visual_id, color, false, direction, IDLE_FRAME_COUNT, 2.0)
-		_add_animation(result, visual_id, color, true, direction, WALK_FRAME_COUNT, 8.0)
+		_add_animation(result, visual_id, color, sheet, false, direction, IDLE_FRAME_COUNT, 2.0)
+		_add_animation(result, visual_id, color, sheet, true, direction, WALK_FRAME_COUNT, 8.0)
 	return result
+
+
+static func has_registered_sheet(visual_id: StringName) -> bool:
+	if not VISUALS.has(visual_id) or not VISUALS[visual_id].has("sheet"):
+		return false
+	return ResourceLoader.exists(String(VISUALS[visual_id].sheet), "Texture2D")
 
 
 static func has_complete_frame_keys(visual_id: StringName) -> bool:
@@ -112,6 +131,7 @@ static func _add_animation(
 		frames: SpriteFrames,
 		visual_id: StringName,
 		color: Color,
+		sheet: Texture2D,
 		walking: bool,
 		direction: int,
 		frame_count: int,
@@ -121,7 +141,23 @@ static func _add_animation(
 	frames.set_animation_loop(animation, true)
 	frames.set_animation_speed(animation, speed)
 	for frame_index: int in range(frame_count):
-		frames.add_frame(animation, _placeholder_texture(visual_id, color, direction, frame_index))
+		var row: int = frame_index + (IDLE_FRAME_COUNT if walking else 0)
+		var texture: Texture2D = _atlas_frame(sheet, direction, row) if sheet != null else \
+				_placeholder_texture(visual_id, color, direction, frame_index)
+		frames.add_frame(animation, texture)
+
+
+static func _load_sheet(visual_id: StringName) -> Texture2D:
+	if not has_registered_sheet(visual_id):
+		return null
+	return load(String(VISUALS[visual_id].sheet)) as Texture2D
+
+
+static func _atlas_frame(sheet: Texture2D, column: int, row: int) -> Texture2D:
+	var frame := AtlasTexture.new()
+	frame.atlas = sheet
+	frame.region = Rect2(Vector2(column * CELL_SIZE.x, row * CELL_SIZE.y), CELL_SIZE)
+	return frame
 
 
 static func _placeholder_texture(
