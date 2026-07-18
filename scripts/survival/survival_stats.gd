@@ -38,6 +38,7 @@ var _campfire_registry: Node = null
 ## 이동 거리로 피로를 쌓는다. 입력을 읽지 않으므로 원격 아바타에도 똑같이 적용된다
 ## (호스트는 남의 입력을 모르지만 남의 좌표는 안다).
 var _last_position: Vector2 = Vector2.ZERO
+var _rest_multiplier: float = 1.0
 
 
 func _ready() -> void:
@@ -77,7 +78,7 @@ func simulate(delta: float) -> void:
 	# 움직이면 지치고(많이 움직일수록 더), 제자리에서 쉬면 풀린다.
 	# 쉬는 것이 곧 회복이다 — 가만히 있는데도 지치면 플레이어에게 줄 선택지가 없다.
 	if is_zero_approx(moved):
-		fatigue = maxf(fatigue - config.fatigue_recover_per_second * delta, 0.0)
+		fatigue = maxf(fatigue - config.fatigue_recover_per_second * _rest_multiplier * delta, 0.0)
 	else:
 		fatigue = minf(fatigue + config.fatigue_gain_per_second * delta
 			+ config.fatigue_gain_per_pixel * moved, STAT_MAX)
@@ -128,6 +129,9 @@ func restore_food(amount: float) -> void:
 func restore_water(amount: float) -> void:
 	if amount > 0.0 and is_finite(amount):
 		water = minf(water + amount, STAT_MAX)
+
+func set_rest_multiplier(value: float) -> void:
+	_rest_multiplier = clampf(value, 1.0, 20.0) if is_finite(value) else 1.0
 
 
 ## 호스트 확정 수치를 복제본에 적용한다 (NetSurvival 스냅샷 경로).

@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=30 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -25,6 +25,10 @@
 [ext_resource type="Script" path="res://scripts/difficulty/difficulty_runtime.gd" id="23_difficulty"]
 [ext_resource type="Script" path="res://scripts/net/net_combat.gd" id="24_netcombat"]
 [ext_resource type="PackedScene" path="res://scenes/creature/scavenger.tscn" id="25_scavenger"]
+[ext_resource type="PackedScene" path="res://scenes/props/storage_cache.tscn" id="26_storage"]
+[ext_resource type="PackedScene" path="res://scenes/props/drying_rack.tscn" id="27_drying"]
+[ext_resource type="PackedScene" path="res://scenes/props/bedding.tscn" id="28_bedding"]
+[ext_resource type="Script" path="res://scripts/props/net_base_camp.gd" id="29_netbasecamp"]
 
 [node name="Main" type="Node2D"]
 
@@ -35,6 +39,16 @@
 position = Vector2(-384, 200)
 
 [node name="SurvivalDemo" parent="." instance=ExtResource("3_survivaldemo")]
+
+; S02 현무암 바람막이의 귀환 거점. 복잡한 자유 건축 대신 고정 프롭 세 개만 둔다.
+[node name="StorageCache" parent="." instance=ExtResource("26_storage")]
+position = Vector2(-420, 400)
+
+[node name="DryingRack" parent="." instance=ExtResource("27_drying")]
+position = Vector2(-300, 420)
+
+[node name="Bedding" parent="." instance=ExtResource("28_bedding")]
+position = Vector2(-180, 400)
 
 ; 냄새 격자 — 기본 영역은 NavigationRegion2D 전체를 덮는다.
 ; 초기 바람은 플레이어 진영에서 랩터 스폰 쪽(남서)으로 분다.
@@ -99,6 +113,9 @@ script = ExtResource("24_netcombat")
 ; 아이템 획득 호스트 권위 — 줍기 의도 검증·직렬 확정·복제 (설계서 7.2/7.4, W2-T2).
 [node name="NetPickup" type="Node" parent="."]
 script = ExtResource("12_netpickup")
+
+[node name="NetBaseCamp" type="Node" parent="."]
+script = ExtResource("29_netbasecamp")
 
 ; 피해·출혈·붕대 치료 호스트 권위 + 생존 스냅샷 복제 (설계서 7.2/5.2, W2-T2).
 [node name="NetSurvival" type="Node" parent="."]

@@ -38,5 +38,9 @@ func deactivate() -> void:
 		_grid.unregister_smell_source(self)
 		_grid = null
 
+func reactivate() -> void:
+	_released = false
+	_register.call_deferred()
+
 func get_smell_position() -> Vector2:
 	return global_position

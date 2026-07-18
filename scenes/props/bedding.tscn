@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/props/bedding.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(62, 32)
+
+[node name="Bedding" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+
+[node name="Mat" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-31, -18, 31, -18, 31, 14, -31, 14)
+color = Color(0.23, 0.3, 0.22, 1)
+
+[node name="Hide" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-26, -14, 24, -10, 28, 8, -22, 10)
+color = Color(0.5, 0.4, 0.28, 1)

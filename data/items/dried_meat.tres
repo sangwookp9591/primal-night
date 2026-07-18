@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"dried_meat"
+display_name = "말린 고기"
+stackable = true
+max_stack = 8
+weight = 0.7
+emits_smell = true
+smell_strength = 10.0
+smell_interval_seconds = 1.5
+smell_kind = &"dried_meat"
+nutrition = 42.0

@@ -21,6 +21,8 @@ var _selected_inventory_index: int = 0
 var _selected_equipment_index: int = 0
 var _was_paused_by_screen: bool = false
 var _previous_movement_locked: bool = false
+var _storage: StorageCache = null
+var _storage_labels: Array[Label] = []
 
 
 func _ready() -> void:
@@ -67,7 +69,12 @@ func _input(event: InputEvent) -> void:
 				_selected_equipment_index + 1, EquipmentComponent.SLOTS.size() - 1)
 			_refresh()
 		elif event.is_action_pressed(&"ui_accept"):
-			_toggle_selected_equipment()
+			if _storage != null:
+				_transfer_selected_to_storage()
+			else:
+				_toggle_selected_equipment()
+		elif event.is_action_pressed(&"ui_select") and _storage != null:
+			_transfer_selected_from_storage()
 		elif event.is_action_pressed(&"ui_cancel"):
 			_unequip_selected_slot()
 		get_viewport().set_input_as_handled()
@@ -96,6 +103,14 @@ func open() -> void:
 		_was_paused_by_screen = true
 	_refresh()
 
+func open_storage(player: Player, storage: StorageCache) -> void:
+	bind(player)
+	_storage = storage
+	_rebuild_storage_labels()
+	if not storage.inventory.changed.is_connected(_refresh):
+		storage.inventory.changed.connect(_refresh)
+	open()
+
 
 func close() -> void:
 	visible = false
@@ -104,6 +119,11 @@ func close() -> void:
 	if _was_paused_by_screen:
 		get_tree().paused = false
 		_was_paused_by_screen = false
+	_storage = null
+	for label: Label in _storage_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	_storage_labels.clear()
 
 
 func is_open() -> bool:
@@ -215,6 +235,51 @@ func _refresh() -> void:
 				"> " if slot_index == _selected_equipment_index else "",
 				_slot_display_name(equip_slot), display_name]
 	_refresh_notes()
+	_refresh_storage()
+
+func _rebuild_storage_labels() -> void:
+	for label: Label in _storage_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	_storage_labels.clear()
+	var title := Label.new()
+	title.text = "보관함 (Enter: 넣기 / Space: 꺼내기)"
+	_notes.add_child(title)
+	_storage_labels.append(title)
+	for _index: int in range(_storage.inventory.slot_count):
+		var label := Label.new()
+		_notes.add_child(label)
+		_storage_labels.append(label)
+
+func _refresh_storage() -> void:
+	if _storage == null:
+		return
+	if _storage_labels.size() != _storage.inventory.slot_count + 1 \
+			or not is_instance_valid(_storage_labels[0]) \
+			or _storage_labels[0].is_queued_for_deletion():
+		_rebuild_storage_labels()
+	for index: int in range(_storage.inventory.slot_count):
+		var slot := _storage.inventory.get_slot(index)
+		var text := "%02d -" % (index + 1)
+		if not slot.is_empty():
+			var item := _game_data.get_item(slot.id) as ItemData
+			text = "%02d %s x%d" % [index + 1,
+				item.display_name if item != null else String(slot.id), int(slot.count)]
+		_storage_labels[index + 1].text = text
+
+func _transfer_selected_to_storage() -> void:
+	var slot := _player.inventory.get_slot(_selected_inventory_index)
+	if not slot.is_empty():
+		_storage.request_transfer(_player, StringName(slot.id), true)
+
+func _transfer_selected_from_storage() -> void:
+	if _storage == null:
+		return
+	for index: int in range(_storage.inventory.slot_count):
+		var slot := _storage.inventory.get_slot(index)
+		if not slot.is_empty():
+			_storage.request_transfer(_player, StringName(slot.id), false)
+			return
 
 
 func _toggle_selected_equipment() -> void:

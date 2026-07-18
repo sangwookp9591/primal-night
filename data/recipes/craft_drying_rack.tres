@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/drying_rack.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_drying_rack"
+duration = 4.0
+noise = 45.0
+[resource]
+script = ExtResource("1")
+id = &"craft_drying_rack"
+ingredients = {&"wood": 3, &"fiber": 2}
+result = ExtResource("2")
+action = SubResource("Action")
+observation_hint = "나무 틀에 섬유 줄을 걸면 고기를 말릴 수 있다."
+observation_success = "건조대 묶음을 만들었다."
