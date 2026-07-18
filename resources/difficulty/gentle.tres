@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="DifficultyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/difficulty/difficulty_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"gentle"
+display_name = "온화"
+description = "자원이 넉넉하고 흔적이 오래 보이며, 죽어도 소지품을 지킵니다."
+resource_spawn_quantity_multiplier = 1.5
+resource_respawn_time_multiplier = 0.75
+trace_feedback_duration_multiplier = 1.5
+trace_feedback_intensity_multiplier = 1.25
+death_item_keep_ratio = 1.0
+raptor_investigate_threshold_multiplier = 1.5
+raptor_chase_give_up_seconds = 0.5

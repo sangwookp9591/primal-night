@@ -12,6 +12,8 @@ var raptor_alert: bool = false
 
 var _sound_direction: Vector2 = Vector2.ZERO
 var _sound_remaining: float = 0.0
+var feedback_duration_multiplier: float = 1.0
+var feedback_intensity_multiplier: float = 1.0
 
 func set_wind(direction: Vector2, strength: float) -> void:
 	wind_direction = direction
@@ -26,7 +28,7 @@ func report_noise(source_position: Vector2, listener_position: Vector2) -> void:
 	if offset.is_zero_approx():
 		return
 	_sound_direction = offset.normalized()
-	_sound_remaining = SOUND_INDICATOR_SECONDS
+	_sound_remaining = SOUND_INDICATOR_SECONDS * feedback_duration_multiplier
 
 func has_recent_sound() -> bool:
 	return _sound_remaining > 0.0

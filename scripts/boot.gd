@@ -4,4 +4,4 @@ func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	# _ready 중 직접 호출하면 부모가 자식 추가 중이라 remove_child 에러가 난다.
-	get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
+	get_tree().change_scene_to_file.call_deferred("res://scenes/ui/title/title_screen.tscn")

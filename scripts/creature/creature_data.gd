@@ -38,3 +38,4 @@ extends Resource
 
 ## 추격 전환 경고 신호 표시 시간(초) (설계서 3.2: 예고 없는 위협 금지).
 @export var alert_seconds: float = 1.0
+@export var chase_give_up_seconds: float = 0.0

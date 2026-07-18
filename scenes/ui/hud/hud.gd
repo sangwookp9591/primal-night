@@ -92,6 +92,11 @@ func bind(player: Player) -> void:
 	if player == null or _player == player:
 		return
 	_player = player
+	var difficulty := DifficultyRuntime.current_config
+	_indicator_model.feedback_duration_multiplier = difficulty.trace_feedback_duration_multiplier
+	_indicator_model.feedback_intensity_multiplier = difficulty.trace_feedback_intensity_multiplier
+	_sound_arrow.modulate.a = difficulty.trace_feedback_intensity_multiplier
+	_wind_arrow.modulate.a = difficulty.trace_feedback_intensity_multiplier
 
 	_slots.columns = mini(player.inventory.slot_count, 8)
 	for i: int in range(player.inventory.slot_count):

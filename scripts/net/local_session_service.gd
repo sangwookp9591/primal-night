@@ -134,6 +134,9 @@ func tick_reconnect_slots(delta_seconds: float) -> void:
 func get_last_connection_failure() -> Dictionary:
 	return _last_connection_failure.duplicate()
 
+func record_async_connection_failure() -> void:
+	_record_connection_failure(&"connection_failed", ERR_CANT_CONNECT, "", build_number)
+
 
 func _has_session() -> bool:
 	var peer: MultiplayerPeer = multiplayer.multiplayer_peer

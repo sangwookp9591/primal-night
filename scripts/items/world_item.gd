@@ -31,8 +31,11 @@ var _net_pickup: NetPickup = null
 var _net_pickup_cached: bool = false
 var _noise_emitter: NoiseEmitter = NoiseEmitter.new()
 var _floor_smell_source: SmellSource = null
+var _base_spawn_count: int = 0
 
 func _ready() -> void:
+	add_to_group(&"world_item")
+	_base_spawn_count = count
 	var item_sprite := get_node_or_null("ItemSprite") as Sprite2D
 	if item_sprite != null:
 		item_sprite.texture = icon_texture(item_id)
@@ -45,6 +48,9 @@ func _ready() -> void:
 		_floor_smell_source.strength = item.smell_strength
 		_floor_smell_source.interval_seconds = item.smell_interval_seconds
 		add_child(_floor_smell_source)
+
+func apply_spawn_quantity_multiplier(multiplier: float) -> void:
+	count = maxi(1, roundi(float(_base_spawn_count) * multiplier))
 
 static func atlas_index_for(id: StringName) -> int:
 	return int(ITEM_ATLAS_INDICES.get(id, -1))

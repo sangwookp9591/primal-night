@@ -57,6 +57,8 @@ var _nav_agent: NavigationAgent2D = null
 var _sprite_animator: Node = null
 var _alert_label: Label = null
 var _alert_remaining: float = 0.0
+var _lost_sight_remaining: float = 0.0
+var _base_data: CreatureData = null
 
 ## 배회 목표 선택용. 테스트는 seed 를 고정해 결정적으로 만든다.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -66,6 +68,7 @@ var debug_enabled: bool = false
 
 func _ready() -> void:
 	add_to_group(&"raptor")
+	_base_data = data
 	move_target = global_position
 	_replicated_position = global_position
 	rng.randomize()
@@ -93,6 +96,8 @@ func _physics_process(delta: float) -> void:
 
 	if _has_pending_noise:
 		_resolve_pending_noise()
+	if state == State.CHASE and _lost_sight_remaining > 0.0:
+		_lost_sight_remaining = maxf(_lost_sight_remaining - delta, 0.0)
 
 	_ai_elapsed += delta
 	if _ai_elapsed >= data.ai_tick_interval:
@@ -218,10 +223,11 @@ func _ai_tick() -> void:
 					# 가장 가까운 비보호 플레이어를 추격한다 — 대상이 불 곁에 숨으면
 					# 노출된 동료로 전환한다 (한 명만 보호될 때 물러나지 않는다).
 					move_target = target.global_position
+					_lost_sight_remaining = data.chase_give_up_seconds
 				elif seen.any_visible:
 					# 보이는 플레이어 전원이 불 곁이다 — 추격 포기 (목표 장면의 결말).
 					_start_flee()
-				else:
+				elif _lost_sight_remaining <= 0.0:
 					# 시야 상실: 마지막 목격 위치(move_target)를 조사하고 그 주변을 훑는다.
 					# 세기 0 으로 둔다 — 어떤 소리·냄새든 이 조사를 갈아탈 수 있다.
 					_adopt_cue(&"sight", 0.0, move_target)
@@ -233,6 +239,11 @@ func _ai_tick() -> void:
 			else:
 				move_target = _flee_target_from(_active_fires()[fire_index])
 	_heard_news = false
+
+func apply_difficulty(config: DifficultyConfig) -> void:
+	data = _base_data.duplicate(true)
+	data.smell_threshold *= config.raptor_investigate_threshold_multiplier
+	data.chase_give_up_seconds = config.raptor_chase_give_up_seconds
 
 ## 반경 안 플레이어 지각 한 번에: { nearest_unprotected: Node2D(불 밖 최근접), any_visible: bool }.
 ## 그룹 조회는 ai_tick_interval 주기로만 일어난다 — 매 프레임 노드 탐색이 아니다 (성능문서 6.3).

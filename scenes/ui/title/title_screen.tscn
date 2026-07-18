@@ -1,0 +1,132 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/title/title_screen.gd" id="1"]
+[ext_resource type="Theme" path="res://scenes/ui/theme/primal_night_theme.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/net/local_session_service.gd" id="3"]
+
+[node name="TitleScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.035, 0.03, 0.022, 1)
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuPanel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+
+[node name="Content" type="VBoxContainer" parent="Center/MenuPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 42
+text = "PRIMAL NIGHT"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+text = "흔적을 읽고, 밤을 견뎌라"
+horizontal_alignment = 1
+
+[node name="MainMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Single" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_bottom = NodePath("../Host")
+text = "싱글 시작"
+[node name="Host" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Single")
+focus_neighbor_bottom = NodePath("../Join")
+text = "호스트 시작"
+[node name="Join" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Host")
+focus_neighbor_bottom = NodePath("../Quit")
+text = "참가"
+[node name="Quit" type="Button" parent="Center/MenuPanel/Content/MainMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Join")
+text = "종료"
+
+[node name="DifficultyMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Heading" type="Label" parent="Center/MenuPanel/Content/DifficultyMenu"]
+layout_mode = 2
+text = "난이도 선택"
+horizontal_alignment = 1
+[node name="Gentle" type="Button" parent="Center/MenuPanel/Content/DifficultyMenu"]
+layout_mode = 2
+focus_neighbor_bottom = NodePath("../Standard")
+text = "온화 — 넉넉한 자원과 안전한 복구"
+[node name="Standard" type="Button" parent="Center/MenuPanel/Content/DifficultyMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Gentle")
+focus_neighbor_bottom = NodePath("../Harsh")
+text = "표준 — 균형 잡힌 생존"
+[node name="Harsh" type="Button" parent="Center/MenuPanel/Content/DifficultyMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Standard")
+focus_neighbor_bottom = NodePath("../Back")
+text = "가혹 — 희소한 자원과 집요한 추격"
+[node name="Back" type="Button" parent="Center/MenuPanel/Content/DifficultyMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Harsh")
+text = "뒤로"
+
+[node name="JoinMenu" type="VBoxContainer" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Heading" type="Label" parent="Center/MenuPanel/Content/JoinMenu"]
+layout_mode = 2
+text = "직접 참가"
+horizontal_alignment = 1
+[node name="Address" type="LineEdit" parent="Center/MenuPanel/Content/JoinMenu"]
+layout_mode = 2
+placeholder_text = "127.0.0.1:8910"
+text = "127.0.0.1:8910"
+focus_neighbor_bottom = NodePath("../Connect")
+[node name="Connect" type="Button" parent="Center/MenuPanel/Content/JoinMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Address")
+focus_neighbor_bottom = NodePath("../Back")
+text = "접속"
+[node name="Back" type="Button" parent="Center/MenuPanel/Content/JoinMenu"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Connect")
+text = "뒤로"
+
+[node name="Status" type="Label" parent="Center/MenuPanel/Content"]
+layout_mode = 2
+text = ""
+autowrap_mode = 2
+horizontal_alignment = 1
+
+[node name="NetSession" type="Node" parent="."]
+script = ExtResource("3")

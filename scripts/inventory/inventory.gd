@@ -159,6 +159,31 @@ func total_weight() -> float:
 			total += item.weight * float(slot["count"])
 	return total
 
+func apply_death_keep_ratio(keep_ratio: float, drop_parent: Node) -> int:
+	var removed: int = 0
+	var ratio := clampf(keep_ratio, 0.0, 1.0)
+	var world_item_scene: PackedScene = preload("res://scenes/items/world_item.tscn")
+	for slot: Dictionary in _slots:
+		if slot.is_empty():
+			continue
+		var original := int(slot["count"])
+		var kept := floori(float(original) * ratio)
+		var dropped := original - kept
+		if dropped > 0 and drop_parent != null:
+			var world_item := world_item_scene.instantiate() as WorldItem
+			world_item.item_id = slot["id"]
+			world_item.count = dropped
+			drop_parent.add_child(world_item)
+			world_item.global_position = (get_parent() as Node2D).global_position
+		removed += dropped
+		if kept <= 0:
+			slot.clear()
+		else:
+			slot["count"] = kept
+	if removed > 0:
+		changed.emit()
+	return removed
+
 ## 보유 중인 모든 냄새 원천을 합산한 결과. 원천이 없으면 빈 Dictionary.
 ## 반환: {strength: float, interval: float, kind: StringName}
 ##

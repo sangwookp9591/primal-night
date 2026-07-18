@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=24 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -22,6 +22,7 @@
 [ext_resource type="Script" path="res://scripts/creature/pack_coordinator.gd" id="20_packcoordinator"]
 [ext_resource type="Script" path="res://scripts/world/net_butcher.gd" id="21_netbutcher"]
 [ext_resource type="Script" path="res://scripts/net/net_equipment.gd" id="22_netequipment"]
+[ext_resource type="Script" path="res://scripts/difficulty/difficulty_runtime.gd" id="23_difficulty"]
 
 [node name="Main" type="Node2D"]
 
@@ -64,6 +65,9 @@ script = ExtResource("8_noisedebug")
 [node name="NetSession" type="Node" parent="."]
 script = ExtResource("9_netsession")
 config = ExtResource("11_netconfig")
+
+[node name="DifficultyRuntime" type="Node" parent="."]
+script = ExtResource("23_difficulty")
 
 ; 호스트가 권위적으로 스폰하는 원격 아바타 컨테이너.
 [node name="Players" type="Node2D" parent="."]

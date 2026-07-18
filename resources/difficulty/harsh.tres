@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="DifficultyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/difficulty/difficulty_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"harsh"
+display_name = "가혹"
+description = "자원과 흔적 단서가 줄고, 죽음과 포식자의 집요함이 커집니다."
+resource_spawn_quantity_multiplier = 0.75
+resource_respawn_time_multiplier = 1.5
+trace_feedback_duration_multiplier = 0.7
+trace_feedback_intensity_multiplier = 0.8
+death_item_keep_ratio = 0.0
+raptor_investigate_threshold_multiplier = 0.75
+raptor_chase_give_up_seconds = 2.0
