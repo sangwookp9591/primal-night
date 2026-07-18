@@ -32,6 +32,56 @@ func test_equipment_sheets_register_48_atlas_frames_per_visual() -> void:
 		assert_eq(frame_total, 48, visual_id)
 
 
+func test_player_and_equipment_sheets_match_six_frame_atlas_contract() -> void:
+	var sheet_paths: Array[String] = [
+		"res://assets/sprites/player/player_survivor_sheet.png",
+	]
+	for visual_id: StringName in SHEET_VISUAL_IDS:
+		sheet_paths.append(String(PlayerVisualProfile.VISUALS[visual_id].sheet))
+	for sheet_path: String in sheet_paths:
+		var texture := load(sheet_path) as Texture2D
+		assert_not_null(texture, sheet_path)
+		var image := texture.get_image()
+		assert_eq(image.get_size(), Vector2i(
+			PlayerVisualProfile.CELL_SIZE.x * PlayerVisualProfile.DIRECTION_COUNT,
+			PlayerVisualProfile.CELL_SIZE.y * 6), sheet_path)
+		for row: int in range(6):
+			for direction: int in range(PlayerVisualProfile.DIRECTION_COUNT):
+				var centroid := _alpha_centroid(image, direction, row)
+				assert_between(centroid.x, 0.0, float(PlayerVisualProfile.CELL_SIZE.x - 1),
+					"%s d%d f%d x" % [sheet_path, direction, row])
+				assert_between(centroid.y, 0.0, float(PlayerVisualProfile.CELL_SIZE.y - 1),
+					"%s d%d f%d y" % [sheet_path, direction, row])
+
+
+func test_player_sheets_contain_no_magenta_key_pixels() -> void:
+	var sheet_paths: Array[String] = [
+		"res://assets/sprites/player/player_survivor_sheet.png",
+	]
+	for visual_id: StringName in SHEET_VISUAL_IDS:
+		sheet_paths.append(String(PlayerVisualProfile.VISUALS[visual_id].sheet))
+	for sheet_path: String in sheet_paths:
+		# Inspect the authored PNG bytes directly. Texture import converts sRGB
+		# channels to linear values, which changes channel ratios despite leaving
+		# the visible source pixel unchanged.
+		var image := Image.load_from_file(ProjectSettings.globalize_path(sheet_path))
+		image.convert(Image.FORMAT_RGBA8)
+		var bytes := image.get_data()
+		var magenta_pixels := 0
+		for byte_index: int in range(0, bytes.size(), 4):
+			var red := bytes[byte_index]
+			var green := bytes[byte_index + 1]
+			var blue := bytes[byte_index + 2]
+			var alpha := bytes[byte_index + 3]
+			if alpha > 0 \
+					and red > 60 \
+					and blue > 50 \
+					and red > green * 1.35 \
+					and blue > green * 1.35:
+				magenta_pixels += 1
+		assert_eq(magenta_pixels, 0, "%s has magenta key fringe" % sheet_path)
+
+
 func test_equipment_overlay_centroids_stay_in_anatomical_bands() -> void:
 	var outfit_ids: Array[StringName] = [
 		&"white_underwear", &"work_clothes", &"leather_armor",
