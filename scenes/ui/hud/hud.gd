@@ -46,6 +46,7 @@ const HEALTH_STAGE_COLORS: Dictionary = {
 @onready var _prompt: Label = $Root/NoticeStack/Prompt
 @onready var _target_prompt: Label = $Root/NoticeStack/TargetPrompt
 @onready var _knowledge_notice: Label = $Root/NoticeStack/KnowledgeNotice
+@onready var _outcome_notice: Label = $Root/NoticeStack/OutcomeNotice
 @onready var _wind_arrow: Label = $Root/SenseRow/WindArrow
 @onready var _sound_arrow: Label = $Root/SenseRow/SoundArrow
 @onready var _raptor_alert: Label = $Root/SenseRow/RaptorAlert
@@ -83,6 +84,7 @@ func _ready() -> void:
 	_game_data = get_node("/root/GameData")
 	set_process(false)
 	bind_clock(get_parent().get_node_or_null("SessionClock") as SessionClock)
+	bind_objective(get_parent().get_node_or_null("LoopObjective") as LoopObjective)
 	# 씬에 그냥 놓았을 때는 스스로 플레이어를 찾는다 (1회 탐색).
 	var found: Node = get_tree().get_first_node_in_group("player")
 	if found != null:
@@ -135,6 +137,22 @@ func bind_clock(clock: SessionClock) -> void:
 	_clock = clock
 	_clock.time_changed.connect(_on_clock_time_changed)
 	_refresh_time()
+
+
+func bind_objective(objective: LoopObjective) -> void:
+	if objective == null:
+		return
+	objective.outcome_changed.connect(_on_outcome_changed.bind(objective))
+	_on_outcome_changed(objective.outcome, objective)
+
+
+func _on_outcome_changed(_outcome: LoopObjective.Outcome, objective: LoopObjective) -> void:
+	_outcome_notice.text = objective.narrative_text()
+	_outcome_notice.visible = not _outcome_notice.text.is_empty()
+
+
+func outcome_text() -> String:
+	return _outcome_notice.text if _outcome_notice.visible else ""
 
 
 func time_text() -> String:

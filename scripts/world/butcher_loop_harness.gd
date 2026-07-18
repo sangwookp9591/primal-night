@@ -12,8 +12,8 @@ extends SceneTree
 ##   2) 감각 대가       — 구간 완료마다 절단 소음 240px + 신선 피 냄새 80
 ##   3) 랩터 조사 전환  — 절단 소음을 들은 랩터 WANDER → INVESTIGATE (무리 2마리)
 ##   4) 위험 노출       — 산출한 날고기를 들고 이동 → smell_emitted(raw_meat) → 세션 위험 노출
-##   5) 철수 판정       — 짝수 시드는 추출 지점 도달 성공(SUCCEEDED),
-##                        홀수 시드는 세션 만료 실패(FAILED). 두 결과가 시드 집합에 모두 나온다.
+##   5) 철수 판정       — 짝수 시드는 위험을 안은 강제 탈출(FORCED_ESCAPE),
+##                        홀수 시드는 세션 만료 잔류(REMAIN). 두 결과가 시드 집합에 모두 나온다.
 ##
 ## 10개 시드가 전부 1~5 를 만족하고, 성공·실패가 모두 관측되면 exit 0. 아니면 exit 1.
 ##
@@ -59,9 +59,9 @@ func _report() -> void:
 	for result: Dictionary in _results:
 		if not result.ok:
 			all_ok = false
-		if result.extraction == "SUCCEEDED":
+		if result.extraction == "FORCED_ESCAPE":
 			saw_success = true
-		elif result.extraction == "FAILED":
+		elif result.extraction == "REMAIN":
 			saw_failure = true
 		_log("seed %d: 해체=%s 대가=%s 조사전환=%s 위험노출=%s 철수=%s -> %s%s" % [
 			result.seed, result.butchered, result.sense_cost, result.investigate,
@@ -193,23 +193,23 @@ func _run_seed(seed_value: int, seed_index: int) -> Dictionary:
 	# ── 5) 철수 판정 — 짝수 시드는 도달 성공, 홀수 시드는 세션 만료 실패 ──
 	if seed_index % 2 == 0:
 		player.global_position = loop.global_position
-		if not await _wait_until(func() -> bool: return loop.outcome == LoopObjective.Outcome.SUCCEEDED, 5.0):
+		if not await _wait_until(func() -> bool: return loop.outcome == LoopObjective.Outcome.FORCED_ESCAPE, 5.0):
 			result.reason = "추출 지점에 도달했는데 성공 판정이 나지 않았다 (outcome=%d)" % loop.outcome
 			await _teardown(main)
 			return result
-		result.extraction = "SUCCEEDED"
-		_log("  [seed %d] 철수 성공 — 위험을 안고 추출 지점 도달" % seed_value)
+		result.extraction = "FORCED_ESCAPE"
+		_log("  [seed %d] 강제 탈출 — 위험을 안고 추출 지점 도달" % seed_value)
 	else:
 		# 추출 지점에서 멀리 둔 채 세션을 만료시킨다 — 철수에 실패한 판이다.
 		player.global_position = loop.global_position + Vector2(50000.0, 0.0)
 		clock.start()
 		clock.advance(clock.session_duration_seconds() + 1.0)
-		if not await _wait_until(func() -> bool: return loop.outcome == LoopObjective.Outcome.FAILED, 5.0):
+		if not await _wait_until(func() -> bool: return loop.outcome == LoopObjective.Outcome.REMAIN, 5.0):
 			result.reason = "세션이 만료됐는데 실패 판정이 나지 않았다 (outcome=%d)" % loop.outcome
 			await _teardown(main)
 			return result
-		result.extraction = "FAILED"
-		_log("  [seed %d] 철수 실패 — 시간이 만료될 때까지 빠져나오지 못함" % seed_value)
+		result.extraction = "REMAIN"
+		_log("  [seed %d] 순환 잔류 — 시간이 만료될 때까지 빠져나오지 못함" % seed_value)
 
 	result.ok = true
 	result.reason = "전부 통과"

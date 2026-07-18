@@ -56,7 +56,7 @@ func test_real_scene_butcher_yields_then_carried_smell_exposes_risk() -> void:
 		"보유 날고기 냄새가 세션 위험 노출을 일으켜야 한다")
 
 
-func test_real_scene_extraction_succeeds_once_risk_is_exposed() -> void:
+func test_real_scene_extraction_is_forced_while_lure_smell_is_active() -> void:
 	var main: Node2D = add_child_autofree(MainScene.instantiate())
 	var player: Player = main.get_node("Player")
 	var carcass: Carcass = main.get_node("SurvivalDemo/RaptorCarcass")
@@ -70,11 +70,11 @@ func test_real_scene_extraction_succeeds_once_risk_is_exposed() -> void:
 
 	player.global_position = loop.global_position
 	assert_true(await wait_until(func() -> bool:
-		return loop.outcome == LoopObjective.Outcome.SUCCEEDED, 3.0),
-		"위험을 안고 추출 지점에 도달하면 성공 판정이 나야 한다")
+		return loop.outcome == LoopObjective.Outcome.FORCED_ESCAPE, 3.0),
+		"유인 냄새를 안고 추출 지점에 도달하면 강제 탈출 판정이 나야 한다")
 
 
-func test_real_scene_session_expiry_fails_the_run() -> void:
+func test_real_scene_session_expiry_remains_when_alive() -> void:
 	var main: Node2D = add_child_autofree(MainScene.instantiate())
 	var player: Player = main.get_node("Player")
 	var carcass: Carcass = main.get_node("SurvivalDemo/RaptorCarcass")
@@ -91,8 +91,8 @@ func test_real_scene_session_expiry_fails_the_run() -> void:
 	clock.advance(clock.session_duration_seconds() + 1.0)
 
 	assert_true(await wait_until(func() -> bool:
-		return loop.outcome == LoopObjective.Outcome.FAILED, 3.0),
-		"철수하지 못한 채 세션이 만료되면 실패 판정이 나야 한다")
+		return loop.outcome == LoopObjective.Outcome.REMAIN, 3.0),
+		"생존한 채 세션이 만료되면 다음 순환에 잔류해야 한다")
 
 
 func test_butcher_noise_pulls_a_wandering_raptor_into_investigation() -> void:

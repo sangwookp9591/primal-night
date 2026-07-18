@@ -185,6 +185,14 @@ autowrap_mode = 2
 theme_override_colors/font_color = Color(0.435294, 0.780392, 0.788235, 1)
 text = ""
 
+[node name="OutcomeNotice" type="Label" parent="Root/NoticeStack"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 2
+theme_override_colors/font_color = Color(0.92549, 0.72549, 0.443137, 1)
+text = ""
+
 ; 감각 피드백 (설계서 5.4/12장): 바람 화살표 / 최근 큰 소리 방향 / 랩터 추격 경보.
 [node name="SenseRow" type="HBoxContainer" parent="Root"]
 layout_mode = 1

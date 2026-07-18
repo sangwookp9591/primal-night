@@ -10,7 +10,7 @@ extends Node2D
 ## 호스트가 자기 월드의 아바타 좌표를 직접 재고, 결과를 신뢰 전송으로 복제할 뿐이다
 ## (NetPickup/NetSurvival/NetResync 와 같은 골격).
 
-enum Outcome { PENDING, SUCCEEDED, FAILED }
+enum Outcome { PENDING, STABLE_ESCAPE, FORCED_ESCAPE, REMAIN, FAILED }
 
 signal outcome_changed(outcome: Outcome)
 
@@ -23,6 +23,14 @@ const LURE_SMELL_KINDS: Array[StringName] = [&"raw_meat", &"bait"]
 ## 도달 판정 주기 (틱). 10Hz 면 도달 판정에 충분하다 — 매 프레임 전체 아바타
 ## 순회는 금지다 (성능문서 6.1).
 const CHECK_INTERVAL_TICKS: int = 6
+const ACTIVE_LURE_WINDOW_SECONDS: float = 1.5
+const OUTCOME_TEXTS: Dictionary = {
+	Outcome.PENDING: "",
+	Outcome.STABLE_ESCAPE: "피를 멎게 하고 불을 지킨 끝에, 무사히 골짜기를 빠져나왔다.",
+	Outcome.FORCED_ESCAPE: "위험의 흔적을 떨치지 못한 채, 대가를 안고 골짜기를 빠져나왔다.",
+	Outcome.REMAIN: "밤이 다시 닫혔고, 살아남은 이들은 다음 순환에 남았다.",
+	Outcome.FAILED: "살아 돌아갈 이가 없어, 이번 순환은 여기서 끊겼다.",
+}
 
 ## 지정 지점 반경 (px). 회색 상자라 시각 표식이 없으므로 넉넉히 잡는다.
 @export var extraction_radius: float = 96.0
@@ -34,6 +42,9 @@ const CHECK_INTERVAL_TICKS: int = 6
 var outcome: Outcome = Outcome.PENDING
 ## 세션 단위 플래그다 (2인 협동이므로 누가 노출됐든 그 판이 위험해진다).
 var risk_exposed: bool = false
+var bleeding_treated: bool = false
+var fire_maintained: bool = false
+var _last_lure_smell_seconds: float = -INF
 
 var _clock: SessionClock
 var _session: SessionService
@@ -52,8 +63,10 @@ func _ready() -> void:
 	if has_node("/root/EventBus"):
 		var event_bus: Node = get_node("/root/EventBus")
 		event_bus.bleeding_started.connect(_on_bleeding_started)
+		event_bus.bleeding_stopped.connect(_on_bleeding_stopped)
 		event_bus.item_picked_up.connect(_on_item_picked_up)
 		event_bus.smell_emitted.connect(_on_smell_emitted)
+		event_bus.campfire_lit.connect(_on_campfire_lit)
 	_guard = RpcGuard.new()
 	_guard.register_rule(&"apply_session_snapshot", true, SNAPSHOT_MAX_PER_SECOND, SNAPSHOT_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
@@ -69,7 +82,7 @@ func _physics_process(delta: float) -> void:
 	if Engine.get_physics_frames() % CHECK_INTERVAL_TICKS != 0:
 		return
 	if risk_exposed and _anyone_at_extraction():
-		_settle(Outcome.SUCCEEDED)
+		_settle(_escape_outcome())
 
 
 ## 위험 노출 기록 (호스트 권위). 지금은 출혈뿐이지만, W3-T4 의 고기·미끼 같은
@@ -85,6 +98,16 @@ func _on_bleeding_started(target: Node) -> void:
 		mark_risk_exposed()
 
 
+func _on_bleeding_stopped(target: Node) -> void:
+	if multiplayer.is_server() and target is Player and risk_exposed:
+		bleeding_treated = true
+
+
+func _on_campfire_lit(_campfire: Node, _position: Vector2, _radius: float) -> void:
+	if multiplayer.is_server():
+		fire_maintained = true
+
+
 func _on_item_picked_up(item_id: StringName, by: Node) -> void:
 	if not by is Player:
 		return
@@ -95,13 +118,50 @@ func _on_item_picked_up(item_id: StringName, by: Node) -> void:
 
 func _on_smell_emitted(_position: Vector2, strength: float, kind: StringName) -> void:
 	if strength > 0.0 and kind in LURE_SMELL_KINDS:
+		_last_lure_smell_seconds = _now_seconds
 		mark_risk_exposed()
 
 
 func _on_session_expired() -> void:
 	if not multiplayer.is_server() or outcome != Outcome.PENDING:
 		return
-	_settle(Outcome.FAILED)
+	_settle(Outcome.REMAIN if _anyone_alive() else Outcome.FAILED)
+
+
+func narrative_text() -> String:
+	return OUTCOME_TEXTS.get(outcome, "")
+
+
+func _escape_outcome() -> Outcome:
+	if _has_active_bleeding() or _has_active_lure_smell():
+		return Outcome.FORCED_ESCAPE
+	if bleeding_treated and fire_maintained:
+		return Outcome.STABLE_ESCAPE
+	return Outcome.FORCED_ESCAPE
+
+
+func _has_active_lure_smell() -> bool:
+	return _now_seconds - _last_lure_smell_seconds <= ACTIVE_LURE_WINDOW_SECONDS
+
+
+func _has_active_bleeding() -> bool:
+	if _host_player.health.is_bleeding:
+		return true
+	for index: int in range(_container.get_child_count()):
+		var avatar: Player = _container.get_child(index) as Player
+		if avatar != null and avatar.health.is_bleeding:
+			return true
+	return false
+
+
+func _anyone_alive() -> bool:
+	if _host_player.health.is_alive():
+		return true
+	for index: int in range(_container.get_child_count()):
+		var avatar: Player = _container.get_child(index) as Player
+		if avatar != null and avatar.health.is_alive():
+			return true
+	return false
 
 
 ## 10Hz 판정 — get_children() 배열 할당 없이 인덱스로 돌고, sqrt 없이 제곱 비교한다.
@@ -121,7 +181,7 @@ func _settle(result: Outcome) -> void:
 	_clock.stop()
 	outcome_changed.emit(outcome)
 	apply_session_snapshot.rpc(_clock.current_day, _clock.time_of_day_seconds,
-		_clock.running, int(outcome), risk_exposed)
+		_clock.running, int(outcome), risk_exposed, bleeding_treated, fire_maintained)
 
 
 func _send_snapshot_to(player_id: StringName) -> void:
@@ -131,14 +191,14 @@ func _send_snapshot_to(player_id: StringName) -> void:
 	if peer <= 0 or peer == RpcGuard.HOST_PEER_ID:
 		return
 	apply_session_snapshot.rpc_id(peer, _clock.current_day, _clock.time_of_day_seconds,
-		_clock.running, int(outcome), risk_exposed)
+		_clock.running, int(outcome), risk_exposed, bleeding_treated, fire_maintained)
 
 
 ## 호스트 → 피어: 세션 상태 스냅샷 (day/time·진행 여부·판정·노출).
 ## 결과 확정 시 브로드캐스트, 참가·재접속 시 그 피어에게만 보낸다.
 @rpc("authority", "call_remote", "reliable")
 func apply_session_snapshot(day: int, time_of_day: float, running: bool,
-		outcome_value: int, exposed: bool) -> void:
+		outcome_value: int, exposed: bool, treated: bool, maintained_fire: bool) -> void:
 	if not _guard.check(&"apply_session_snapshot", multiplayer.get_remote_sender_id(),
 			SNAPSHOT_PAYLOAD_BYTES, _now_seconds):
 		return
@@ -149,6 +209,8 @@ func apply_session_snapshot(day: int, time_of_day: float, running: bool,
 		return
 	_clock.apply_replicated(day, time_of_day, running)
 	risk_exposed = exposed
+	bleeding_treated = treated
+	fire_maintained = maintained_fire
 	var replicated: Outcome = outcome_value as Outcome
 	if outcome != replicated:
 		outcome = replicated

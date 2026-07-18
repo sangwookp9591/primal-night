@@ -3,8 +3,8 @@ extends GutTest
 ## LoopObjective — 회색 상자 감지 루프의 세션 판정 (계획서 W3-T2, 설계서 4.x).
 ## 루프: 위험 노출(출혈·냄새) → 랩터 회피 → 지정 지점 도달.
 ## 불변식:
-##   1. 3일째 시간이 다 되면 세션 실패다.
-##   2. 위험에 노출된 뒤 지정 지점에 닿으면 세션 성공이다.
+##   1. 3일째 시간이 다 되면 생존자는 다음 순환에 잔류한다.
+##   2. 위험에 노출된 뒤 지정 지점에 닿으면 관리 상태에 따라 탈출 결과가 갈린다.
 ##   3. 노출 없이 지점만 밟는 것은 이 루프가 아니다 — 판정은 PENDING 으로 남는다.
 ##   4. 시간·판정의 권위는 호스트다. 클라이언트에는 "도달했다"를 주장할 RPC 가 없고,
 ##      참가·재접속 시 호스트 스냅샷으로 세션 상태를 복원받는다.
@@ -80,7 +80,7 @@ func _make_side(side_name: String) -> Dictionary:
 	return side
 
 
-func test_final_day_time_expiry_fails_the_session() -> void:
+func test_final_day_time_expiry_remains_when_someone_is_alive() -> void:
 	var side: Dictionary = _make_side("Solo")
 	var objective: LoopObjective = side.objective
 	objective.mark_risk_exposed()
@@ -88,12 +88,12 @@ func test_final_day_time_expiry_fails_the_session() -> void:
 	(side.clock as SessionClock).advance(DAY_SECONDS * 3.0 + 1.0)
 	await wait_physics_frames(8)
 
-	assert_eq(objective.outcome, LoopObjective.Outcome.FAILED,
-		"3일째 시간이 다 되면 지점에 못 갔으니 세션 실패다")
+	assert_eq(objective.outcome, LoopObjective.Outcome.REMAIN,
+		"3일째 시간이 다 되어도 생존 중이면 다음 순환에 잔류한다")
 
 
 ## 성공 판정은 '노출 뒤 도달'만 인정한다. 지점만 밟는 것은 이 루프가 아니다.
-func test_reaching_extraction_succeeds_only_after_risk_exposure() -> void:
+func test_reaching_extraction_forces_escape_when_risk_was_not_managed() -> void:
 	var side: Dictionary = _make_side("Solo")
 	var objective: LoopObjective = side.objective
 	(side.host_player as Player).global_position = EXTRACTION
@@ -106,9 +106,32 @@ func test_reaching_extraction_succeeds_only_after_risk_exposure() -> void:
 	(side.clock as SessionClock).advance(DAY_SECONDS * 2.0)
 	await wait_physics_frames(8)
 
-	assert_eq(objective.outcome, LoopObjective.Outcome.SUCCEEDED,
-		"위험에 노출된 뒤 지정 지점에 닿으면 세션 성공이다")
+	assert_eq(objective.outcome, LoopObjective.Outcome.FORCED_ESCAPE,
+		"관리 이력이 없는 위험 노출 뒤 도달은 강제 탈출이다")
 	assert_false((side.clock as SessionClock).running, "판정이 끝나면 시계도 멈춘다")
+
+
+func test_treated_bleeding_and_maintained_fire_produce_stable_escape() -> void:
+	var side: Dictionary = _make_side("Solo")
+	var player: Player = side.host_player
+	player.health.start_bleeding()
+	player.health.stop_bleeding()
+	get_node("/root/EventBus").campfire_lit.emit(side.root, Vector2.ZERO, 100.0)
+	player.global_position = EXTRACTION
+	await wait_physics_frames(8)
+
+	assert_eq((side.objective as LoopObjective).outcome, LoopObjective.Outcome.STABLE_ESCAPE)
+	assert_true((side.objective as LoopObjective).narrative_text().contains("무사히"))
+
+
+func test_active_bleeding_produces_forced_escape() -> void:
+	var side: Dictionary = _make_side("Solo")
+	(side.host_player as Player).health.start_bleeding()
+	(side.host_player as Player).global_position = EXTRACTION
+	await wait_physics_frames(8)
+
+	assert_eq((side.objective as LoopObjective).outcome, LoopObjective.Outcome.FORCED_ESCAPE)
+	assert_true((side.objective as LoopObjective).narrative_text().contains("대가"))
 
 
 ## 출혈은 피 냄새를 만들어 랩터를 부른다 = 위험 노출이다 (설계서 5.2/5.4).
@@ -165,7 +188,13 @@ func test_reconnected_client_restores_session_state_from_host() -> void:
 
 	# 접속 중에 세션이 더 진행된다: 시간이 흐르고 플레이어가 위험에 노출된다.
 	host_clock.advance(5.0)
-	host_objective.mark_risk_exposed()
+	(host.host_player as Player).health.start_bleeding()
+	(host.host_player as Player).health.stop_bleeding()
+	get_node("/root/EventBus").campfire_lit.emit(host.root, Vector2.ZERO, 100.0)
+	(host.host_player as Player).global_position = EXTRACTION
+	assert_true(await wait_until(func() -> bool:
+		return host_objective.outcome == LoopObjective.Outcome.STABLE_ESCAPE, 3.0),
+		"호스트가 안정 탈출 결과를 확정해야 한다")
 
 	(client.session as SessionService).leave_session()
 	assert_true(await wait_until(func() -> bool:
@@ -185,6 +214,10 @@ func test_reconnected_client_restores_session_state_from_host() -> void:
 		"재접속한 클라이언트는 위험 노출 상태를 되찾아야 한다")
 	assert_eq(client_objective.outcome, host_objective.outcome,
 		"세션 판정은 호스트 값 그대로다")
+	assert_eq(client_objective.outcome, LoopObjective.Outcome.STABLE_ESCAPE,
+		"늦게 다시 참가해도 확정된 서사 결과를 복원해야 한다")
+	assert_eq(client_objective.narrative_text(), host_objective.narrative_text(),
+		"결과 문장도 동일한 확정 결과에서 재현되어야 한다")
 
 
 func test_client_cannot_claim_a_day() -> void:
@@ -197,7 +230,7 @@ func test_client_cannot_claim_a_day() -> void:
 	var original_day: int = host_clock.current_day
 
 	(client.objective as LoopObjective).apply_session_snapshot.rpc(
-		3, 9.0, false, int(LoopObjective.Outcome.SUCCEEDED), true)
+		3, 9.0, false, int(LoopObjective.Outcome.STABLE_ESCAPE), true, true, true)
 	await wait_physics_frames(10)
 
 	assert_engine_error("!can_call", "authority RPC가 클라이언트 day 주장을 차단해야 한다")
