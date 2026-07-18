@@ -72,7 +72,7 @@ GUI 실기 자동화: 게임 pid를 잡아 `osascript`로 frontmost 지정 후 k
 |---|---|---|---|
 | 1 | **사람 플레이테스트 실행** — docs/playtest/PLAYTEST_01_OBSERVATION_SHEET.md 사용 | **사용자**+5명 | **통과 전 신규 콘텐츠 확장 금지(§6)**. 함정: 인벤 UI Esc=장착 해제, 닫기=Tab (혼동 관찰 포인트) |
 | 2 | GUI 실기 잔여: 건조대(날고기 필요)·전투(창 제작→랩터, sinew 필요) — 사냥 흐름으로 이어서 검증 | Fable 5 (실기) | 날고기·sinew는 랩터 사냥/해체로 획득. 바닥 날고기는 청소동물이 먹어치움(실관측) |
-| 3 | small_pack 장착 기반 소지 용량 확장 경로 — capacity_slots/weight는 현재 modifiers 수치만 존재, 인벤토리 미연결 | gpt-5.6-sol | 큐 #4 승격 시 이월된 부채. 인벤토리 슬롯/무게 시스템에 장비 modifier 반영 설계 필요 |
+| 3 | 장비 modifier 런타임 미연결 2건: small_pack capacity_slots/weight(인벤토리 용량), bone_armor injury_protection 0.65(피해 감소) — 모두 modifiers 수치만 존재 | gpt-5.6-sol | 장비 modifier를 인벤토리·전투 피해 경로에 반영하는 공통 설계로 한 번에 해소 권장 |
 | 4 | 알려진 플레이크 추적: combat 하네스 '사체 복제' 타이밍 1회 관측 이력 — 재발 시 안정화 태스크 | gpt-5.5 | tests/senses stealth 안정화(f353128) 패턴 참조 |
 | 5 | **2단계 장기 생존 모드**(좀보이드 문서 §5: 3~10시간, 탈출은 선택) 착수 여부 판단 | **opus 4.8 크리틱 선행** → 계획 통과 시 gpt-5.6-sol | **1단계 플레이테스트 재미 증명 전 착수 금지** |
 | 6 | push 결정 | **사용자** | 로컬 main이 origin보다 앞섬. goal_scene_replay CI 수정(e28593f)도 미push라 원격 CI는 빨간 상태일 수 있음 |
