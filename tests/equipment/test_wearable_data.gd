@@ -35,3 +35,23 @@ func test_small_pack_resource_is_valid_back_wearable() -> void:
 	assert_eq(small_pack.visual_id, &"placeholder_back")
 	assert_gt(float(small_pack.modifiers.get("capacity_slots", 0)), 0.0)
 	assert_gt(float(small_pack.modifiers.get("capacity_weight", 0.0)), 0.0)
+
+
+func test_specialized_outfits_are_valid_and_keep_tradeoffs() -> void:
+	var fur := load("res://data/items/fur_cloak.tres") as WearableData
+	var raincoat := load("res://data/items/reed_raincoat.tres") as WearableData
+	var bone := load("res://data/items/bone_armor.tres") as WearableData
+	for outfit: WearableData in [fur, raincoat, bone]:
+		assert_not_null(outfit)
+		assert_true(outfit.is_valid_wearable(), outfit.id)
+		assert_eq(outfit.equip_slot, &"outfit")
+		assert_true(PlayerVisualProfile.has_registered_sheet(outfit.visual_id), outfit.id)
+	assert_gt(float(fur.modifiers.warmth), float(raincoat.modifiers.warmth))
+	assert_gt(fur.smell_modifier, raincoat.smell_modifier)
+	assert_lt(raincoat.wetness_modifier, fur.wetness_modifier)
+	assert_gt(raincoat.noise_modifier, fur.noise_modifier)
+	var leather := load("res://data/items/leather_armor.tres") as WearableData
+	assert_gt(float(bone.modifiers.injury_protection),
+		float(leather.modifiers.injury_protection))
+	assert_gt(bone.weight, leather.weight)
+	assert_gt(bone.noise_modifier, leather.noise_modifier)

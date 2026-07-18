@@ -60,6 +60,7 @@ var _status_elapsed: float = 0.0
 var _noise_emitter := NoiseEmitter.new()
 var _vomit_profile := NoiseProfile.new()
 var _event_bus: Node = null
+var _active_state_visual: StringName = &""
 
 
 func _ready() -> void:
@@ -182,6 +183,7 @@ func apply_food_risk(food_poisoned: bool, potency: float) -> void:
 	if potency > 0.0 and is_finite(potency):
 		poison_potency = maxf(poison_potency, clampf(potency, 0.0, 1.0))
 		poison_remaining = maxf(poison_remaining, POISON_DURATION_SECONDS)
+	_refresh_state_visual()
 
 
 func food_safety_snapshot() -> Dictionary:
@@ -203,6 +205,7 @@ func apply_food_safety_snapshot(state: Dictionary, death_recovery: bool = false)
 	food_poison_remaining = maxf(float(state.food_poison_remaining), 0.0)
 	poison_remaining = maxf(float(state.poison_remaining), 0.0)
 	poison_potency = clampf(float(state.poison_potency), 0.0, 1.0)
+	_refresh_state_visual()
 	return true
 
 
@@ -211,6 +214,7 @@ func clear_food_safety() -> void:
 	poison_remaining = 0.0
 	poison_potency = 0.0
 	_vomit_elapsed = 0.0
+	_refresh_state_visual()
 
 
 func _simulate_food_safety(delta: float) -> void:
@@ -322,12 +326,29 @@ func _apply_wet_feedback() -> void:
 		player.equipment.condition_flags |= WET_FLAG
 	else:
 		player.equipment.condition_flags &= ~WET_FLAG
-	if player.visual_rig != null:
-		player.visual_rig.apply_visual(&"state_overlay",
-			&"placeholder_state_overlay" if wetness >= 0.05 else &"")
-		if player.visual_rig.state_overlay != null:
-			player.visual_rig.state_overlay.modulate.a = clampf(wetness, 0.2, 0.8)
+	_refresh_state_visual()
 	_refresh_clothing_smell()
+
+
+func _refresh_state_visual() -> void:
+	if not _body is Player:
+		return
+	var player := _body as Player
+	if player.visual_rig == null:
+		return
+	var visual_id: StringName = &""
+	if poison_remaining > 0.0 and poison_potency > 0.0:
+		visual_id = &"poison_state"
+	elif food_poison_remaining > 0.0:
+		visual_id = &"food_poison_state"
+	elif wetness >= 0.05:
+		visual_id = &"placeholder_state_overlay"
+	if visual_id != _active_state_visual:
+		player.visual_rig.apply_visual(&"state_overlay", visual_id)
+		_active_state_visual = visual_id
+	if player.visual_rig.state_overlay != null:
+		player.visual_rig.state_overlay.modulate.a = clampf(wetness, 0.2, 0.8) \
+			if visual_id == &"placeholder_state_overlay" else 1.0
 
 func _on_equipment_changed(_slot: StringName, _item_id: StringName) -> void:
 	_refresh_clothing_smell()

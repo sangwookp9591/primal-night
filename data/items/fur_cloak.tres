@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WearableData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/wearable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"fur_cloak"
+display_name = "모피 망토"
+weight = 2.8
+equip_slot = &"outfit"
+visual_id = &"fur_cloak"
+modifiers = {
+"warmth": 0.9
+}
+noise_modifier = 0.12
+smell_modifier = 0.85
+wetness_modifier = -0.38
+drying_speed = 0.35
+wet_weight_penalty = 0.7

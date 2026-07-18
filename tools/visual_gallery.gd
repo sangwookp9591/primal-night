@@ -6,7 +6,9 @@ extends SceneTree
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 
-const OUTFITS: Array[StringName] = [&"", &"white_underwear", &"work_clothes", &"leather_armor"]
+const OUTFITS: Array[StringName] = [&"", &"white_underwear", &"work_clothes", &"leather_armor",
+	&"fur_cloak", &"reed_raincoat", &"bone_armor"]
+const STATE_VISUALS: Array[StringName] = [&"poison_state", &"food_poison_state"]
 const HANDS: Array[StringName] = [&"", &"stone_knife", &"stone_spear", &"bow", &"torch"]
 const CELL: float = 96.0
 const DIRECTION_VECTORS: Array[Vector2] = [
@@ -22,11 +24,11 @@ func _init() -> void:
 func _run() -> void:
 	await process_frame
 	var window: Window = get_root()
-	window.size = Vector2i(1000, 1000)
+	window.size = Vector2i(1000, 1250)
 
 	var background := ColorRect.new()
 	background.color = Color(0.28, 0.30, 0.20)
-	background.size = Vector2(1000, 1000)
+	background.size = Vector2(1000, 1250)
 	get_root().add_child(background)
 
 	# 행: 의상 4종(맨몸 포함) × 8방향, 이어서 손 장비 4종(S방향, 의상=white_underwear)
@@ -36,6 +38,15 @@ func _run() -> void:
 			var player := _spawn_player(outfit, &"", &"")
 			player.global_position = Vector2(64.0 + direction * CELL, 72.0 + row * CELL)
 			_face(player, direction)
+		row += 1
+
+	# 상태 오버레이 행: 속옷 차림 × 8방향 (중독 / 식중독)
+	for state_visual: StringName in STATE_VISUALS:
+		for direction: int in range(8):
+			var player := _spawn_player(&"white_underwear", &"", &"")
+			player.global_position = Vector2(64.0 + direction * CELL, 72.0 + row * CELL)
+			_face(player, direction)
+			player.visual_rig.apply_visual(&"state_overlay", state_visual)
 		row += 1
 
 	var hand_col: int = 0

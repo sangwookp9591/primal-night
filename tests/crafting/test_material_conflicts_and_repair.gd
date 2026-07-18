@@ -78,3 +78,28 @@ func test_one_full_raptor_yield_supports_each_rebalanced_single_choice() -> void
 	assert_gte(int(totals.get(&"bone", 0)), 2)
 	assert_lte(get_node("/root/GameData").get_recipe(&"craft_bow").ingredients[&"sinew"],
 		int(totals[&"sinew"]))
+
+
+func test_specialized_outfit_recipes_consume_competing_materials() -> void:
+	var expected := {
+		&"craft_fur_cloak": {&"hide": 3, &"sinew": 2},
+		&"craft_reed_raincoat": {&"fiber": 4, &"wood": 1},
+		&"craft_bone_armor": {&"bone": 3, &"sinew": 2, &"hide": 1},
+	}
+	for recipe_id: StringName in expected:
+		var player := PlayerScene.instantiate() as Player
+		add_child_autofree(player)
+		var crafting := Crafting.new()
+		add_child_autofree(crafting)
+		var recipe := get_node("/root/GameData").get_recipe(recipe_id) as RecipeData
+		assert_not_null(recipe, recipe_id)
+		assert_eq(recipe.ingredients, expected[recipe_id], recipe_id)
+		for item_id: StringName in expected[recipe_id]:
+			assert_eq(player.inventory.add_item(item_id, expected[recipe_id][item_id]),
+				expected[recipe_id][item_id])
+		assert_true(crafting.craft(player, recipe), recipe_id)
+		assert_eq(player.inventory.count_of(recipe.result.id), 1, recipe_id)
+		assert_true(player.equipment.request_equip(recipe.result.id), recipe_id)
+		assert_eq(player.equipment.get_equipped(&"outfit"), recipe.result.id, recipe_id)
+		assert_true(player.visual_rig.outfit.visible, recipe_id)
+		assert_not_null(player.visual_rig.outfit.sprite_frames, recipe_id)

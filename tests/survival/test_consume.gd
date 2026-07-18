@@ -87,9 +87,12 @@ func test_food_safety_snapshot_round_trip_and_death_reset() -> void:
 	assert_eq(restored.stats.food_poison_remaining, source.stats.food_poison_remaining)
 	assert_eq(restored.stats.poison_remaining, source.stats.poison_remaining)
 	assert_eq(restored.stats.poison_potency, source.stats.poison_potency)
+	assert_eq(restored.stats._active_state_visual, &"poison_state")
+	assert_true(restored.visual_rig.state_overlay.visible)
 	assert_true(restored.stats.apply_food_safety_snapshot(snapshot, true))
 	assert_eq(restored.stats.food_poison_remaining, 0.0)
 	assert_eq(restored.stats.poison_remaining, 0.0)
+	assert_eq(restored.stats._active_state_visual, &"")
 
 
 func test_food_poison_accelerates_drain_and_periodically_emits_vomit_noise() -> void:

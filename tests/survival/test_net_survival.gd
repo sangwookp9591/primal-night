@@ -151,6 +151,19 @@ func test_survival_state_replicates_to_client() -> void:
 	assert_true(client_avatar.injury.has_leg_laceration(), "호스트 확정 다리 열상이 복제되어야 한다")
 
 
+func test_poison_status_snapshot_updates_client_state_visual() -> void:
+	var client_id: StringName = await _join_and_spawn()
+	var client_avatar: Player = client.container.get_node(String(client_id))
+	var host_view: Player = host.container.get_node(String(client_id))
+	host_view.stats.apply_food_risk(false, 1.0)
+
+	assert_true(await wait_until(func() -> bool:
+		return client_avatar.stats.poison_remaining > 0.0 \
+			and client_avatar.stats._active_state_visual == &"poison_state" \
+			and client_avatar.visual_rig.state_overlay.visible, 5.0),
+		"호스트 중독 상태 스냅샷이 클라이언트 얼굴 오버레이까지 갱신해야 한다")
+
+
 func test_client_consume_is_host_validated_and_replicated() -> void:
 	var client_id: StringName = await _join_and_spawn()
 	var client_avatar: Player = client.container.get_node(String(client_id))

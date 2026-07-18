@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WearableData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/wearable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bone_armor"
+display_name = "뼈 갑옷"
+weight = 4.2
+equip_slot = &"outfit"
+visual_id = &"bone_armor"
+modifiers = {
+"injury_protection": 0.65,
+"warmth": 0.42
+}
+noise_modifier = 0.68
+smell_modifier = 0.32
+wetness_modifier = -0.12
+drying_speed = 0.65
+wet_weight_penalty = 0.52

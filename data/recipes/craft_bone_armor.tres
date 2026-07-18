@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/bone_armor.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_bone_armor"
+duration = 10.0
+noise = 90.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_bone_armor"
+ingredients = {&"bone": 3, &"sinew": 2, &"hide": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "뼈판을 가죽 위에 힘줄로 묶으면 무겁지만 단단한 갑옷이 된다."
+observation_success = "부딪힐 때마다 소리 나는 뼈 갑옷을 만들었다."

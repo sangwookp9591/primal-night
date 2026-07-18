@@ -22,6 +22,21 @@ const VISUALS: Dictionary = {
 		color = Color(0.30, 0.17, 0.09, 0.94),
 		sheet = "res://assets/sprites/player/equipment/leather_armor_sheet.png",
 	},
+	&"fur_cloak": {
+		layer = &"outfit",
+		color = Color(0.45, 0.32, 0.2, 0.96),
+		sheet = "res://assets/sprites/player/equipment/fur_cloak_sheet.png",
+	},
+	&"reed_raincoat": {
+		layer = &"outfit",
+		color = Color(0.55, 0.56, 0.2, 0.96),
+		sheet = "res://assets/sprites/player/equipment/reed_raincoat_sheet.png",
+	},
+	&"bone_armor": {
+		layer = &"outfit",
+		color = Color(0.78, 0.73, 0.56, 0.98),
+		sheet = "res://assets/sprites/player/equipment/bone_armor_sheet.png",
+	},
 	&"placeholder_back": {
 		layer = &"back",
 		color = Color(0.27, 0.18, 0.10, 0.9),
@@ -54,6 +69,16 @@ const VISUALS: Dictionary = {
 	&"placeholder_state_overlay": {
 		layer = &"state_overlay",
 		color = Color(0.25, 0.65, 1.0, 0.35),
+	},
+	&"poison_state": {
+		layer = &"state_overlay",
+		color = Color(0.46, 0.62, 0.42, 0.9),
+		sheet = "res://assets/sprites/player/states/poison_state_sheet.png",
+	},
+	&"food_poison_state": {
+		layer = &"state_overlay",
+		color = Color(0.72, 0.62, 0.25, 0.9),
+		sheet = "res://assets/sprites/player/states/food_poison_state_sheet.png",
 	},
 }
 

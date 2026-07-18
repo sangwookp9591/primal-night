@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WearableData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/wearable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"reed_raincoat"
+display_name = "갈대 우비"
+weight = 1.5
+equip_slot = &"outfit"
+visual_id = &"reed_raincoat"
+modifiers = {
+"warmth": 0.12
+}
+noise_modifier = 0.55
+smell_modifier = 0.05
+wetness_modifier = -0.72
+drying_speed = 2.4
+wet_weight_penalty = 0.18

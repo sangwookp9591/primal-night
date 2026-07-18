@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/fur_cloak.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_fur_cloak"
+duration = 8.0
+noise = 45.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_fur_cloak"
+ingredients = {&"hide": 3, &"sinew": 2}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "가죽 여러 장을 힘줄로 겹쳐 꿰면 밤 추위를 막는 두꺼운 망토가 된다."
+observation_success = "짐승 냄새가 밴 모피 망토를 만들었다."

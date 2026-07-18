@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/reed_raincoat.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_reed_raincoat"
+duration = 6.0
+noise = 55.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_reed_raincoat"
+ingredients = {&"fiber": 4, &"wood": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "갈대와 섬유를 촘촘히 엮으면 빗물을 흘려 보내는 겉옷이 된다."
+observation_success = "바스락거리는 갈대 우비를 만들었다."

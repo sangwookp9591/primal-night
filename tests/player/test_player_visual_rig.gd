@@ -5,12 +5,16 @@ const SHEET_VISUAL_IDS: Array[StringName] = [
 	&"white_underwear",
 	&"work_clothes",
 	&"leather_armor",
+	&"fur_cloak",
+	&"reed_raincoat",
+	&"bone_armor",
 	&"placeholder_back",
 	&"stone_knife",
 	&"stone_spear",
 	&"bow",
 	&"torch",
 ]
+const STATE_VISUAL_IDS: Array[StringName] = [&"poison_state", &"food_poison_state"]
 
 
 func test_registered_visuals_have_all_direction_action_frame_keys() -> void:
@@ -19,7 +23,7 @@ func test_registered_visuals_have_all_direction_action_frame_keys() -> void:
 
 
 func test_equipment_sheets_register_48_atlas_frames_per_visual() -> void:
-	for visual_id: StringName in SHEET_VISUAL_IDS:
+	for visual_id: StringName in SHEET_VISUAL_IDS + STATE_VISUAL_IDS:
 		assert_true(PlayerVisualProfile.has_registered_sheet(visual_id), visual_id)
 		var frames := PlayerVisualProfile.build_frames(visual_id)
 		var frame_total := 0
@@ -36,7 +40,7 @@ func test_player_and_equipment_sheets_match_six_frame_atlas_contract() -> void:
 	var sheet_paths: Array[String] = [
 		"res://assets/sprites/player/player_survivor_sheet.png",
 	]
-	for visual_id: StringName in SHEET_VISUAL_IDS:
+	for visual_id: StringName in SHEET_VISUAL_IDS + STATE_VISUAL_IDS:
 		sheet_paths.append(String(PlayerVisualProfile.VISUALS[visual_id].sheet))
 	for sheet_path: String in sheet_paths:
 		var texture := load(sheet_path) as Texture2D
@@ -58,7 +62,7 @@ func test_player_sheets_contain_no_magenta_key_pixels() -> void:
 	var sheet_paths: Array[String] = [
 		"res://assets/sprites/player/player_survivor_sheet.png",
 	]
-	for visual_id: StringName in SHEET_VISUAL_IDS:
+	for visual_id: StringName in SHEET_VISUAL_IDS + STATE_VISUAL_IDS:
 		sheet_paths.append(String(PlayerVisualProfile.VISUALS[visual_id].sheet))
 	for sheet_path: String in sheet_paths:
 		# Inspect the authored PNG bytes directly. Texture import converts sRGB
@@ -100,6 +104,30 @@ func test_base_body_does_not_contain_baked_russet_clothing_palette() -> void:
 	# A few face-shadow pixels share this broad hue band; a baked jacket produced
 	# more than a thousand. Keep the allowance below two pixels per atlas cell.
 	assert_lte(russet_pixels, 64, "BaseBody contains baked jacket/backpack palette")
+
+
+func test_status_visual_priority_and_wetness_fallback() -> void:
+	var player := PLAYER_SCENE.instantiate() as Player
+	add_child_autofree(player)
+	player.stats.wetness = 0.5
+	player.stats._apply_wet_feedback()
+	assert_eq(player.stats._active_state_visual, &"placeholder_state_overlay")
+	player.stats.apply_food_risk(true, 0.0)
+	assert_eq(player.stats._active_state_visual, &"food_poison_state")
+	player.stats.apply_food_risk(false, 1.0)
+	assert_eq(player.stats._active_state_visual, &"poison_state")
+	player.stats.apply_food_safety_snapshot({
+		food_poison_remaining = 30.0,
+		poison_remaining = 0.0,
+		poison_potency = 0.0,
+	})
+	assert_eq(player.stats._active_state_visual, &"food_poison_state")
+	player.stats.clear_food_safety()
+	assert_eq(player.stats._active_state_visual, &"placeholder_state_overlay")
+	player.stats.wetness = 0.0
+	player.stats._apply_wet_feedback()
+	assert_eq(player.stats._active_state_visual, &"")
+	assert_false(player.visual_rig.state_overlay.visible)
 
 
 func test_equipment_overlay_centroids_stay_in_anatomical_bands() -> void:
