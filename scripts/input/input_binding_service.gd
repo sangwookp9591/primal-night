@@ -2,6 +2,7 @@ class_name InputBindingService
 extends Node
 
 const DEFAULT_CONFIG_PATH := "user://input_bindings.cfg"
+const CONFIG_VERSION: int = 2
 const ACTIONS: Array[StringName] = [
 	&"move_up",
 	&"move_down",
@@ -64,7 +65,7 @@ func restore_defaults() -> void:
 
 func save_bindings() -> Error:
 	var config := ConfigFile.new()
-	config.set_value("meta", "version", 1)
+	config.set_value("meta", "version", CONFIG_VERSION)
 	for action in ACTIONS:
 		if not InputMap.has_action(action):
 			continue
@@ -83,6 +84,7 @@ func load_bindings() -> Error:
 		return OK
 	if error != OK:
 		return error
+	var version := int(config.get_value("meta", "version", 1))
 	for action in ACTIONS:
 		if not InputMap.has_action(action) or not config.has_section_key("bindings", String(action)):
 			continue
@@ -98,6 +100,9 @@ func load_bindings() -> Error:
 		InputMap.action_erase_events(action)
 		for event in decoded:
 			InputMap.action_add_event(action, event)
+	if version < CONFIG_VERSION:
+		_restore_missing_default_mouse_bindings()
+		return save_bindings()
 	return OK
 
 func binding_text(action: StringName) -> String:
@@ -121,6 +126,12 @@ static func normalize_event(event: InputEvent) -> InputEvent:
 		button.button_index = source.button_index
 		button.device = -1
 		return button
+	if event is InputEventMouseButton:
+		var source := event as InputEventMouseButton
+		var button := InputEventMouseButton.new()
+		button.button_index = source.button_index
+		button.device = -1
+		return button
 	return null
 
 static func events_match(left: InputEvent, right: InputEvent) -> bool:
@@ -132,6 +143,9 @@ static func events_match(left: InputEvent, right: InputEvent) -> bool:
 		return a.keycode == b.keycode
 	if left is InputEventJoypadButton and right is InputEventJoypadButton:
 		return (left as InputEventJoypadButton).button_index == (right as InputEventJoypadButton).button_index
+	if left is InputEventMouseButton and right is InputEventMouseButton:
+		return (left as InputEventMouseButton).button_index \
+			== (right as InputEventMouseButton).button_index
 	return false
 
 static func encode_event(event: InputEvent) -> Dictionary:
@@ -147,6 +161,11 @@ static func encode_event(event: InputEvent) -> Dictionary:
 			"type": "joypad_button",
 			"button_index": (event as InputEventJoypadButton).button_index,
 		}
+	if event is InputEventMouseButton:
+		return {
+			"type": "mouse_button",
+			"button_index": (event as InputEventMouseButton).button_index,
+		}
 	return {}
 
 static func decode_event(data: Dictionary) -> InputEvent:
@@ -161,6 +180,11 @@ static func decode_event(data: Dictionary) -> InputEvent:
 			button.button_index = int(data.get("button_index", -1))
 			button.device = -1
 			return button if button.button_index >= 0 else null
+		"mouse_button":
+			var button := InputEventMouseButton.new()
+			button.button_index = int(data.get("button_index", 0)) as MouseButton
+			button.device = -1
+			return button if button.button_index != MOUSE_BUTTON_NONE else null
 	return null
 
 static func event_text(event: InputEvent) -> String:
@@ -168,7 +192,34 @@ static func event_text(event: InputEvent) -> String:
 		return (event as InputEventKey).as_text()
 	if event is InputEventJoypadButton:
 		return "패드 버튼 %d" % (event as InputEventJoypadButton).button_index
+	if event is InputEventMouseButton:
+		match (event as InputEventMouseButton).button_index:
+			MOUSE_BUTTON_LEFT:
+				return "마우스 좌클릭"
+			MOUSE_BUTTON_RIGHT:
+				return "마우스 우클릭"
+			MOUSE_BUTTON_MIDDLE:
+				return "마우스 가운데"
+			_:
+				return "마우스 버튼 %d" % (event as InputEventMouseButton).button_index
 	return event.as_text()
+
+func _restore_missing_default_mouse_bindings() -> void:
+	for action in ACTIONS:
+		if not InputMap.has_action(action) or not _defaults.has(action):
+			continue
+		for default_event: InputEvent in _defaults[action]:
+			if not default_event is InputEventMouseButton \
+					or _action_has_matching_event(action, default_event) \
+					or not find_conflict(action, default_event).is_empty():
+				continue
+			InputMap.action_add_event(action, default_event.duplicate())
+
+func _action_has_matching_event(action: StringName, target: InputEvent) -> bool:
+	for event: InputEvent in InputMap.action_get_events(action):
+		if events_match(event, target):
+			return true
+	return false
 
 static func _duplicate_events(events: Array[InputEvent]) -> Array[InputEvent]:
 	var result: Array[InputEvent] = []
