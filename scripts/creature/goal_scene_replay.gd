@@ -11,6 +11,7 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const CAMPFIRE_SITE_POSITION: Vector2 = Vector2(-190.0, 330.0)
+const SCENT_INTERCEPT_POSITION: Vector2 = Vector2(-520.0, 350.0)
 ## 재현 도구는 결정적이어야 한다 (B-01): 랩터 배회 RNG 를 고정 seed 로 덮어쓰고,
 ## 모든 대기·timeout 을 physics tick 으로 세어 simulation clock 도 고정한다.
 ## 게임 플레이는 raptor._ready() 의 randomize() 로 여전히 무작위다.
@@ -74,6 +75,10 @@ func _run() -> void:
 
 	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 20초).
 	_log("--- phase 4: 경사 추적 접근 → 추격 대기 ---")
+	# 무리 측면 조사 도입 후 플레이어도 냄새 경로 쪽으로 이동해 정당한 조우를 만든다.
+	# 순간이동 대신 실제 입력 경로를 써서 시야 기반 추격 전환을 그대로 검증한다.
+	if not await _walk_player_to(SCENT_INTERCEPT_POSITION, 10.0):
+		return _fail("플레이어가 냄새 경로 조우 지점에 도달하지 못했다")
 	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 20.0, _report_approach):
 		return _fail("회귀 assert: 조사 진입 후 20초 안에 추격으로 전환하지 않았다")
 
