@@ -13,6 +13,7 @@ extends Node2D
 enum Outcome { PENDING, STABLE_ESCAPE, FORCED_ESCAPE, REMAIN, FAILED }
 
 signal outcome_changed(outcome: Outcome)
+signal death_cause_changed(text: String)
 
 const SNAPSHOT_MAX_PER_SECOND: int = 10
 const SNAPSHOT_PAYLOAD_BYTES: int = 64
@@ -24,6 +25,7 @@ const LURE_SMELL_KINDS: Array[StringName] = [&"raw_meat", &"bait"]
 ## 순회는 금지다 (성능문서 6.1).
 const CHECK_INTERVAL_TICKS: int = 6
 const ACTIVE_LURE_WINDOW_SECONDS: float = 1.5
+const CAUSE_HISTORY_CAPACITY: int = 12
 const OUTCOME_TEXTS: Dictionary = {
 	Outcome.PENDING: "",
 	Outcome.STABLE_ESCAPE: "피를 멎게 하고 불을 지킨 끝에, 무사히 골짜기를 빠져나왔다.",
@@ -44,6 +46,8 @@ var outcome: Outcome = Outcome.PENDING
 var risk_exposed: bool = false
 var bleeding_treated: bool = false
 var fire_maintained: bool = false
+var death_cause_text: String = ""
+var cause_history: Array[Dictionary] = []
 var _last_lure_smell_seconds: float = -INF
 
 var _clock: SessionClock
@@ -67,6 +71,8 @@ func _ready() -> void:
 		event_bus.item_picked_up.connect(_on_item_picked_up)
 		event_bus.smell_emitted.connect(_on_smell_emitted)
 		event_bus.campfire_lit.connect(_on_campfire_lit)
+		event_bus.noise_emitted.connect(_on_noise_emitted)
+		event_bus.damage_taken.connect(_on_damage_taken)
 	_guard = RpcGuard.new()
 	_guard.register_rule(&"apply_session_snapshot", true, SNAPSHOT_MAX_PER_SECOND, SNAPSHOT_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
@@ -96,6 +102,7 @@ func mark_risk_exposed() -> void:
 func _on_bleeding_started(target: Node) -> void:
 	if target is Player:
 		mark_risk_exposed()
+		record_cause_event(&"blood", (target as Player).global_position)
 
 
 func _on_bleeding_stopped(target: Node) -> void:
@@ -114,12 +121,93 @@ func _on_item_picked_up(item_id: StringName, by: Node) -> void:
 	var item: ItemData = get_node("/root/GameData").get_item(item_id)
 	if item != null and item.is_smell_source():
 		mark_risk_exposed()
+		record_cause_event(&"lure", (by as Player).global_position)
 
 
 func _on_smell_emitted(_position: Vector2, strength: float, kind: StringName) -> void:
 	if strength > 0.0 and kind in LURE_SMELL_KINDS:
 		_last_lure_smell_seconds = _now_seconds
 		mark_risk_exposed()
+		record_cause_event(&"lure", _position)
+
+
+func _on_noise_emitted(position: Vector2, radius: float, source: Node) -> void:
+	if multiplayer.is_server() and radius > 0.0 and source is Player:
+		record_cause_event(&"noise", position)
+
+
+func _on_damage_taken(target: Node, _amount: float, _kind: StringName) -> void:
+	if not multiplayer.is_server() or target != _host_player or _host_player.health.is_alive():
+		return
+	death_cause_text = compose_death_cause()
+	death_cause_changed.emit(death_cause_text)
+
+
+func record_cause_event(kind: StringName, position: Vector2 = Vector2.ZERO) -> void:
+	if not multiplayer.is_server():
+		return
+	cause_history.append({kind = kind, position = position, time = _now_seconds})
+	while cause_history.size() > CAUSE_HISTORY_CAPACITY:
+		cause_history.pop_front()
+
+
+func latest_cause_kind() -> StringName:
+	if cause_history.is_empty():
+		return &"sight"
+	return cause_history.back().kind as StringName
+
+
+func compose_death_cause(cause_override: StringName = &"", raptor_state_override: int = -1,
+		wind_override: Vector2 = Vector2.INF) -> String:
+	var cause: StringName = latest_cause_kind() if cause_override == &"" else cause_override
+	var raptor_state: int = _nearest_raptor_state() if raptor_state_override < 0 \
+		else raptor_state_override
+	var wind: Vector2 = _current_wind_direction() if wind_override == Vector2.INF else wind_override
+	var wind_name: String = _wind_name(wind)
+	match cause:
+		&"blood":
+			if not wind_name.is_empty():
+				return "멎지 않은 피 냄새가 %s을 타고 랩터의 순찰 구역까지 퍼졌다." % wind_name
+			return "멎지 않은 피 냄새가 발밑에 머물러 랩터를 끝내 이곳으로 이끌었다."
+		&"noise":
+			if raptor_state == Raptor.State.CHASE:
+				return "급한 발소리가 랩터의 고개를 돌렸고, 시작된 추격을 떨치지 못했다."
+			return "되풀이된 소음이 어둠 속 랩터에게 마지막 위치를 알려 주었다."
+		&"lure":
+			if not wind_name.is_empty():
+				return "버리지 못한 유인 냄새가 %s을 타고 퍼져 랩터의 조사 경로와 겹쳤다." % wind_name
+			return "몸에 밴 고기 냄새가 랩터의 조사를 가까이 끌어들였다."
+		_:
+			if raptor_state == Raptor.State.CHASE:
+				return "랩터의 시야에 오래 머문 끝에, 추격을 끊을 엄폐물을 찾지 못했다."
+			return "랩터의 순찰선 안으로 들어선 순간, 숨을 곳을 고를 시간이 부족했다."
+
+
+func _nearest_raptor_state() -> int:
+	var best_state: int = Raptor.State.WANDER
+	var best_distance: float = INF
+	for node: Node in get_tree().get_nodes_in_group(&"raptor"):
+		var raptor := node as Raptor
+		if raptor == null or raptor.multiplayer != multiplayer:
+			continue
+		var distance: float = raptor.global_position.distance_squared_to(_host_player.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best_state = raptor.state
+	return best_state
+
+
+func _current_wind_direction() -> Vector2:
+	var grid: SmellGrid = SmellGrid.find_in(get_tree())
+	return grid.wind_direction if grid != null else Vector2.ZERO
+
+
+func _wind_name(direction: Vector2) -> String:
+	if direction.is_zero_approx():
+		return ""
+	var names: Array[String] = ["동풍", "남동풍", "남풍", "남서풍", "서풍", "북서풍", "북풍", "북동풍"]
+	var sector: int = wrapi(roundi(direction.angle() / (PI / 4.0)), 0, 8)
+	return names[sector]
 
 
 func _on_session_expired() -> void:

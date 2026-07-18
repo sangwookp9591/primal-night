@@ -164,6 +164,37 @@ func test_bait_smell_marks_risk_exposure() -> void:
 		"미끼가 만든 냄새는 위험 노출로 기록된다")
 
 
+func test_cause_history_is_bounded_and_keeps_latest_event() -> void:
+	var side: Dictionary = _make_side("Solo")
+	var objective := side.objective as LoopObjective
+	for index: int in range(LoopObjective.CAUSE_HISTORY_CAPACITY + 4):
+		objective.record_cause_event(&"noise" if index < LoopObjective.CAUSE_HISTORY_CAPACITY + 3 else &"blood")
+
+	assert_eq(objective.cause_history.size(), LoopObjective.CAUSE_HISTORY_CAPACITY)
+	assert_eq(objective.latest_cause_kind(), &"blood")
+
+
+func test_death_cause_templates_cover_sense_and_context_combinations() -> void:
+	var objective := (_make_side("Solo").objective as LoopObjective)
+	var blood_wind := objective.compose_death_cause(&"blood", Raptor.State.INVESTIGATE, Vector2.LEFT)
+	var blood_still := objective.compose_death_cause(&"blood", Raptor.State.INVESTIGATE, Vector2.ZERO)
+	var noise_chase := objective.compose_death_cause(&"noise", Raptor.State.CHASE, Vector2.ZERO)
+	var noise_search := objective.compose_death_cause(&"noise", Raptor.State.INVESTIGATE, Vector2.ZERO)
+	var lure_wind := objective.compose_death_cause(&"lure", Raptor.State.INVESTIGATE, Vector2.DOWN)
+	var lure_still := objective.compose_death_cause(&"lure", Raptor.State.INVESTIGATE, Vector2.ZERO)
+	var sight_chase := objective.compose_death_cause(&"sight", Raptor.State.CHASE, Vector2.ZERO)
+	var sight_patrol := objective.compose_death_cause(&"sight", Raptor.State.WANDER, Vector2.ZERO)
+
+	assert_true(blood_wind.contains("피 냄새") and blood_wind.contains("풍"))
+	assert_true(blood_still.contains("발밑"))
+	assert_true(noise_chase.contains("발소리") and noise_chase.contains("추격"))
+	assert_true(noise_search.contains("소음") and noise_search.contains("위치"))
+	assert_true(lure_wind.contains("유인 냄새") and lure_wind.contains("풍"))
+	assert_true(lure_still.contains("고기 냄새"))
+	assert_true(sight_chase.contains("시야") and sight_chase.contains("추격"))
+	assert_true(sight_patrol.contains("순찰선"))
+
+
 ## 참가·재접속한 클라이언트는 호스트의 세션 시간·노출·판정을 스냅샷으로 되찾는다.
 ## 클라이언트 시계는 혼자 900초에서 흐르므로, 호스트 값과 맞다는 것은 스냅샷이
 ## 도착했다는 뜻이다 (뮤테이션 자가검증: 스냅샷을 빼면 이 검증이 잡는다).

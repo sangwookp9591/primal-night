@@ -61,6 +61,20 @@ func test_smell_above_threshold_triggers_investigation_along_gradient() -> void:
 	assert_eq(raptor.state, Raptor.State.INVESTIGATE, "문턱 이상 냄새는 조사를 촉발한다")
 	assert_gt(raptor.move_target.x, raptor.global_position.x,
 		"정확한 발생 좌표가 아니라 농도가 진해지는 방향으로 이동한다")
+	assert_eq(raptor.sense_telegraph_kind(), &"smell",
+		"냄새 조사 진입은 몸짓 텔레그래프 상태를 노출한다")
+
+
+func test_noise_telegraph_faces_cue_before_movement_delay_ends() -> void:
+	var raptor: Raptor = _spawn_raptor(_make_data(), Vector2.ZERO)
+	await wait_physics_frames(1)
+	raptor._adopt_cue(&"noise", 100.0, Vector2.RIGHT * 200.0)
+
+	assert_eq(raptor.sense_telegraph_kind(), &"noise")
+	assert_eq(raptor.sense_telegraph_direction(), Vector2.RIGHT)
+
+	raptor._tick_sense_telegraph(Raptor.SENSE_TELEGRAPH_SECONDS + 0.01)
+	assert_eq(raptor.sense_telegraph_kind(), &"", "짧은 선행 딜레이 뒤 텔레그래프는 끝난다")
 
 func test_client_peer_does_not_run_raptor_ai() -> void:
 	var player: Node2D = Node2D.new()

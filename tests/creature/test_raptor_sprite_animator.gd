@@ -65,6 +65,20 @@ func test_raptor_visual_updates_for_walk_chase_and_idle_last_direction() -> void
 	assert_eq(animator.speed_scale, 1.0)
 
 
+func test_noise_telegraph_faces_sound_before_showing_walk() -> void:
+	var animator := AnimatorScript.new() as RaptorSpriteAnimator
+	add_child_autofree(animator)
+	await wait_physics_frames(1)
+
+	animator.begin_sense_telegraph(&"noise", Vector2.LEFT)
+	animator.update_from_velocity(Vector2.RIGHT, Raptor.State.INVESTIGATE)
+	assert_eq(animator.animation, &"idle_W", "소리 방향을 향한 idle이 이동 표현보다 먼저 보여야 한다")
+
+	animator.end_sense_telegraph()
+	animator.update_from_velocity(Vector2.RIGHT, Raptor.State.INVESTIGATE)
+	assert_eq(animator.animation, &"walk_E")
+
+
 func test_main_scene_raptors_have_sprite_animators() -> void:
 	var main: Node = add_child_autofree(MainScene.instantiate())
 	await wait_physics_frames(1)

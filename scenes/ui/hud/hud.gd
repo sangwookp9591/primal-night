@@ -143,11 +143,17 @@ func bind_objective(objective: LoopObjective) -> void:
 	if objective == null:
 		return
 	objective.outcome_changed.connect(_on_outcome_changed.bind(objective))
+	objective.death_cause_changed.connect(_on_death_cause_changed)
 	_on_outcome_changed(objective.outcome, objective)
 
 
 func _on_outcome_changed(_outcome: LoopObjective.Outcome, objective: LoopObjective) -> void:
 	_outcome_notice.text = objective.narrative_text()
+	_outcome_notice.visible = not _outcome_notice.text.is_empty()
+
+
+func _on_death_cause_changed(text: String) -> void:
+	_outcome_notice.text = text
 	_outcome_notice.visible = not _outcome_notice.text.is_empty()
 
 

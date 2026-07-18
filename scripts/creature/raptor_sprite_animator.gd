@@ -20,6 +20,10 @@ const ANGLE_SECTOR_TO_DIRECTION: Array[int] = [
 ]
 
 var last_direction: int = Direction.S
+var _telegraph_direction: Vector2 = Vector2.ZERO
+var _telegraphing: bool = false
+var _sniffing: bool = false
+var _sniff_elapsed: float = 0.0
 
 
 func _ready() -> void:
@@ -28,6 +32,37 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite_frames = build_sprite_frames()
 	play(animation_name(false, last_direction))
+	set_process(false)
+
+
+func _process(delta: float) -> void:
+	if not _sniffing:
+		return
+	_sniff_elapsed += delta
+	# 새 시트 대신 기존 8방향 idle을 천천히 훑어 머리를 들고 냄새 방향을 찾는 몸짓.
+	last_direction = wrapi(last_direction + (1 if _sniff_elapsed >= 0.18 else 0), 0, DIRECTION_COUNT)
+	if _sniff_elapsed >= 0.18:
+		_sniff_elapsed = 0.0
+	var sniff_animation: StringName = animation_name(false, last_direction)
+	if animation != sniff_animation:
+		play(sniff_animation)
+
+
+func begin_sense_telegraph(kind: StringName, direction: Vector2) -> void:
+	_telegraph_direction = direction
+	_telegraphing = true
+	_sniffing = kind == &"smell"
+	_sniff_elapsed = 0.0
+	set_process(_sniffing)
+	if not direction.is_zero_approx():
+		last_direction = direction_for_vector(direction)
+	play(animation_name(false, last_direction))
+
+
+func end_sense_telegraph() -> void:
+	_telegraphing = false
+	_sniffing = false
+	set_process(false)
 
 
 static func direction_for_vector(vector: Vector2) -> int:
@@ -79,6 +114,8 @@ static func _atlas_frame(column: int, row: int) -> Texture2D:
 
 
 func update_from_velocity(raptor_velocity: Vector2, raptor_state: int) -> void:
+	if _telegraphing:
+		return
 	var walking: bool = not raptor_velocity.is_zero_approx()
 	if walking:
 		last_direction = direction_for_vector(raptor_velocity)

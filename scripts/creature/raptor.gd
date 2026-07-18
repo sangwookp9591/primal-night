@@ -20,6 +20,7 @@ const TERRAIN_MASK: int = 1
 const SNAPSHOT_INTERVAL_SECONDS: float = 0.2
 const CLIENT_INTERPOLATION_SPEED: float = 8.0
 const CARCASS_SCENE: PackedScene = preload("res://scenes/props/carcass.tscn")
+const SENSE_TELEGRAPH_SECONDS: float = 0.45
 
 @export var data: CreatureData = DEFAULT_DATA
 
@@ -62,6 +63,9 @@ var _alert_label: Label = null
 var _alert_remaining: float = 0.0
 var _lost_sight_remaining: float = 0.0
 var _base_data: CreatureData = null
+var _sense_telegraph_kind: StringName = &""
+var _sense_telegraph_remaining: float = 0.0
+var _sense_telegraph_direction: Vector2 = Vector2.ZERO
 
 ## 배회 목표 선택용. 테스트는 seed 를 고정해 결정적으로 만든다.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -117,6 +121,7 @@ func _physics_process(delta: float) -> void:
 			_perf.end_sample(&"ai")
 
 	_tick_alert(delta)
+	_tick_sense_telegraph(delta)
 
 	_move_along_path()
 	_refresh_visual_animation(velocity)
@@ -196,6 +201,23 @@ func _tick_alert(delta: float) -> void:
 func _refresh_visual_animation(visual_velocity: Vector2) -> void:
 	if _sprite_animator != null and _sprite_animator.has_method("update_from_velocity"):
 		_sprite_animator.update_from_velocity(visual_velocity, state)
+
+
+func _tick_sense_telegraph(delta: float) -> void:
+	if _sense_telegraph_remaining <= 0.0:
+		return
+	_sense_telegraph_remaining = maxf(_sense_telegraph_remaining - delta, 0.0)
+	if _sense_telegraph_remaining <= 0.0 and _sprite_animator != null \
+			and _sprite_animator.has_method("end_sense_telegraph"):
+		_sprite_animator.end_sense_telegraph()
+
+
+func sense_telegraph_kind() -> StringName:
+	return _sense_telegraph_kind if _sense_telegraph_remaining > 0.0 else &""
+
+
+func sense_telegraph_direction() -> Vector2:
+	return _sense_telegraph_direction
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
@@ -364,7 +386,17 @@ func _adopt_cue(kind: StringName, strength: float, target: Vector2) -> void:
 	_search_origin = _clamp_outside_fires(_pack_investigation_target(target))
 	_sweeps_left = data.search_sweeps
 	move_target = _search_origin
+	if kind == &"noise" or kind == &"smell":
+		_start_sense_telegraph(kind, _search_origin - global_position)
 	_change_state(State.INVESTIGATE)
+
+
+func _start_sense_telegraph(kind: StringName, direction: Vector2) -> void:
+	_sense_telegraph_kind = kind
+	_sense_telegraph_direction = direction.normalized()
+	_sense_telegraph_remaining = SENSE_TELEGRAPH_SECONDS
+	if _sprite_animator != null and _sprite_animator.has_method("begin_sense_telegraph"):
+		_sprite_animator.begin_sense_telegraph(kind, _sense_telegraph_direction)
 
 
 ## 조사 지점에 도착했지만 아무것도 없다. 남은 횟수만큼 원점 주변을 훑고,
@@ -505,6 +537,9 @@ func _change_state(new_state: int) -> void:
 		_interest = 0.0
 		_interest_kind = &""
 		_sweeps_left = 0
+		_sense_telegraph_remaining = 0.0
+		if _sprite_animator != null and _sprite_animator.has_method("end_sense_telegraph"):
+			_sprite_animator.end_sense_telegraph()
 	state_changed.emit(previous_state, new_state)
 	if new_state == State.CHASE:
 		chase_started.emit()

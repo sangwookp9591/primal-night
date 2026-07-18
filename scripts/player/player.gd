@@ -8,6 +8,9 @@ const QUICK_CRAFT_PRIORITY: Array[StringName] = [
 	&"craft_bone_scraper",
 	&"craft_noise_lure",
 	&"craft_bait",
+	&"craft_storage_cache",
+	&"craft_drying_rack",
+	&"craft_bedding",
 ]
 const FACING_VECTORS: Array[Vector2] = [
 	Vector2.UP, Vector2(0.70710678, -0.70710678), Vector2.RIGHT,
@@ -15,6 +18,7 @@ const FACING_VECTORS: Array[Vector2] = [
 	Vector2(-0.70710678, 0.70710678), Vector2.LEFT,
 	Vector2(-0.70710678, -0.70710678),
 ]
+const BloodTrailScript = preload("res://scripts/survival/blood_trail.gd")
 
 ## 이동 자세 — 소음 프로필 선택과 호스트 교차검증의 공통 어휘 (설계서 5.6/7.4).
 ## 세기 순서: CROUCH < WALK < RUN. NetMovement 가 이 순서로 위조 주장을 강등한다.
@@ -74,6 +78,10 @@ func _ready() -> void:
 	add_child(actions)
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
+	var blood_trail := BloodTrailScript.new() as BloodTrail
+	blood_trail.name = "BloodTrail"
+	blood_trail.player = self
+	add_child(blood_trail)
 
 func _physics_process(delta: float) -> void:
 	if controller_peer_id != multiplayer.get_unique_id():
