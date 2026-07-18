@@ -18,11 +18,12 @@ const EXPECTED_INDICES := {
 	&"torch": 10,
 	&"bone_scraper": 11,
 	&"noise_lure": 12,
+	&"hide": 13,
 }
 
 
-func test_all_thirteen_item_ids_map_to_the_documented_atlas_cells() -> void:
-	assert_eq(WorldItem.ITEM_ATLAS_INDICES.size(), 13)
+func test_all_fourteen_item_ids_map_to_the_documented_atlas_cells() -> void:
+	assert_eq(WorldItem.ITEM_ATLAS_INDICES.size(), 14)
 	for id: StringName in EXPECTED_INDICES:
 		var index: int = EXPECTED_INDICES[id]
 		assert_eq(WorldItem.atlas_index_for(id), index, String(id))

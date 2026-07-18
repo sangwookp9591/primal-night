@@ -21,6 +21,7 @@ const ITEM_ATLAS_INDICES := {
 	&"torch": 10,
 	&"bone_scraper": 11,
 	&"noise_lure": 12,
+	&"hide": 13,
 }
 
 @export var item_id: StringName = &"stone"
