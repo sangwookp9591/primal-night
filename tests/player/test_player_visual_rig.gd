@@ -135,6 +135,19 @@ func test_equipment_signal_toggles_outfit_layer() -> void:
 	assert_true(rig.outfit.visible)
 
 
+func test_equipping_small_pack_applies_placeholder_back_visual() -> void:
+	var player: Player = PLAYER_SCENE.instantiate()
+	add_child_autofree(player)
+	var rig: PlayerVisualRig = player.get_node("VisualRig")
+
+	assert_eq(player.inventory.add_item(&"small_pack", 1), 1)
+	assert_true(player.equipment.request_equip(&"small_pack"))
+	assert_eq(player.equipment.get_equipped(&"back"), &"small_pack")
+	assert_true(rig.back.visible)
+	assert_not_null(rig.back.sprite_frames)
+	assert_is(rig.back.sprite_frames.get_frame_texture(&"idle_S", 0), AtlasTexture)
+
+
 func _alpha_centroid(image: Image, column: int, row: int) -> Vector2:
 	var weighted := Vector2.ZERO
 	var total_alpha := 0.0

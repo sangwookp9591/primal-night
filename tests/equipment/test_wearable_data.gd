@@ -23,3 +23,15 @@ func test_wearable_validation_rejects_unknown_slot_and_missing_visual() -> void:
 
 	assert_false(wearable.is_valid_wearable())
 	assert_push_error("invalid equip_slot")
+
+
+func test_small_pack_resource_is_valid_back_wearable() -> void:
+	var small_pack: WearableData = load("res://data/items/small_pack.tres")
+
+	assert_not_null(small_pack)
+	assert_true(small_pack.is_valid_wearable())
+	assert_eq(small_pack.id, &"small_pack")
+	assert_eq(small_pack.equip_slot, &"back")
+	assert_eq(small_pack.visual_id, &"placeholder_back")
+	assert_gt(float(small_pack.modifiers.get("capacity_slots", 0)), 0.0)
+	assert_gt(float(small_pack.modifiers.get("capacity_weight", 0.0)), 0.0)

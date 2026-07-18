@@ -77,6 +77,17 @@ func test_snapshot_round_trip_uses_small_stable_shape() -> void:
 	assert_eq(equipment.get_snapshot(), snapshot)
 
 
+func test_small_pack_equips_to_back_slot() -> void:
+	var pair: Dictionary = _make_pair()
+	var inventory: Inventory = pair.inventory
+	var equipment: EquipmentComponent = pair.equipment
+	inventory.add_item(&"small_pack", 1)
+
+	assert_true(equipment.request_equip(&"small_pack"))
+	assert_eq(inventory.count_of(&"small_pack"), 0)
+	assert_eq(equipment.get_equipped(&"back"), &"small_pack")
+
+
 func test_player_starts_with_white_underwear_equipped() -> void:
 	var player: Player = add_child_autofree(PlayerScene.instantiate())
 

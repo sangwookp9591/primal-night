@@ -16,6 +16,23 @@ func test_bait_craft_consumes_material_once() -> void:
 	assert_eq(player.inventory.count_of(&"raw_meat"), 0)
 	assert_eq(player.inventory.count_of(&"bait"), 1)
 
+func test_small_pack_recipe_consumes_competing_materials() -> void:
+	var player: Player = preload("res://scenes/player/player.tscn").instantiate()
+	add_child_autofree(player)
+	var crafting := Crafting.new()
+	add_child_autofree(crafting)
+	var recipe: RecipeData = get_node("/root/GameData").get_recipe(&"craft_small_pack")
+	assert_not_null(recipe)
+	player.inventory.add_item(&"hide", 2)
+	player.inventory.add_item(&"fiber", 3)
+	player.inventory.add_item(&"sinew", 1)
+
+	assert_true(crafting.craft(player, recipe))
+	assert_eq(player.inventory.count_of(&"hide"), 0)
+	assert_eq(player.inventory.count_of(&"fiber"), 0)
+	assert_eq(player.inventory.count_of(&"sinew"), 0)
+	assert_eq(player.inventory.count_of(&"small_pack"), 1)
+
 func test_missing_material_slot_and_weight_fail_without_mutation() -> void:
 	var player: Player = preload("res://scenes/player/player.tscn").instantiate()
 	add_child_autofree(player)
