@@ -2,6 +2,7 @@ extends GutTest
 
 const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 const InventoryScreenScene: PackedScene = preload("res://scenes/ui/inventory/inventory_screen.tscn")
+const MainScene: PackedScene = preload("res://scenes/main.tscn")
 
 var _opened_screen: InventoryScreen = null
 
@@ -23,6 +24,17 @@ func _make_player_and_screen() -> Dictionary:
 	await wait_physics_frames(1)
 	screen.bind(player)
 	return { root = root, player = player, screen = screen }
+
+
+func _make_storage_screen() -> Dictionary:
+	var main: Node = MainScene.instantiate()
+	add_child_autofree(main)
+	await get_tree().process_frame
+	var player := main.get_node("Player") as Player
+	var screen := main.get_node("InventoryScreen") as InventoryScreen
+	var cache := main.get_node("StorageCache") as StorageCache
+	player.global_position = cache.global_position
+	return { root = main, player = player, screen = screen, cache = cache }
 
 
 func _press_key(key: Key) -> void:
@@ -109,6 +121,36 @@ func test_equipment_slots_and_keyboard_equip_unequip_are_available() -> void:
 	_press_key(KEY_ENTER)
 	assert_eq(player.equipment.get_equipped(&"outfit"), &"white_underwear")
 	assert_eq(player.inventory.count_of(&"white_underwear"), 0)
+
+
+func test_storage_mode_space_takes_first_item_from_storage() -> void:
+	var made: Dictionary = await _make_storage_screen()
+	var player: Player = made.player
+	var screen: InventoryScreen = made.screen
+	var cache: StorageCache = made.cache
+	assert_eq(cache.inventory.add_item(&"wood", 1), 1)
+	screen.open_storage(player, cache)
+	_opened_screen = screen
+
+	_press_key(KEY_SPACE)
+
+	assert_eq(player.inventory.count_of(&"wood"), 1)
+	assert_eq(cache.inventory.count_of(&"wood"), 0)
+
+
+func test_storage_mode_enter_puts_selected_inventory_item_into_storage() -> void:
+	var made: Dictionary = await _make_storage_screen()
+	var player: Player = made.player
+	var screen: InventoryScreen = made.screen
+	var cache: StorageCache = made.cache
+	assert_eq(player.inventory.add_item(&"wood", 1), 1)
+	screen.open_storage(player, cache)
+	_opened_screen = screen
+
+	_press_key(KEY_ENTER)
+
+	assert_eq(player.inventory.count_of(&"wood"), 0)
+	assert_eq(cache.inventory.count_of(&"wood"), 1)
 
 
 func test_open_screen_pauses_single_player_and_blocks_movement() -> void:

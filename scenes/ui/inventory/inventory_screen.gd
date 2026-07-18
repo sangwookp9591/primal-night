@@ -68,13 +68,13 @@ func _input(event: InputEvent) -> void:
 			_selected_equipment_index = mini(
 				_selected_equipment_index + 1, EquipmentComponent.SLOTS.size() - 1)
 			_refresh()
+		elif event.is_action_pressed(&"ui_select") and _storage != null:
+			_transfer_selected_from_storage()
 		elif event.is_action_pressed(&"ui_accept"):
 			if _storage != null:
 				_transfer_selected_to_storage()
 			else:
 				_toggle_selected_equipment()
-		elif event.is_action_pressed(&"ui_select") and _storage != null:
-			_transfer_selected_from_storage()
 		elif event.is_action_pressed(&"ui_cancel"):
 			_unequip_selected_slot()
 		get_viewport().set_input_as_handled()
