@@ -115,6 +115,12 @@ jobs:
           set -o pipefail
           "$GODOT_BIN" --headless --path . -s scripts/net/four_player_equipment_harness.gd | tee artifacts/four_player_equipment_harness.log
 
+      # Phase 7-A: host+1 근접 전투 — 장착→공격→랩터 체력→사망→사체 복제.
+      - name: Two-player combat harness (host+1)
+        run: |
+          set -o pipefail
+          "$GODOT_BIN" --headless --path . -s scripts/net/two_player_combat_harness.gd | tee artifacts/two_player_combat_harness.log
+
       # GUT 은 파싱 실패한 테스트 스크립트를 조용히 건너뛰고도 "All tests passed" 를 출력한다.
       # 초록불이 곧 검증은 아니므로, 디스크의 test_*.gd 가 전부 리포트에 나타났는지 대조한다.
       - name: Verify no tests were silently skipped
