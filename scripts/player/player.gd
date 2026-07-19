@@ -47,6 +47,7 @@ var actions: ActionController = ActionController.new()
 var movement_locked: bool = false
 var bow_aiming: bool = false
 var throw_aiming: bool = false
+var dragged_carcass: Carcass = null
 
 ## StealthZone(수풀)이 겹침으로 직접 설정한다 (설계서 5.6). Player 는 트리를 뒤지지 않는다.
 var in_bush: bool = false
@@ -90,6 +91,7 @@ func _ready() -> void:
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 		_event_bus.noise_emitted.connect(_on_external_noise)
+		_event_bus.damage_taken.connect(_on_damage_taken)
 	var blood_trail := BloodTrailScript.new() as BloodTrail
 	blood_trail.name = "BloodTrail"
 	blood_trail.player = self
@@ -108,7 +110,8 @@ func _physics_process(delta: float) -> void:
 			_request_bone_flute()
 		else:
 			_request_place_lure()
-	if Input.is_action_just_pressed("attack"):
+	if Input.is_action_just_pressed("attack") \
+			and (dragged_carcass == null or not is_instance_valid(dragged_carcass)):
 		if equipment.get_equipped(&"main_hand") == &"bow":
 			_request_bow_aim(true)
 		elif equipment.get_equipped(&"main_hand") != &"":
@@ -129,6 +132,8 @@ func _physics_process(delta: float) -> void:
 	stance = Stance.CROUCH if crouching else (Stance.RUN if running else Stance.WALK)
 	var speed: float = (config.crouch_speed if crouching else \
 		(config.run_speed if running else config.walk_speed)) * injury.movement_multiplier()
+	if dragged_carcass != null and is_instance_valid(dragged_carcass):
+		speed *= 0.6
 	if crouching and in_bush:
 		speed *= BUSH_HIDDEN_SPEED_MULTIPLIER
 	if bow_aiming or throw_aiming:
@@ -255,11 +260,19 @@ func _request_place_lure() -> void:
 			return
 
 func _request_attack() -> void:
+	if dragged_carcass != null and is_instance_valid(dragged_carcass):
+		return
 	for node in get_tree().get_nodes_in_group(&"net_combat"):
 		if node.has_method("request_attack"):
 			node.request_attack(self, facing_direction())
 			return
 	push_warning("Player: 공격 시스템을 찾을 수 없습니다.")
+
+
+func _on_damage_taken(target: Node, _amount: float, _kind: StringName) -> void:
+	if target != self or dragged_carcass == null or not is_instance_valid(dragged_carcass):
+		return
+	dragged_carcass.stop_drag_authoritative()
 
 func _request_bow_aim(active: bool) -> void:
 	for node in get_tree().get_nodes_in_group(&"net_combat"):

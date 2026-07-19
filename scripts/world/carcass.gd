@@ -20,6 +20,9 @@ const BUTCHER_NOISE: NoiseProfile = preload("res://data/senses/noise_butcher.tre
 
 ## 해체 유지 거리 (정본 §14.4: "거리 72px 초과 시 중단").
 const BUTCHER_MAX_DISTANCE_PX: float = 72.0
+const DRAG_SPEED_MULTIPLIER: float = 0.6
+const DRAG_FOLLOW_DISTANCE_PX: float = 28.0
+const DRAG_TRAIL_INTERVAL_SECONDS: float = 0.28
 
 signal stage_committed(stage: int, granted: Dictionary)
 signal stage_scavenged(stage: int)
@@ -42,6 +45,9 @@ var _grid: SmellGrid = null
 var _net_butcher: Node = null
 var _net_butcher_cached: bool = false
 var _sprite_visual: Node = null
+var dragged_by: Player = null
+var _drag_trail_elapsed: float = 0.0
+var _drag_sync_elapsed: float = 0.0
 
 
 func _ready() -> void:
@@ -71,9 +77,17 @@ func _exit_tree() -> void:
 
 func can_interact(who: Node) -> bool:
 	var player: Player = who as Player
-	if player == null or profile == null or is_fully_butchered():
+	if player == null or profile == null:
 		return false
 	_last_asked_by = player
+	if dragged_by == player:
+		return true
+	if dragged_by != null:
+		return false
+	if _wants_drag(player):
+		return true
+	if is_fully_butchered():
+		return false
 	return best_tool_of(player) != &""
 
 
@@ -81,6 +95,9 @@ func can_interact(who: Node) -> bool:
 ## 마지막 질의자를 기준으로 답한다 — Interactor.begin() 이 can_interact(who) 직후
 ## 이걸 부르는 순서에 기대는 코드다. 새 호출부는 `hold_seconds_for(who)` 를 쓴다.
 func get_hold_seconds() -> float:
+	var who := _holder if _holder != null else _last_asked_by
+	if who != null and (dragged_by == who or _wants_drag(who)):
+		return 0.0
 	return hold_seconds_for(_holder if _holder != null else _last_asked_by)
 
 
@@ -93,6 +110,10 @@ func hold_seconds_for(who: Player) -> float:
 func get_prompt() -> String:
 	if profile == null:
 		return ""
+	if dragged_by != null and dragged_by == _last_asked_by:
+		return "사체 놓기"
+	if _last_asked_by != null and _wants_drag(_last_asked_by):
+		return "사체 끌기"
 	# 표시 문구는 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
 	return "%s 해체 (%d/%d)" % [profile.display_name, stages_done(), profile.stage_count]
 
@@ -118,6 +139,13 @@ func on_hold_ended(who: Node) -> void:
 func interact(who: Node) -> void:
 	var player: Player = who as Player
 	if player == null or not can_interact(player):
+		return
+	if dragged_by == player or _wants_drag(player):
+		var drag_net: Node = _find_net_butcher()
+		if drag_net != null:
+			drag_net.request_drag_toggle_for(player, self)
+		else:
+			toggle_drag_authoritative(player)
 		return
 	var net: Node = _find_net_butcher()
 	if net != null:
@@ -145,7 +173,7 @@ func apply_stage(who: Player) -> bool:
 	_emit_butcher_noise(who)
 	_refresh_visual_stage()
 	_refresh_smell_source()
-	stage_committed.emit(stage, profile.yields_for_stage(stage))
+	stage_committed.emit(stage, yields_for_stage(stage))
 	return true
 
 
@@ -166,7 +194,7 @@ func consume_stage_by_scavenger() -> bool:
 ## 산출을 전부 넣을 수 있을 때만 넣는다. 부분 지급은 하지 않는다 —
 ## 한 구간이 반만 들어가면 나머지를 다시 받을 방법이 없다(bit 는 구간 단위다).
 func _grant_yields(who: Player, stage: int) -> bool:
-	var granted: Dictionary = profile.yields_for_stage(stage)
+	var granted: Dictionary = yields_for_stage(stage)
 	if granted.is_empty():
 		return true
 	if not _can_fit_all(who, granted):
@@ -219,7 +247,7 @@ func apply_replicated_stage(stage: int, mask: int, who: Player) -> void:
 	_stage_elapsed = 0.0
 	_refresh_visual_stage()
 	if who != null and is_instance_valid(who):
-		var granted: Dictionary = profile.yields_for_stage(stage)
+		var granted: Dictionary = yields_for_stage(stage)
 		for item_id: StringName in granted:
 			who.inventory.add_item(item_id, int(granted[item_id]))
 	_emit_butcher_noise(who)
@@ -303,13 +331,76 @@ func stage_elapsed() -> float:
 
 
 func _process(delta: float) -> void:
-	if _holder == null or not is_instance_valid(_holder):
+	if _holder != null and is_instance_valid(_holder):
+		_stage_elapsed += delta
+		if _holder.global_position.distance_to(global_position) > BUTCHER_MAX_DISTANCE_PX:
+			_holder.interactor.cancel()
+	if dragged_by != null and is_instance_valid(dragged_by) and multiplayer.is_server():
+		var target := dragged_by.global_position - dragged_by.facing_direction() * DRAG_FOLLOW_DISTANCE_PX
+		var prior := global_position
+		global_position = global_position.lerp(target, minf(delta * 12.0, 1.0))
+		if global_position.distance_to(prior) > 0.01:
+			_drag_trail_elapsed += delta
+			if _drag_trail_elapsed >= DRAG_TRAIL_INTERVAL_SECONDS:
+				_drag_trail_elapsed -= DRAG_TRAIL_INTERVAL_SECONDS
+				var trail := dragged_by.get_node_or_null("BloodTrail") as BloodTrail
+				if trail != null:
+					trail.emit_drag_drop(global_position)
+		_drag_sync_elapsed += delta
+		if _drag_sync_elapsed >= 0.1:
+			_drag_sync_elapsed = 0.0
+			var net := _find_net_butcher()
+			if net != null:
+				net.replicate_drag_position(self)
+
+
+func toggle_drag_authoritative(who: Player) -> bool:
+	if not multiplayer.is_server() or who == null:
+		return false
+	if dragged_by == who:
+		stop_drag_authoritative()
+		return true
+	if dragged_by != null or who.dragged_carcass != null \
+			or who.global_position.distance_to(global_position) > BUTCHER_MAX_DISTANCE_PX:
+		return false
+	dragged_by = who
+	who.dragged_carcass = self
+	_drag_trail_elapsed = 0.0
+	set_process(true)
+	return true
+
+
+func _wants_drag(who: Player) -> bool:
+	return who != null and Input.is_action_pressed("crouch")
+
+
+func stop_drag_authoritative() -> void:
+	if not multiplayer.is_server():
 		return
-	_stage_elapsed += delta
-	# 정본 §14.4: 거리 72px 초과 시 중단. 홀드 중에는 Interactor 가 이동을 잠그므로
-	# 걸어서 벗어날 수는 없지만, 텔레포트·넉백·복제 보정이 남아 있어 지킨다.
-	if _holder.global_position.distance_to(global_position) > BUTCHER_MAX_DISTANCE_PX:
-		_holder.interactor.cancel()
+	var prior := dragged_by
+	dragged_by = null
+	if prior != null and is_instance_valid(prior) and prior.dragged_carcass == self:
+		prior.dragged_carcass = null
+	set_process(_holder != null)
+	var net := _find_net_butcher()
+	if net != null:
+		net.replicate_drag_state(self, null)
+
+
+func apply_replicated_drag(who: Player, position_value: Vector2) -> void:
+	if dragged_by != null and is_instance_valid(dragged_by) and dragged_by.dragged_carcass == self:
+		dragged_by.dragged_carcass = null
+	dragged_by = who
+	if who != null:
+		who.dragged_carcass = self
+	global_position = position_value
+
+
+func yields_for_stage(stage: int) -> Dictionary:
+	var granted: Dictionary = profile.yields_for_stage(stage).duplicate()
+	if stage == profile.stage_count - 1:
+		granted[&"tallow"] = int(granted.get(&"tallow", 0)) + 1
+	return granted
 
 
 # --- 감각 비용 (W5-T3) -------------------------------------------------------

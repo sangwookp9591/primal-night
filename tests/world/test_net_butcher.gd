@@ -135,6 +135,28 @@ func _butcher_one_stage(carcass: Carcass, who: Player) -> void:
 	carcass.on_hold_ended(who)
 
 
+func test_client_drag_toggle_is_host_confirmed_and_replicated() -> void:
+	_spawn_carcass_both("DragCarcass", Vector2.ZERO)
+	var client_id := await _join_and_spawn()
+	var host_avatar := host.container.get_node(String(client_id)) as Player
+	var client_avatar := client.container.get_node(String(client_id)) as Player
+	var host_carcass := _carcass_on(host, "DragCarcass")
+	var client_carcass := _carcass_on(client, "DragCarcass")
+	host_avatar.global_position = Vector2.ZERO
+	client_avatar.global_position = Vector2.ZERO
+
+	client.butcher.request_drag_toggle_for(client_avatar, client_carcass)
+	assert_true(await wait_until(func() -> bool:
+		return host_carcass.dragged_by == host_avatar \
+			and client_carcass.dragged_by == client_avatar, 3.0),
+		"클라이언트 의도는 호스트가 거리 검증 후 양쪽에 확정해야 한다")
+
+	client.butcher.request_drag_toggle_for(client_avatar, client_carcass)
+	assert_true(await wait_until(func() -> bool:
+		return host_carcass.dragged_by == null and client_carcass.dragged_by == null, 3.0),
+		"놓기도 호스트 확정 뒤 복제돼야 한다")
+
+
 # --- 로컬(단일 기계) 권위 규칙 ------------------------------------------------
 
 func test_each_stage_sets_exactly_one_bit_in_order() -> void:

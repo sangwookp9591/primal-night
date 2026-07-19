@@ -100,15 +100,30 @@ func _process(delta: float) -> void:
 				or player.global_position.distance_to(_last_drop_position) >= MIN_MOVE_DISTANCE):
 			_elapsed = 0.0
 			_last_drop_position = player.global_position
-			var drop := BloodDrop.new()
-			drop.name = "BloodDrop_%d" % _drop_serial
-			_drop_serial += 1
-			drop.trail = self
-			drop.position = player.global_position
-			add_child(drop)
-			drops.append({position = player.global_position,
-				remaining = DROP_LIFETIME_SECONDS, node = drop})
+			_spawn_drop(player.global_position)
 	queue_redraw()
+
+
+func emit_drag_drop(world_position: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	if _last_drop_position != Vector2.INF \
+			and world_position.distance_to(_last_drop_position) < MIN_MOVE_DISTANCE:
+		return
+	_last_drop_position = world_position
+	_spawn_drop(world_position)
+	queue_redraw()
+
+
+func _spawn_drop(world_position: Vector2) -> void:
+	var drop := BloodDrop.new()
+	drop.name = "BloodDrop_%d" % _drop_serial
+	_drop_serial += 1
+	drop.trail = self
+	drop.position = to_local(world_position)
+	add_child(drop)
+	drops.append({position = world_position,
+		remaining = DROP_LIFETIME_SECONDS, node = drop})
 
 
 func _draw() -> void:
@@ -116,7 +131,8 @@ func _draw() -> void:
 		var alpha: float = clampf(float(drop.remaining) / DROP_LIFETIME_SECONDS, 0.0, 1.0)
 		if (drop.node as BloodDrop).cleared:
 			alpha *= 0.22
-		draw_circle(drop.position, 4.0, Color(0.35, 0.025, 0.02, alpha * 0.72))
+		draw_circle(to_local(drop.position), 4.0,
+			Color(0.35, 0.025, 0.02, alpha * 0.72))
 
 
 func add_dirty_hands_smell(target: Player) -> void:

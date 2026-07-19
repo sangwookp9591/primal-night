@@ -55,7 +55,10 @@ func _ready() -> void:
 	_guard.register_rule(&"request_butcher_start", false, REQUEST_MAX_PER_SECOND, CARCASS_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"request_butcher_cancel", false, REQUEST_MAX_PER_SECOND, CARCASS_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"request_butcher_commit", false, REQUEST_MAX_PER_SECOND, CARCASS_PATH_MAX_LENGTH + 16)
+	_guard.register_rule(&"request_drag_toggle", false, REQUEST_MAX_PER_SECOND, CARCASS_PATH_MAX_LENGTH + 16)
 	_guard.register_rule(&"confirm_butcher_stage", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
+	_guard.register_rule(&"confirm_drag_state", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
+	_guard.register_rule(&"confirm_drag_position", true, CONFIRM_MAX_PER_SECOND, CONFIRM_PAYLOAD_BYTES)
 	_guard.register_rule(&"apply_carcass_snapshot", true, SNAPSHOT_MAX_PER_SECOND, SNAPSHOT_PAYLOAD_BYTES)
 	_guard.add_peer(RpcGuard.HOST_PEER_ID)
 	_guard.watch_session(_session)
@@ -98,6 +101,26 @@ func request_stage_commit_for(who: Player, carcass: Carcass) -> void:
 		_host_stage_commit(_player_id_of(who), _path_of(carcass))
 		return
 	request_butcher_commit.rpc_id(RpcGuard.HOST_PEER_ID, _path_of(carcass))
+
+
+func request_drag_toggle_for(who: Player, carcass: Carcass) -> void:
+	if multiplayer.is_server():
+		_host_drag_toggle(_player_id_of(who), _path_of(carcass))
+		return
+	request_drag_toggle.rpc_id(RpcGuard.HOST_PEER_ID, _path_of(carcass))
+
+
+func replicate_drag_state(carcass: Carcass, who: Player) -> void:
+	if not multiplayer.is_server() or multiplayer.get_peers().is_empty():
+		return
+	confirm_drag_state.rpc(_path_of(carcass), String(_player_id_of(who)) if who != null else "",
+		carcass.global_position)
+
+
+func replicate_drag_position(carcass: Carcass) -> void:
+	if not multiplayer.is_server() or multiplayer.get_peers().is_empty():
+		return
+	confirm_drag_position.rpc(_path_of(carcass), carcass.global_position)
 
 
 ## 재접속 월드 스냅샷: 이미 확정된 사체 구간을 그 피어에 복원한다.
@@ -164,6 +187,18 @@ func request_butcher_commit(carcass_path: String) -> void:
 	_host_stage_commit(_session.get_player_id_for_peer(sender), carcass_path)
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func request_drag_toggle(carcass_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if not _guard.check(&"request_drag_toggle", sender, carcass_path.length(), _now_seconds):
+		return
+	if not RpcGuard.is_safe_relative_path(carcass_path, CARCASS_PATH_MAX_LENGTH):
+		return
+	_host_drag_toggle(_session.get_player_id_for_peer(sender), carcass_path)
+
+
 # --- 호스트 권위 판정 ---------------------------------------------------------
 
 func _host_hold_start(player_id: StringName, carcass_path: String) -> void:
@@ -213,6 +248,16 @@ func _host_stage_commit(player_id: StringName, carcass_path: String) -> void:
 		confirm_butcher_stage.rpc(carcass_path, String(player_id), stage, carcass.yield_mask)
 
 
+func _host_drag_toggle(player_id: StringName, carcass_path: String) -> void:
+	var carcass := _carcass_at(carcass_path)
+	var avatar := _avatar_of(player_id)
+	if carcass == null or avatar == null:
+		return
+	if not carcass.toggle_drag_authoritative(avatar):
+		return
+	replicate_drag_state(carcass, carcass.dragged_by)
+
+
 # --- 호스트 → 클라이언트 (확정 복제) ------------------------------------------
 
 ## 산출 아이템·수량은 보내지 않는다 — 양쪽이 같은 CarcassProfile 을 로드하므로
@@ -231,6 +276,33 @@ func confirm_butcher_stage(carcass_path: String, player_id: String, stage: int, 
 	if carcass == null or stage >= carcass.profile.stage_count:
 		return
 	carcass.apply_replicated_stage(stage, mask, _avatar_of(StringName(player_id)))
+
+
+@rpc("authority", "call_remote", "reliable")
+func confirm_drag_state(carcass_path: String, player_id: String, position_value: Vector2) -> void:
+	if not _guard.check(&"confirm_drag_state", multiplayer.get_remote_sender_id(),
+			carcass_path.length() + player_id.length() + 24, _now_seconds):
+		return
+	if not RpcGuard.is_safe_relative_path(carcass_path, CARCASS_PATH_MAX_LENGTH) \
+			or player_id.length() > PLAYER_ID_MAX_LENGTH:
+		return
+	var carcass := _carcass_at(carcass_path)
+	if carcass != null:
+		carcass.apply_replicated_drag(
+			_avatar_of(StringName(player_id)) if not player_id.is_empty() else null,
+			position_value)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func confirm_drag_position(carcass_path: String, position_value: Vector2) -> void:
+	if not _guard.check(&"confirm_drag_position", multiplayer.get_remote_sender_id(),
+			carcass_path.length() + 16, _now_seconds):
+		return
+	if not RpcGuard.is_safe_relative_path(carcass_path, CARCASS_PATH_MAX_LENGTH):
+		return
+	var carcass := _carcass_at(carcass_path)
+	if carcass != null and carcass.dragged_by != null:
+		carcass.global_position = position_value
 
 
 @rpc("authority", "call_remote", "reliable")
