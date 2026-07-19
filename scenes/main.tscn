@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=37 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -35,6 +35,7 @@
 [ext_resource type="Script" path="res://scripts/session/character_chronicle.gd" id="33_chronicle"]
 [ext_resource type="PackedScene" path="res://scenes/items/forage_nodes.tscn" id="34_forage"]
 [ext_resource type="Script" path="res://scripts/world/net_harvest.gd" id="35_netharvest"]
+[ext_resource type="Script" path="res://scripts/world/world_installations.gd" id="36_installations"]
 
 [node name="Main" type="Node2D"]
 
@@ -130,6 +131,9 @@ script = ExtResource("12_netpickup")
 
 [node name="NetHarvest" type="Node" parent="."]
 script = ExtResource("35_netharvest")
+
+[node name="WorldInstallations" type="Node" parent="."]
+script = ExtResource("36_installations")
 
 [node name="NetBaseCamp" type="Node" parent="."]
 script = ExtResource("29_netbasecamp")

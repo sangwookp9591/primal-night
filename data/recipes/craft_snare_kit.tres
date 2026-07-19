@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/snare_kit.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_snare_kit"
+duration = 2.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_snare_kit"
+ingredients = {&"fiber": 2, &"wood": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "휘는 가지와 섬유 고리로 작은 짐승 길목을 막을 수 있다."
+observation_success = "먹이를 기다리는 올가미를 묶었다."
+

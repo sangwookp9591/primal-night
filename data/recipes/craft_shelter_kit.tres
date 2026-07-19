@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/shelter_kit.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_shelter_kit"
+duration = 3.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_shelter_kit"
+ingredients = {&"hide": 2, &"wood": 2}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "가죽 두 장을 지지대에 걸면 야외에서 한 번 밤을 버틸 수 있다."
+observation_success = "되가져올 수 없는 임시 은신처를 꾸렸다."

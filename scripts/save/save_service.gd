@@ -8,6 +8,8 @@ const FORMAT_VERSION: int = 1
 const DEFAULT_SAVE_PATH: String = "user://saves/slot_1.save"
 const TITLE_SCENE: String = "res://scenes/ui/title/title_screen.tscn"
 const WORLD_ITEM_SCENE: PackedScene = preload("res://scenes/items/world_item.tscn")
+const SNARE_SCENE: PackedScene = preload("res://scenes/world/snare_trap.tscn")
+const SHELTER_SCENE: PackedScene = preload("res://scenes/world/field_shelter.tscn")
 
 static var pending_snapshot: Dictionary = {}
 static var pending_death_recovery: bool = false
@@ -22,6 +24,7 @@ var _root: Node
 var _restoring_snapshot: bool = false
 
 func _ready() -> void:
+	add_to_group(&"save_service")
 	_root = get_parent()
 	# Tests and harnesses instantiate main.tscn directly. Only an explicit title launch enables I/O.
 	enabled = enabled and launch_requested
@@ -117,6 +120,7 @@ func collect_snapshot() -> Dictionary:
 		"base_camp": _base_camp_snapshot(),
 		"carcasses": _carcass_snapshots(),
 		"creatures": _creature_snapshots(),
+		"installations": _installation_snapshots(),
 		"death_record": {
 			"cause": objective.death_cause_text,
 			"day": clock.current_day,
@@ -157,6 +161,7 @@ func apply_snapshot(snapshot: Dictionary, death_recovery: bool = false) -> bool:
 	_apply_base_camp(snapshot.base_camp)
 	_apply_carcasses(snapshot.carcasses)
 	_apply_creatures(snapshot.creatures)
+	_apply_installations(snapshot.get("installations", []))
 	if death_recovery:
 		player.inventory.apply_death_keep_ratio(difficulty.config.death_item_keep_ratio, _root)
 	return true
@@ -218,6 +223,10 @@ static func _normalize_json_snapshot(source: Dictionary) -> Dictionary:
 	for creature: Variant in snapshot.get("creatures", []):
 		if creature is Dictionary:
 			fields.append([creature, "state"])
+	for installation: Variant in snapshot.get("installations", []):
+		if installation is Dictionary:
+			for key: String in ["state", "raw_meat_yield", "hide_yield"]:
+				fields.append([installation, key])
 	for field: Array in fields:
 		if not _normalize_int_field(field[0] as Dictionary, field[1]):
 			return {"ok": false, "message": "저장 파일의 정수 상태가 올바르지 않습니다."}
@@ -441,6 +450,50 @@ func _apply_creatures(states: Array) -> void:
 			if _root.is_ancestor_of(node) \
 					and not alive_paths.has(String(_root.get_path_to(node))):
 				node.queue_free()
+
+
+func _installation_snapshots() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for node: Node in get_tree().get_nodes_in_group(&"installation"):
+		if not _root.is_ancestor_of(node):
+			continue
+		if node is SnareTrap:
+			var trap := node as SnareTrap
+			result.append({"path": String(_root.get_path_to(trap)), "kind": "snare",
+				"position": _vec(trap.global_position), "state": trap.state,
+				"elapsed": trap.unattended_seconds, "raw_meat_yield": trap.raw_meat_yield,
+				"hide_yield": trap.hide_yield})
+		elif node is FieldShelter:
+			var shelter := node as FieldShelter
+			result.append({"path": String(_root.get_path_to(shelter)), "kind": "shelter",
+				"position": _vec(shelter.global_position), "state": 1 if shelter.used else 0})
+	return result
+
+
+func _apply_installations(states: Array) -> void:
+	for node: Node in get_tree().get_nodes_in_group(&"installation"):
+		if _root.is_ancestor_of(node):
+			node.free()
+	for raw: Variant in states:
+		if not raw is Dictionary:
+			continue
+		var state := raw as Dictionary
+		var scene_path := "res://scenes/world/field_shelter.tscn" \
+			if String(state.get("kind", "")) == "shelter" \
+			else "res://scenes/world/snare_trap.tscn"
+		var packed := load(scene_path) as PackedScene
+		if packed == null or not packed.can_instantiate():
+			continue
+		var placed := packed.instantiate() as Node2D
+		placed.name = String(state.get("path", "Installation")).get_file()
+		_root.add_child(placed)
+		placed.global_position = _unvec(state.get("position", [0.0, 0.0]))
+		if placed is SnareTrap:
+			(placed as SnareTrap).apply_state(int(state.get("state", 0)),
+				float(state.get("elapsed", 0.0)), int(state.get("raw_meat_yield", 0)),
+				int(state.get("hide_yield", 0)))
+		elif placed is FieldShelter:
+			(placed as FieldShelter).apply_state(int(state.get("state", 0)) != 0)
 
 func _cause_history_snapshot(history: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

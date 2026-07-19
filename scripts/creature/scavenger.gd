@@ -101,7 +101,7 @@ func _nearest_player(radius: float) -> Node2D:
 func _nearest_edible() -> Node2D:
 	var nearest: Node2D
 	var best := data.lose_sight_radius * data.lose_sight_radius
-	for group: StringName in [&"carcass", &"world_item"]:
+	for group: StringName in [&"snare_trap", &"carcass", &"world_item"]:
 		for node: Node in get_tree().get_nodes_in_group(group):
 			var food := node as Node2D
 			if food == null or food.multiplayer != multiplayer or not _is_edible(food):
@@ -113,6 +113,8 @@ func _nearest_edible() -> Node2D:
 	return nearest
 
 func _is_edible(food: Node2D) -> bool:
+	if food is SnareTrap:
+		return (food as SnareTrap).state == SnareTrap.State.ARMED
 	if food is Carcass:
 		return not (food as Carcass).is_fully_butchered()
 	if food is WorldItem:
@@ -127,7 +129,11 @@ func _consume_food() -> void:
 		_change_state(State.FORAGE)
 		return
 	var consumed := false
-	if _food_target is Carcass:
+	if _food_target is SnareTrap:
+		consumed = (_food_target as SnareTrap).attempt_capture(self, randf())
+		if consumed:
+			return
+	elif _food_target is Carcass:
 		consumed = (_food_target as Carcass).consume_stage_by_scavenger()
 	elif _food_target is WorldItem:
 		consumed = (_food_target as WorldItem).consume_one_by_scavenger()
