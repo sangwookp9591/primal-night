@@ -20,10 +20,13 @@ var charcoal_available: bool = false
 
 var _event_bus: Node = null
 var _registry: Node = null
+var _warm_light: PointLight2D
 
 func _ready() -> void:
 	add_to_group(&"campfire")
 	_configure_visual()
+	_warm_light = AtmosphereController.create_point_light(self, "WarmLight", 2.35, 1.15)
+	_warm_light.enabled = is_lit
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	if has_node("/root/CampfireRegistry"):
@@ -65,6 +68,8 @@ func light() -> void:
 		return
 
 	is_lit = true
+	if _warm_light != null:
+		_warm_light.enabled = true
 	charcoal_available = false
 	fuel_remaining = config.fuel_seconds
 	var sprite := get_node_or_null("CampfireSprite") as AnimatedSprite2D
@@ -85,6 +90,8 @@ func extinguish(fuel_exhausted: bool = false) -> void:
 		return
 
 	is_lit = false
+	if _warm_light != null:
+		_warm_light.enabled = false
 	charcoal_available = fuel_exhausted
 	set_smoky(false)
 	fuel_remaining = 0.0

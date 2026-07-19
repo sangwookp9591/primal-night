@@ -11,6 +11,7 @@ var ignited: bool = false
 var flame_remaining: float = 0.0
 var _registry: Node = null
 var _event_bus: Node = null
+var _warm_light: PointLight2D
 
 
 func _ready() -> void:
@@ -29,6 +30,8 @@ func _ready() -> void:
 	sprite.texture = _frame(0)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(sprite)
+	_warm_light = AtmosphereController.create_point_light(self, "WarmLight", 1.55, 0.95)
+	_warm_light.enabled = false
 	set_process(multiplayer.is_server())
 
 
@@ -71,6 +74,8 @@ func ignite(player: Player = null) -> bool:
 
 func _apply_ignited_visual() -> void:
 	ignited = true
+	if _warm_light != null:
+		_warm_light.enabled = true
 	flame_remaining = FLAME_SECONDS
 	($OilTrapSprite as Sprite2D).texture = _frame(1)
 	if _registry != null and multiplayer.is_server():
@@ -107,6 +112,8 @@ func extinguish() -> void:
 	if not ignited:
 		return
 	ignited = false
+	if _warm_light != null:
+		_warm_light.enabled = false
 	flame_remaining = 0.0
 	($OilTrapSprite as Sprite2D).texture = _frame(0)
 	if _registry != null:
@@ -119,6 +126,8 @@ func extinguish() -> void:
 func confirm_extinguish() -> void:
 	if not multiplayer.is_server():
 		ignited = false
+		if _warm_light != null:
+			_warm_light.enabled = false
 		flame_remaining = 0.0
 		($OilTrapSprite as Sprite2D).texture = _frame(0)
 
