@@ -106,6 +106,41 @@ func test_base_body_does_not_contain_baked_russet_clothing_palette() -> void:
 	assert_lte(russet_pixels, 64, "BaseBody contains baked jacket/backpack palette")
 
 
+func test_direction_columns_put_face_on_south_and_back_of_head_on_north() -> void:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(
+		"res://assets/sprites/player/player_survivor_sheet.png"))
+	image.convert(Image.FORMAT_RGBA8)
+	for row: int in range(6):
+		var south_skin := _count_skin_in_head(image, PlayerSpriteAnimator.Direction.S, row)
+		var north_skin := _count_skin_in_head(image, PlayerSpriteAnimator.Direction.N, row)
+		assert_gt(south_skin, north_skin + 20, "row %d S must expose the face" % row)
+		var south_y := row * 64 + 19 + (1 if row in [1, 3] else 0)
+		var frame_shift := 1 if row == 3 else 0
+		assert_lt(image.get_pixel(4 * 48 + 20 + frame_shift, south_y).r, 0.2,
+			"row %d S left eye" % row)
+		assert_lt(image.get_pixel(4 * 48 + 27 + frame_shift, south_y).r, 0.2,
+			"row %d S right eye" % row)
+		var north_y := row * 64 + 16 + (1 if row in [1, 3] else 0)
+		assert_lt(image.get_pixel(0 * 48 + 24, north_y).r, 0.25,
+			"row %d N crown is black hair" % row)
+
+
+func test_base_body_has_padding_and_a_consistent_uncropped_foot_baseline() -> void:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(
+		"res://assets/sprites/player/player_survivor_sheet.png"))
+	for row: int in range(6):
+		for direction: int in range(8):
+			var occupied_rows: Array[int] = []
+			for y: int in range(64):
+				for x: int in range(48):
+					if image.get_pixel(direction * 48 + x, row * 64 + y).a > 0.0:
+						occupied_rows.append(y)
+						break
+			assert_eq(occupied_rows.back(), 58, "d%d row%d foot baseline" % [direction, row])
+			assert_gt(occupied_rows.front(), 4, "d%d row%d top padding" % [direction, row])
+			assert_lt(occupied_rows.back(), 61, "d%d row%d bottom padding" % [direction, row])
+
+
 func test_status_visual_priority_and_wetness_fallback() -> void:
 	var player := PLAYER_SCENE.instantiate() as Player
 	add_child_autofree(player)
@@ -258,3 +293,14 @@ func _alpha_centroid(image: Image, column: int, row: int) -> Vector2:
 			total_alpha += alpha
 	assert_gt(total_alpha, 0.0, "overlay cell must not be empty")
 	return weighted / total_alpha
+
+
+func _count_skin_in_head(image: Image, column: int, row: int) -> int:
+	var count := 0
+	for y: int in range(7, 27):
+		for x: int in range(14, 35):
+			var color := image.get_pixel(column * 48 + x, row * 64 + y)
+			if color.a > 0.0 and color.r > 0.45 and color.g > 0.22 \
+					and color.r > color.b * 1.25:
+				count += 1
+	return count
