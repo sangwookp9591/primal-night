@@ -78,16 +78,39 @@ func _run() -> void:
 		return host_avatar.equipment.get_equipped(&"main_hand") == &"stone_spear" \
 			and client_avatar.equipment.get_equipped(&"main_hand") == &"stone_spear", 5.0):
 		return _fail("창 장착 복제 실패")
+	var host_combat: NetCombat = host.get_node("NetCombat")
+	if not await _rig.pump_until(func() -> bool:
+		return host_combat._now_seconds >= float(
+			host_combat._next_attack_at.get(player_id, 0.0)), 3.0):
+		return _fail("활 이후 호스트 공격 쿨다운 해제 실패")
+	# 화살 회수 위치의 마지막 아바타 스냅샷이 도착할 수 있으므로 쿨다운 조건
+	# 충족 뒤 권위/복제 양쪽 표적을 공격 거리로 배치한다.
 	host_raptor.global_position = host_avatar.global_position + Vector2(90, 0)
 	client_raptor.global_position = client_avatar.global_position + Vector2(90, 0)
-	await create_timer(NetCombat.BOW_RELOAD_SECONDS + 0.1).timeout
 	client_combat.request_attack(client_avatar, Vector2.RIGHT)
-	await create_timer(NetCombat.ATTACK_COOLDOWN + 0.15).timeout
+	var health_after_first_spear := host_raptor.data.max_health \
+		- NetCombat.BOW_DAMAGE - NetCombat.SPEAR_DAMAGE
+	if not await _rig.pump_until(func() -> bool:
+		return host_raptor.current_health <= health_after_first_spear, 3.0):
+		return _fail("첫 창 공격 호스트 피해 미관측 "
+			+ "(health=%.1f stamina=%.1f distance=%.1f equip=%s rejects=%d)" % [
+				host_raptor.current_health, host_avatar.stamina.current_stamina,
+				host_avatar.global_position.distance_to(host_raptor.global_position),
+				host_avatar.equipment.get_equipped(&"main_hand"),
+				host_combat._rejection_count])
+	# 클라이언트 전송 시점이 아니라 호스트가 첫 공격을 확정한 시점에 설정한
+	# 권위 쿨다운을 기다린다. 느린 CI에서 두 번째 RPC가 조기 거부되는 경쟁을 없앤다.
+	if not await _rig.pump_until(func() -> bool:
+		return host_combat._now_seconds >= float(
+			host_combat._next_attack_at.get(player_id, 0.0)), 3.0):
+		return _fail("첫 창 공격 후 호스트 쿨다운 해제 실패")
 	client_combat.request_attack(client_avatar, Vector2.RIGHT)
 	if not await _rig.pump_until(func() -> bool:
-		return host.get_node_or_null("RaptorCarcass") != null \
-			and client.get_node_or_null("RaptorCarcass") != null, 5.0):
-		return _fail("사망 후 사체 복제 실패")
+		return host.get_node_or_null("RaptorCarcass") != null, 3.0):
+		return _fail("두 번째 창 공격 후 호스트 사망·사체 생성 실패")
+	if not await _rig.pump_until(func() -> bool:
+		return client.get_node_or_null("RaptorCarcass") != null, 5.0):
+		return _fail("호스트 사체의 클라이언트 복제 실패")
 	print("[two-player-combat] PASS client bow aim/fire → host damage → arrow recovered → spear death")
 	_rig.disconnect_all()
 	quit(0)
