@@ -176,6 +176,16 @@ func restore_water(amount: float) -> void:
 		water = minf(water + amount, STAT_MAX)
 
 
+func restore_temperature(amount: float) -> void:
+	if amount > 0.0 and is_finite(amount):
+		temperature = minf(temperature + amount, STAT_MAX)
+
+
+func apply_antidote() -> void:
+	food_poison_remaining *= 0.5
+	poison_remaining *= 0.5
+
+
 func apply_food_risk(food_poisoned: bool, potency: float) -> void:
 	if food_poisoned:
 		food_poison_remaining = maxf(food_poison_remaining, FOOD_POISON_DURATION_SECONDS)

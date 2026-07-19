@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"marrow_soup"
+display_name = "골수 스프"
+stackable = true
+max_stack = 4
+weight = 0.8
+nutrition = 55.0
+hydration = 15.0
+emits_smell = true
+smell_strength = 32.0
+smell_interval_seconds = 0.75
+smell_kind = &"marrow_soup"

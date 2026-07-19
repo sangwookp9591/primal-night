@@ -140,7 +140,7 @@ func _host_cook_hold_started(who: Player, site: CampfireSite) -> void:
 	if not _can_cook(who, site):
 		return
 	_cook_holds[_cook_key(who, site)] = _now_seconds
-	site._start_cooking_smell()
+	site._start_cooking_smell(who)
 
 
 func _host_cook_hold_ended(who: Player, site: CampfireSite) -> void:
@@ -161,14 +161,17 @@ func _host_cook(who: Player, site: CampfireSite) -> void:
 		return
 	_cook_holds.erase(key)
 	site._end_cooking_smell()
-	if not site.apply_cook(who):
+	var kind := site.cook_kind(who)
+	if kind.is_empty() or not site.apply_cook_kind(who, kind):
 		return
 	if multiplayer.get_peers().size() > 0:
-		confirm_campfire_cook.rpc(String(_world_root.get_path_to(site)), String(_player_id_of(who)))
+		confirm_campfire_cook.rpc(
+			String(_world_root.get_path_to(site)), String(_player_id_of(who)), String(kind))
 
 
 @rpc("authority", "call_remote", "reliable")
-func confirm_campfire_cook(site_path: String, player_id: String) -> void:
+func confirm_campfire_cook(site_path: String, player_id: String,
+		kind: String = "cooked_meat") -> void:
 	if not _guard.check(&"confirm_campfire_cook", multiplayer.get_remote_sender_id(),
 			site_path.length() + player_id.length(), _now_seconds):
 		return
@@ -177,14 +180,14 @@ func confirm_campfire_cook(site_path: String, player_id: String) -> void:
 		return
 	var site := _world_root.get_node_or_null(site_path) as CampfireSite
 	if site != null:
-		site.apply_cook(_avatar_of(StringName(player_id)))
+		site.apply_cook_kind(_avatar_of(StringName(player_id)), StringName(kind))
 
 
 func _can_cook(who: Player, site: CampfireSite) -> bool:
 	return who != null and is_instance_valid(who) and site != null \
 		and site.campfire != null and site.campfire.is_lit \
 		and who.global_position.distance_to(site.global_position) <= BUILD_MAX_DISTANCE_PX \
-		and who.inventory.has_item(&"raw_meat", 1)
+		and not site.cook_kind(who).is_empty()
 
 
 func _cook_key(who: Player, site: CampfireSite) -> String:

@@ -41,6 +41,13 @@ func request_pulse(node: HarvestableNode, who: Player) -> void:
 		request_pulse_rpc.rpc_id(1, String(_world_root.get_path_to(node)))
 
 
+func request_water(source: WaterSource, who: Player) -> void:
+	if multiplayer.is_server():
+		_host_water(who, source)
+	else:
+		request_water_rpc.rpc_id(1, String(_world_root.get_path_to(source)))
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func request_harvest_rpc(path: String) -> void:
 	if multiplayer.is_server() and RpcGuard.is_safe_relative_path(path, MAX_PATH):
@@ -51,6 +58,12 @@ func request_harvest_rpc(path: String) -> void:
 func request_pulse_rpc(path: String) -> void:
 	if multiplayer.is_server() and RpcGuard.is_safe_relative_path(path, MAX_PATH):
 		_host_pulse(_sender_avatar(), _world_root.get_node_or_null(path) as HarvestableNode)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_water_rpc(path: String) -> void:
+	if multiplayer.is_server() and RpcGuard.is_safe_relative_path(path, MAX_PATH):
+		_host_water(_sender_avatar(), _world_root.get_node_or_null(path) as WaterSource)
 
 
 func _host_harvest(who: Player, node: HarvestableNode) -> void:
@@ -68,6 +81,16 @@ func _host_pulse(who: Player, node: HarvestableNode) -> void:
 		node.emit_harvest_noise(who)
 
 
+func _host_water(who: Player, source: WaterSource) -> void:
+	if who == null or source == null \
+			or who.global_position.distance_to(source.global_position) > MAX_DISTANCE:
+		return
+	var action := source.apply_water_action(who)
+	if not action.is_empty() and multiplayer.get_peers().size() > 0:
+		confirm_water.rpc(String(_world_root.get_path_to(source)),
+			String(_player_id(who)), String(action))
+
+
 @rpc("authority", "call_remote", "reliable")
 func confirm_harvest(path: String, player_id: String, reward_id: String, count: int) -> void:
 	if not RpcGuard.is_safe_relative_path(path, MAX_PATH) or count <= 0:
@@ -78,6 +101,17 @@ func confirm_harvest(path: String, player_id: String, reward_id: String, count: 
 	var avatar := _avatar(StringName(player_id))
 	if avatar != null:
 		avatar.inventory.add_item(StringName(reward_id), count)
+
+
+@rpc("authority", "call_remote", "reliable")
+func confirm_water(path: String, player_id: String, action: String) -> void:
+	if not RpcGuard.is_safe_relative_path(path, MAX_PATH) \
+			or action not in ["fill", "drink"]:
+		return
+	var source := _world_root.get_node_or_null(path) as WaterSource
+	var avatar := _avatar(StringName(player_id))
+	if source != null and avatar != null:
+		source.apply_water_action(avatar, StringName(action))
 
 
 func _valid(who: Player, node: HarvestableNode) -> bool:

@@ -28,6 +28,11 @@ const ITEM_ATLAS_INDICES := {
 	&"cooked_meat": 17,
 	&"bone_flute": 18,
 	&"bait_pouch": 19,
+	&"waterskin": 20,
+	&"herb": 21,
+	&"antidote_salad": 22,
+	&"marrow_soup": 23,
+	&"tallow": 24,
 }
 
 @export var item_id: StringName = &"stone"
@@ -116,6 +121,8 @@ func respawn_remaining_seconds() -> float:
 	return _respawn_remaining
 
 static func atlas_index_for(id: StringName) -> int:
+	if id == &"waterskin_full" or id == &"waterskin_half":
+		return int(ITEM_ATLAS_INDICES[&"waterskin"])
 	return int(ITEM_ATLAS_INDICES.get(id, -1))
 
 static func icon_texture(id: StringName) -> AtlasTexture:

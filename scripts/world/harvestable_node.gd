@@ -7,7 +7,7 @@ const HARVEST_NOISE: NoiseProfile = preload("res://data/senses/noise_harvest.tre
 const CELL_SIZE := Vector2(128.0, 128.0)
 const HIT_INTERVAL: float = 0.5
 
-@export_enum("tree", "berry_bush") var harvest_kind: String = "tree"
+@export_enum("tree", "berry_bush", "herb") var harvest_kind: String = "tree"
 @export var reward_id: StringName = &"wood"
 @export_range(1, 2, 1) var reward_count: int = 2
 @export var hold_seconds: float = 2.75
@@ -42,9 +42,10 @@ func _configure_visual() -> void:
 	plant.texture = atlas
 	plant.offset = Vector2(0.0, -64.0)
 	plant.scale = Vector2(0.72, 0.72) if harvest_kind == "tree" else Vector2(0.58, 0.58)
-	$BerryOverlay.visible = harvest_kind == "berry_bush"
-	if harvest_kind == "berry_bush":
-		$BerryOverlay.texture = WorldItem.icon_texture(&"berry")
+	$BerryOverlay.visible = harvest_kind != "tree"
+	if harvest_kind != "tree":
+		$BerryOverlay.texture = WorldItem.icon_texture(
+			&"herb" if harvest_kind == "herb" else &"berry")
 
 
 func can_interact(who: Node) -> bool:
@@ -56,7 +57,9 @@ func get_hold_seconds() -> float:
 
 
 func get_prompt() -> String:
-	return "나무 베기" if harvest_kind == "tree" else "열매 따기"
+	if harvest_kind == "tree":
+		return "나무 베기"
+	return "해독초 뜯기" if harvest_kind == "herb" else "열매 따기"
 
 
 func on_hold_started(who: Node) -> void:
@@ -143,7 +146,7 @@ func _deplete() -> void:
 func _restore() -> void:
 	available = true
 	$Plant.modulate.a = 1.0
-	$BerryOverlay.visible = harvest_kind == "berry_bush"
+	$BerryOverlay.visible = harvest_kind != "tree"
 	monitorable = true
 	set_process(false)
 	if multiplayer.get_peers().size() > 0:

@@ -11,6 +11,9 @@ func test_forage_nodes_cover_z01_to_z03_with_rising_mushroom_risk() -> void:
 	var forage := main.get_node("ForageNodes")
 	var counts := {"Z01": {}, "Z02": {}, "Z03": {}}
 	for node: Node in forage.get_children():
+		if node is WaterSource:
+			assert_eq(valley.zone_at_world((node as Node2D).global_position), "Z02")
+			continue
 		var world_node := node as Node2D
 		var zone := valley.zone_at_world(world_node.global_position)
 		assert_true(zone in counts, "%s must sit in the open slice" % node.name)
@@ -27,6 +30,8 @@ func test_scene_owned_forage_nodes_receive_difficulty_respawn_registration() -> 
 	await wait_process_frames(2)
 	for node: Node in main.get_node("ForageNodes").get_children():
 		assert_not_null(node.owner, "%s is scene-owned" % node.name)
+		if node is WaterSource:
+			continue
 		if node is WorldItem:
 			assert_gt(node.resource_respawn_seconds, 0.0, "%s respawns" % node.name)
 		else:

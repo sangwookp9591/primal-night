@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"waterskin"
+display_name = "가죽 물통 (빈)"
+stackable = false
+max_stack = 1
+weight = 0.6

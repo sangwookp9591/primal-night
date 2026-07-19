@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/antidote_salad.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_antidote_salad"
+duration = 1.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_antidote_salad"
+ingredients = {&"herb": 1, &"berry": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")

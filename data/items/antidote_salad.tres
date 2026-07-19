@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"antidote_salad"
+display_name = "해독초 무침"
+stackable = true
+max_stack = 6
+weight = 0.2
+nutrition = 10.0
+hydration = 5.0

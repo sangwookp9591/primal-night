@@ -283,3 +283,14 @@ func test_single_pause_stops_tree_and_resume_restores_it() -> void:
 		Node.PROCESS_MODE_INHERIT)
 	menu.resume()
 	assert_false(get_tree().paused)
+
+
+func test_filled_waterskin_state_survives_real_json_round_trip() -> void:
+	var player := main.get_node("Player") as Player
+	player.inventory.add_item(&"waterskin_full", 1)
+	assert_true(service.save_now())
+	var loaded := SaveService.load_file(TEST_SAVE)
+	assert_true(loaded.ok)
+	player.inventory.remove_item(&"waterskin_full", 1)
+	assert_true(service.apply_snapshot(loaded.snapshot))
+	assert_eq(player.inventory.count_of(&"waterskin_full"), 1)

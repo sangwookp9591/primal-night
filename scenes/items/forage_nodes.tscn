@@ -1,7 +1,11 @@
-[gd_scene load_steps=3 format=4]
+[gd_scene load_steps=5 format=4]
 
 [ext_resource type="PackedScene" path="res://scenes/items/world_item.tscn" id="1_item"]
 [ext_resource type="PackedScene" path="res://scenes/items/harvestable_node.tscn" id="2_harvest"]
+[ext_resource type="Script" path="res://scripts/world/water_source.gd" id="3_water"]
+
+[sub_resource type="CircleShape2D" id="WaterShape"]
+radius = 48.0
 
 [node name="ForageNodes" type="Node2D"]
 
@@ -55,6 +59,19 @@ item_id = &"mushroom"
 position = Vector2(5910, 400)
 item_id = &"toxic_mushroom"
 
+[node name="Z02WaterSource" type="Area2D" parent="."]
+position = Vector2(5960, 250)
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("3_water")
+
+[node name="Water" type="Polygon2D" parent="Z02WaterSource"]
+polygon = PackedVector2Array(-48, 0, -24, -12, 24, -12, 48, 0, 24, 12, -24, 12)
+color = Color(0.18, 0.48, 0.62, 0.8)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Z02WaterSource"]
+shape = SubResource("WaterShape")
+
 ; Z03: 짙은 식생은 버섯류 중심이며 식용/독성의 육안 판별을 요구한다.
 [node name="Z03MushroomA" parent="." instance=ExtResource("1_item")]
 position = Vector2(1740, -1340)
@@ -71,6 +88,22 @@ item_id = &"mushroom"
 [node name="Z03ToxicMushroomB" parent="." instance=ExtResource("1_item")]
 position = Vector2(4050, -150)
 item_id = &"toxic_mushroom"
+
+[node name="Z03HerbA" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(2120, -1460)
+harvest_kind = "herb"
+reward_id = &"herb"
+reward_count = 1
+hold_seconds = 0.8
+vegetation_index = 7
+
+[node name="Z03HerbB" parent="." instance=ExtResource("2_harvest")]
+position = Vector2(4280, -420)
+harvest_kind = "herb"
+reward_id = &"herb"
+reward_count = 1
+hold_seconds = 0.8
+vegetation_index = 7
 
 ; 장식 나무와 별개인 상호작용 벌목 노드 — 충돌은 없고 수확 상태만 소유한다.
 [node name="Z01TreeA" parent="." instance=ExtResource("2_harvest")]

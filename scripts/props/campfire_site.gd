@@ -32,7 +32,7 @@ func _ready() -> void:
 func can_interact(who: Node) -> bool:
 	if campfire != null:
 		var cook := who as Player
-		return campfire.is_lit and cook != null and cook.inventory.has_item(&"raw_meat", 1)
+		return campfire.is_lit and cook != null and not cook_kind(cook).is_empty()
 
 	var player: Player = who as Player
 	if player == null:
@@ -46,7 +46,7 @@ func get_hold_seconds() -> float:
 
 func get_prompt() -> String:
 	if campfire != null:
-		return "고기 굽기"
+		return "골수 스프 끓이기" if _nearby_cook_kind() == &"marrow_soup" else "고기 굽기"
 	# 표시 문구와 수치는 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
 	var stone: ItemData = _game_data.get_item(&"stone")
 	var wood: ItemData = _game_data.get_item(&"wood")
@@ -85,7 +85,7 @@ func on_hold_started(who: Node) -> void:
 	var player := who as Player
 	if player == null:
 		return
-	_start_cooking_smell()
+	_start_cooking_smell(player)
 	var net := _find_net_campfire()
 	if net != null:
 		net.notify_cook_hold_started(self, player)
@@ -103,7 +103,27 @@ func on_hold_ended(who: Node) -> void:
 
 ## 날고기 1 → 구운 고기 1의 전부 아니면 전무 변환.
 func apply_cook(player: Player) -> bool:
+	return apply_cook_kind(player, cook_kind(player))
+
+
+func cook_kind(player: Player) -> StringName:
+	if player == null:
+		return &""
+	if player.inventory.has_item(&"bone", 2) and (
+			player.inventory.has_item(&"waterskin_full", 1)
+			or player.inventory.has_item(&"waterskin_half", 1)):
+		return &"marrow_soup"
+	if player.inventory.has_item(&"raw_meat", 1):
+		return &"cooked_meat"
+	return &""
+
+
+func apply_cook_kind(player: Player, kind: StringName) -> bool:
 	if player == null or campfire == null or not campfire.is_lit:
+		return false
+	if kind == &"marrow_soup":
+		return _apply_soup(player)
+	if kind != &"cooked_meat":
 		return false
 	if not player.inventory.remove_item(&"raw_meat", 1):
 		return false
@@ -113,10 +133,32 @@ func apply_cook(player: Player) -> bool:
 	return true
 
 
-func _start_cooking_smell() -> void:
+func _apply_soup(player: Player) -> bool:
+	var water_id: StringName = (
+		&"waterskin_full" if player.inventory.has_item(&"waterskin_full", 1)
+		else &"waterskin_half")
+	var returned_id: StringName = (
+		&"waterskin_half" if water_id == &"waterskin_full" else &"waterskin")
+	if not player.inventory.has_item(&"bone", 2) or not player.inventory.remove_item(&"bone", 2):
+		return false
+	if not player.inventory.remove_item(water_id, 1):
+		player.inventory.add_item(&"bone", 2)
+		return false
+	if player.inventory.add_item(&"marrow_soup", 1) != 1 \
+			or player.inventory.add_item(returned_id, 1) != 1:
+		player.inventory.remove_item(&"marrow_soup", 1)
+		player.inventory.remove_item(returned_id, 1)
+		player.inventory.add_item(&"bone", 2)
+		player.inventory.add_item(water_id, 1)
+		return false
+	return true
+
+
+func _start_cooking_smell(player: Player = null) -> void:
 	if _cooking_smell != null or not multiplayer.is_server():
 		return
-	var cooked: ItemData = _game_data.get_item(&"cooked_meat")
+	var cooked: ItemData = _game_data.get_item(
+		&"marrow_soup" if cook_kind(player) == &"marrow_soup" else &"cooked_meat")
 	if cooked == null:
 		return
 	_cooking_smell = SmellSource.new()
@@ -137,6 +179,16 @@ func _end_cooking_smell() -> void:
 
 func has_cooking_smell() -> bool:
 	return _cooking_smell != null
+
+
+func _nearby_cook_kind() -> StringName:
+	if not monitoring:
+		return &""
+	for body: Node2D in get_overlapping_bodies():
+		var player := body as Player
+		if player != null:
+			return cook_kind(player)
+	return &""
 
 ## 재료 소비 (전부 아니면 전무). 하나만 빠지고 실패하면 재료가 증발하므로 되돌린다.
 ## 넷 스택이 없는 로컬 설치와 호스트 권위 판정·클라이언트 복제 적용이 공유한다.
