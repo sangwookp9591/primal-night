@@ -96,6 +96,26 @@ func phase_label() -> String:
 			return "낮"
 
 
+## 현재 위상에서 경과한 비율. visual_window_seconds 를 주면 현재 위상 안의 짧은
+## 시각 구간(예: 새벽 45초)도 같은 경계 계산을 재사용할 수 있다.
+## 기존 소비처의 부동소수점 연산 순서를 보존하기 위해 경과 시간 / 길이만 수행한다.
+func phase_progress(visual_window_seconds: float = -1.0) -> float:
+	var phase_start: float = 0.0
+	var phase_duration: float = daylight_duration_seconds
+	match current_phase:
+		Phase.DUSK:
+			phase_start = daylight_duration_seconds
+			phase_duration = dusk_duration_seconds
+		Phase.NIGHT:
+			phase_start = daylight_duration_seconds + dusk_duration_seconds
+			phase_duration = night_duration_seconds
+	if visual_window_seconds >= 0.0:
+		phase_duration = visual_window_seconds
+	if phase_duration <= 0.0 or not is_finite(phase_duration):
+		return 1.0
+	return clampf((time_of_day_seconds - phase_start) / phase_duration, 0.0, 1.0)
+
+
 ## LoopObjective의 authority RPC가 호출하는 클라이언트 스냅샷 적용 경계.
 func apply_replicated(day: int, time_of_day: float, is_running: bool) -> void:
 	var previous_day: int = current_day

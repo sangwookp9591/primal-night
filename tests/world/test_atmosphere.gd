@@ -2,6 +2,7 @@ extends GutTest
 
 const CampfireScene: PackedScene = preload("res://scenes/props/campfire.tscn")
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
+const PlayerScene: PackedScene = preload("res://scenes/player/player.tscn")
 
 
 func test_phase_palette_is_readable_and_ordered() -> void:
@@ -38,6 +39,34 @@ func test_rain_slightly_reduces_atmosphere_luminance() -> void:
 	assert_lt(rainy.get_luminance(), dry.get_luminance())
 	assert_gt(rainy.get_luminance(), dry.get_luminance() * 0.8,
 		"비 보정은 시인성을 무너뜨리지 않는 미세 조정이어야 한다")
+
+
+func test_torch_light_follows_equipment_signal_for_spawned_and_respawned_players() -> void:
+	var main: Node = add_child_autofree(MainScene.instantiate())
+	var players := main.get_node("Players")
+	var first := PlayerScene.instantiate() as Player
+	first.name = "Remote"
+	players.add_child(first)
+	await wait_process_frames(2)
+	assert_true(first.inventory.add_item(&"torch", 1) == 1)
+	assert_true(first.equipment.request_equip(&"torch"))
+	var light := first.get_node_or_null("HeldTorchLight") as PointLight2D
+	assert_not_null(light)
+	assert_true(light.enabled)
+	assert_true(first.equipment.request_unequip(&"main_hand"))
+	assert_false(light.enabled)
+
+	first.queue_free()
+	await wait_process_frames(2)
+	var respawned := PlayerScene.instantiate() as Player
+	respawned.name = "Remote"
+	players.add_child(respawned)
+	await wait_process_frames(2)
+	assert_true(respawned.inventory.add_item(&"torch", 1) == 1)
+	assert_true(respawned.equipment.request_equip(&"torch"))
+	var respawned_light := respawned.get_node_or_null("HeldTorchLight") as PointLight2D
+	assert_not_null(respawned_light)
+	assert_true(respawned_light.enabled)
 
 
 func test_main_atmosphere_is_visual_only_and_gl_compatible() -> void:

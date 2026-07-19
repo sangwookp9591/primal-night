@@ -68,6 +68,22 @@ func test_apply_replicated_restores_day_and_time_within_bounds() -> void:
 	assert_almost_eq(_clock.time_of_day_seconds, 10.0, 0.01)
 	assert_false(_clock.running, "3일 종료 위치의 스냅샷은 다시 달릴 수 없다")
 
+
+func test_phase_progress_preserves_boundaries_and_visual_windows() -> void:
+	assert_eq(_clock.phase_progress(), 0.0)
+	_clock.advance(3.5)
+	assert_eq(_clock.phase_progress(), 0.5)
+	assert_eq(_clock.phase_progress(2.0), 1.0)
+	_clock.advance(3.5)
+	assert_eq(_clock.current_phase, SessionClock.Phase.DUSK)
+	assert_eq(_clock.phase_progress(), 0.0)
+	_clock.advance(0.5)
+	assert_eq(_clock.phase_progress(), 0.5)
+	_clock.advance(1.5)
+	assert_eq(_clock.current_phase, SessionClock.Phase.NIGHT)
+	assert_eq(_clock.phase_progress(), 0.5)
+
+
 func test_ready_does_not_reset_state_applied_before_tree_entry() -> void:
 	var restored := SessionClock.new()
 	restored.apply_replicated(1, 77.2, true)

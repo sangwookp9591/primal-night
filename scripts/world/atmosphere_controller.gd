@@ -7,7 +7,6 @@ const NIGHT_COLOR := Color(0.16, 0.22, 0.38, 1.0)
 const DAWN_COLOR := Color(0.48, 0.57, 0.68, 1.0)
 const DAWN_SECONDS: float = 45.0
 const TRANSITION_SPEED: float = 0.45
-const TORCH_SCAN_SECONDS: float = 0.25
 const MAX_DYNAMIC_LIGHTS: int = 12
 
 @export var clock_path: NodePath = ^"../SessionClock"
@@ -18,10 +17,10 @@ var _clock: SessionClock
 var _weather: NetWeather
 var _canvas_modulate: CanvasModulate
 var _rain_intensity: float = 0.0
-var _torch_scan_elapsed: float = 0.0
 var _elapsed: float = 0.0
+var _registered_players: Dictionary = {}
 ## 깜빡임 대상 라이트 캐시 — _process 의 매 프레임 그룹 조회를 피한다.
-## 갱신은 0.25초 스캔 주기와 create_point_light 시점에만.
+## 갱신은 광원 생성 시점에만 한다.
 var _flicker_lights: Array[PointLight2D] = []
 var _flicker_energies: PackedFloat32Array = PackedFloat32Array()
 
@@ -33,6 +32,10 @@ func _ready() -> void:
 	if _weather != null:
 		_weather.weather_changed.connect(_on_weather_changed)
 		_rain_intensity = _weather.intensity if _weather.raining else 0.0
+	get_tree().node_added.connect(_on_node_added)
+	for node: Node in get_tree().get_nodes_in_group(&"player"):
+		_register_player(node as Player)
+	_refresh_flicker_cache()
 	_canvas_modulate.color = target_color()
 
 
@@ -40,11 +43,6 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	_canvas_modulate.color = _canvas_modulate.color.lerp(target_color(),
 		clampf(delta * TRANSITION_SPEED, 0.0, 1.0))
-	_torch_scan_elapsed += delta
-	if _torch_scan_elapsed >= TORCH_SCAN_SECONDS:
-		_torch_scan_elapsed = 0.0
-		_refresh_torch_lights()
-		_refresh_flicker_cache()
 	for index: int in range(_flicker_lights.size()):
 		var light := _flicker_lights[index]
 		if not is_instance_valid(light):
@@ -65,7 +63,9 @@ func _refresh_flicker_cache() -> void:
 
 
 func target_color() -> Color:
-	var base := phase_color(_clock.current_phase, _clock.time_of_day_seconds) \
+	var base := phase_color_from_progress(_clock.current_phase,
+		_clock.phase_progress(DAWN_SECONDS) if _clock.current_phase == SessionClock.Phase.DAYLIGHT \
+			else _clock.phase_progress()) \
 		if _clock != null else DAY_COLOR
 	if _rain_intensity <= 0.0:
 		return base
@@ -76,15 +76,19 @@ func target_color() -> Color:
 
 
 static func phase_color(phase: SessionClock.Phase, time_of_day: float = 0.0) -> Color:
+	var progress := clampf(time_of_day / DAWN_SECONDS, 0.0, 1.0) \
+		if phase == SessionClock.Phase.DAYLIGHT else 1.0
+	return phase_color_from_progress(phase, progress)
+
+
+static func phase_color_from_progress(phase: SessionClock.Phase, progress: float) -> Color:
 	match phase:
 		SessionClock.Phase.DUSK:
 			return DUSK_COLOR
 		SessionClock.Phase.NIGHT:
 			return NIGHT_COLOR
 		_:
-			if time_of_day < DAWN_SECONDS:
-				return DAWN_COLOR.lerp(DAY_COLOR, clampf(time_of_day / DAWN_SECONDS, 0.0, 1.0))
-			return DAY_COLOR
+			return DAWN_COLOR.lerp(DAY_COLOR, progress)
 
 
 static func create_point_light(owner: Node, light_name: String,
@@ -106,19 +110,43 @@ static func create_point_light(owner: Node, light_name: String,
 	return light
 
 
-func _refresh_torch_lights() -> void:
+func _register_player(player: Player) -> void:
+	if not is_instance_valid(player) or _registered_players.has(player):
+		return
+	var equipment := player.get_node_or_null("EquipmentComponent") as EquipmentComponent
+	if equipment == null:
+		return
+	_registered_players[player] = true
+	equipment.equipment_changed.connect(_on_player_equipment_changed.bind(player))
+	player.tree_exiting.connect(_on_player_tree_exiting.bind(player))
+	_update_torch_light(player, equipment.get_equipped(&"main_hand"))
+
+
+func _update_torch_light(player: Player, main_hand: StringName) -> void:
+	if not is_instance_valid(player):
+		return
 	var count := get_tree().get_nodes_in_group(&"atmosphere_light").size()
-	for node: Node in get_tree().get_nodes_in_group(&"player"):
-		var player := node as Player
-		if player == null:
-			continue
-		var light := player.get_node_or_null("HeldTorchLight") as PointLight2D
-		var held := player.equipment.get_equipped(&"main_hand") == &"torch"
-		if light == null and held and count < MAX_DYNAMIC_LIGHTS:
-			light = create_point_light(player, "HeldTorchLight", 1.35, 0.85)
-			count += 1
-		if light != null:
-			light.enabled = held
+	var light := player.get_node_or_null("HeldTorchLight") as PointLight2D
+	var held := main_hand == &"torch"
+	if light == null and held and count < MAX_DYNAMIC_LIGHTS:
+		light = create_point_light(player, "HeldTorchLight", 1.35, 0.85)
+		_refresh_flicker_cache()
+	if light != null:
+		light.enabled = held
+
+
+func _on_node_added(node: Node) -> void:
+	if node is Player:
+		_register_player.call_deferred(node as Player)
+
+
+func _on_player_equipment_changed(slot: StringName, item_id: StringName, player: Player) -> void:
+	if slot == &"main_hand":
+		_update_torch_light(player, item_id)
+
+
+func _on_player_tree_exiting(player: Player) -> void:
+	_registered_players.erase(player)
 
 
 func _on_weather_changed(raining: bool, intensity: float) -> void:
