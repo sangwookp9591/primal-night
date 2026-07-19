@@ -37,9 +37,9 @@ target_desired_distance = 16.0
 ; 추격 전환 경고 (설계서 3.2: 예고 없는 위협 금지).
 [node name="AlertLabel" type="Label" parent="."]
 offset_left = -8.0
-offset_top = -76.0
+offset_top = -96.0
 offset_right = 8.0
-offset_bottom = -44.0
+offset_bottom = -64.0
 theme_override_colors/font_color = Color(1, 0.9, 0.2, 1)
 theme_override_font_sizes/font_size = 28
 text = "!"

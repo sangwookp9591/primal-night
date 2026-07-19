@@ -11,7 +11,9 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const CAMPFIRE_SITE_POSITION: Vector2 = Vector2(-190.0, 330.0)
-const SCENT_INTERCEPT_POSITION: Vector2 = Vector2(-520.0, 350.0)
+# 55px/s의 느긋한 조사 속도에서도 고정 seed 냄새 경로와 실제 시야 반경이
+# 만나는 지점이다. 플레이어 순간이동 없이 조우를 재현한다.
+const SCENT_INTERCEPT_POSITION: Vector2 = Vector2(-520.0, 500.0)
 ## 재현 도구는 결정적이어야 한다 (B-01): 랩터 배회 RNG 를 고정 seed 로 덮어쓰고,
 ## 모든 대기·timeout 을 physics tick 으로 세어 simulation clock 도 고정한다.
 ## 게임 플레이는 raptor._ready() 의 randomize() 로 여전히 무작위다.
@@ -57,8 +59,13 @@ func _run() -> void:
 	_log("배회 이동량 %.1fpx (시작 %s → 현재 %s), 상태=%s" % [
 		wander_distance, wander_start,
 		_raptor.global_position, _raptor.get_state_name()])
-	if wander_distance < 230.0 or wander_distance > 270.0:
-		return _fail("회귀 assert: 180 물리 틱 배회 이동량이 230~270px 범위를 벗어났다 (%.1fpx)" % wander_distance)
+	# 순찰 속도 튜닝과 조사 전환 시점에 독립적인 실이동 계약. 3초 내 상태가
+	# investigate 로 바뀌어도 최소 0.5초분은 움직이고, 이론상 3초 이동량을 넘지 않는다.
+	var wander_min := _raptor.data.walk_speed * 0.5
+	var wander_max := _raptor.data.walk_speed * 3.3
+	if wander_distance < wander_min or wander_distance > wander_max:
+		return _fail("회귀 assert: 180 물리 틱 이동량이 속도 기반 %.1f~%.1fpx 범위를 벗어났다 (%.1fpx)" % [
+			wander_min, wander_max, wander_distance])
 
 	# 2) 부상 → 출혈 → 피 냄새.
 	_log("--- phase 2: 디버그 부상 (H 키 경로) ---")
@@ -73,14 +80,14 @@ func _run() -> void:
 	if _raptor.state != Raptor.State.INVESTIGATE:
 		return _fail("조사가 아니라 %s 로 전환했다" % _raptor.get_state_name())
 
-	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 20초).
+	# 4) 냄새 상류로 접근 → 추격 전환 대기 (최대 40초).
 	_log("--- phase 4: 경사 추적 접근 → 추격 대기 ---")
 	# 무리 측면 조사 도입 후 플레이어도 냄새 경로 쪽으로 이동해 정당한 조우를 만든다.
 	# 순간이동 대신 실제 입력 경로를 써서 시야 기반 추격 전환을 그대로 검증한다.
 	if not await _walk_player_to(SCENT_INTERCEPT_POSITION, 10.0):
 		return _fail("플레이어가 냄새 경로 조우 지점에 도달하지 못했다")
-	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 20.0, _report_approach):
-		return _fail("회귀 assert: 조사 진입 후 20초 안에 추격으로 전환하지 않았다")
+	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.CHASE, 40.0, _report_approach):
+		return _fail("회귀 assert: 조사 진입 후 40초 안에 추격으로 전환하지 않았다")
 
 	# 5) 모닥불 설치 후 플레이어가 불로 도망.
 	_log("--- phase 5: 모닥불 설치·점화, 플레이어 도피 ---")
@@ -95,9 +102,9 @@ func _run() -> void:
 		return _fail("모닥불이 점화되지 않았다")
 	_log("플레이어-모닥불 거리 %.0f (반경 220 안 = 보호)" % _player.global_position.distance_to(CAMPFIRE_SITE_POSITION))
 
-	# 6) 랩터가 물러나는지 대기 (최대 20초).
+	# 6) 랩터가 물러나는지 대기 (최대 40초).
 	_log("--- phase 6: 랩터 후퇴 대기 ---")
-	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.FLEE, 20.0, _report_approach):
+	if not await _wait_until(func() -> bool: return _raptor.state == Raptor.State.FLEE, 40.0, _report_approach):
 		return _fail("랩터가 물러나지 않았다")
 	var expected_states: Array[StringName] = [&"investigate", &"chase", &"flee"]
 	var expected_state_index: int = 0

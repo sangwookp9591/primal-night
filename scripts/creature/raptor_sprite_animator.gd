@@ -2,11 +2,12 @@ class_name RaptorSpriteAnimator
 extends AnimatedSprite2D
 
 const SHEET: Texture2D = preload("res://assets/sprites/creatures/raptor_idle_walk_sheet.png")
-const CELL_SIZE: Vector2i = Vector2i(64, 64)
+const CELL_SIZE: Vector2i = Vector2i(96, 80)
 const DIRECTION_COUNT: int = 8
 const IDLE_ROWS: Array[int] = [0, 1]
 const WALK_ROWS: Array[int] = [2, 3, 4, 5]
-const CHASE_SPEED_SCALE: float = 1.35
+const WALK_REFERENCE_SPEED: float = 55.0
+const CHASE_SPEED_SCALE: float = 3.0
 const STATE_CHASE: int = 2
 
 enum Direction { N, NE, E, SE, S, SW, W, NW }
@@ -87,8 +88,8 @@ static func build_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
 	for direction: int in range(DIRECTION_COUNT):
-		_add_animation(frames, false, direction, IDLE_ROWS, 2.0)
-		_add_animation(frames, true, direction, WALK_ROWS, 8.0)
+		_add_animation(frames, false, direction, IDLE_ROWS, 1.5)
+		_add_animation(frames, true, direction, WALK_ROWS, 5.0)
 	return frames
 
 
@@ -122,4 +123,9 @@ func update_from_velocity(raptor_velocity: Vector2, raptor_state: int) -> void:
 	var next_animation: StringName = animation_name(walking, last_direction)
 	if animation != next_animation:
 		play(next_animation)
-	speed_scale = CHASE_SPEED_SCALE if walking and raptor_state == STATE_CHASE else 1.0
+	if not walking:
+		speed_scale = 1.0
+	elif raptor_state == STATE_CHASE:
+		speed_scale = CHASE_SPEED_SCALE
+	else:
+		speed_scale = clampf(raptor_velocity.length() / WALK_REFERENCE_SPEED, 0.75, 1.25)

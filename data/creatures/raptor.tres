@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_creaturedata")
-walk_speed = 90.0
+walk_speed = 55.0
 chase_speed = 200.0
 max_health = 60.0
 sight_radius = 180.0
