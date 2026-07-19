@@ -133,11 +133,16 @@ func _sync_layers() -> void:
 	for layer: AnimatedSprite2D in [outfit, back, main_hand, state_overlay]:
 		_sync_layer(layer)
 	var order := PlayerVisualProfile.z_order(base_body.last_direction)
-	base_body.z_index = order.base_body
-	outfit.z_index = order.outfit
-	back.z_index = order.back
-	main_hand.z_index = order.main_hand
-	state_overlay.z_index = order.state_overlay
+	# z_index는 전역 y-sort보다 우선해 레이어가 앞 크리처를 뚫고 떠 보인다(잘림 사고).
+	# 트리 내 순서로만 레이어링하고 z는 전부 0을 유지한다.
+	var layers: Array = [
+		[order.back, back], [order.base_body, base_body], [order.outfit, outfit],
+		[order.main_hand, main_hand], [order.state_overlay, state_overlay]]
+	layers.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for index: int in layers.size():
+		var layer_node: AnimatedSprite2D = layers[index][1]
+		layer_node.z_index = 0
+		move_child(layer_node, index)
 
 
 func _sync_layer(layer: AnimatedSprite2D) -> void:

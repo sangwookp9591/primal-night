@@ -1,64 +1,88 @@
 extends GutTest
 
 const SHEET_PATH := "res://assets/sprites/player/player_survivor_sheet.png"
-const CELL_WIDTH := 48
-const CELL_HEIGHT := 64
-# PZ 비례 헤드(11px, y6..16): 목·어깨 스킨이 무게중심을 희석하지 않게 머리만 잡는다.
-const HEAD_RECT := Rect2i(16, 5, 17, 12)
-const DIRECTION_N := 0
-const DIRECTION_E := 2
-const DIRECTION_S := 4
-const DIRECTION_W := 6
+const CELL_W := 48
+const CELL_H := 64
+const D_N := 0
+const D_E := 2
+const D_SE := 3
+const D_S := 4
+const D_SW := 5
+const D_W := 6
 
 
-## 방향 열은 이동 벡터와 직접 대응한다. 특히 프로필을 좌우 반대로 그리면
-## 애니메이션 자체는 정상이어도 E/W 이동 중 캐릭터가 문워크하므로 피부 무게중심으로
-## 얼굴이 열린 쪽을 고정한다.
-func test_idle_direction_columns_keep_face_orientation_contract() -> void:
+## 방향 열은 이동 벡터와 직접 대응한다. legacy 회화풍 시트는 고정 좌표 검증이
+## 취약하므로 ①E/W·SE/SW 미러 구조 보장 ②판별 행(1,2,4,5)의 얼굴 분포
+## ③S/N 얼굴 노출 비대칭 ④S 눈 존재로 계약을 고정한다.
+func test_direction_columns_keep_face_orientation_contract() -> void:
 	var image := Image.load_from_file(ProjectSettings.globalize_path(SHEET_PATH))
 	image.convert(Image.FORMAT_RGBA8)
 
-	var north := _head_skin_points(image, DIRECTION_N)
-	var south := _head_skin_points(image, DIRECTION_S)
-	var east := _head_skin_points(image, DIRECTION_E)
-	var west := _head_skin_points(image, DIRECTION_W)
+	# ① 미러 구조: E == flip(W), SE == flip(SW) — 좌우 스왑 회귀를 픽셀로 차단
+	for row: int in range(6):
+		assert_true(_cells_mirror(image, D_E, D_W, row), "row %d: E는 W의 미러" % row)
+		assert_true(_cells_mirror(image, D_SE, D_SW, row), "row %d: SE는 SW의 미러" % row)
 
-	assert_gt(south.size(), 40, "S 열은 눈·입을 둘 충분한 정면 얼굴 피부를 노출한다")
-	assert_lt(north.size(), south.size() / 4, "N 열은 S 열보다 얼굴 피부가 대폭 적어야 한다")
-	assert_true(_has_dark_eye_pixels(image, DIRECTION_S), "S 열 정면 얼굴에는 두 눈이 있어야 한다")
+	# ② 판별 행에서 E 얼굴은 오른쪽, W 얼굴은 왼쪽에 몰린다
+	for row: int in [1, 2, 4, 5]:
+		var east := _head_skin_xs(image, D_E, row)
+		var west := _head_skin_xs(image, D_W, row)
+		assert_gt(east.size(), 4, "row %d E 얼굴 표본" % row)
+		assert_gte(_percentile(east, 0.25), 24.0, "row %d E 얼굴은 오른쪽" % row)
+		assert_lte(_percentile(west, 0.75), 23.0, "row %d W 얼굴은 왼쪽" % row)
 
-	var east_centroid := _mean_x(east)
-	var west_centroid := _mean_x(west)
-	assert_gt(east_centroid, 25.2, "E 열 얼굴은 셀 중심 오른쪽으로 열려야 한다")
-	assert_lt(west_centroid, 22.8, "W 열 얼굴은 셀 중심 왼쪽으로 열려야 한다")
-	assert_gt(east_centroid - west_centroid, 3.5,
-		"E/W 얼굴 무게중심은 좌우 프로필로 유의미하게 분리되어야 한다")
+	# ③ 정면은 얼굴 노출, 후면은 뒤통수
+	for row: int in range(6):
+		var south := _head_skin_xs(image, D_S, row)
+		var north := _head_skin_xs(image, D_N, row)
+		assert_gt(south.size(), north.size() * 2,
+			"row %d: S 얼굴 피부가 N의 2배 초과" % row)
+
+	# ④ S 얼굴에 눈(스킨 인접 다크 픽셀)이 있다
+	for row: int in range(6):
+		assert_true(_has_eye_pixels(image, D_S, row), "row %d: S 눈 존재" % row)
 
 
-func _head_skin_points(image: Image, direction: int) -> Array[Vector2i]:
-	var points: Array[Vector2i] = []
-	for y: int in range(HEAD_RECT.position.y, HEAD_RECT.end.y):
-		for x: int in range(HEAD_RECT.position.x, HEAD_RECT.end.x):
-			var color := image.get_pixel(direction * CELL_WIDTH + x, y)
+func _cells_mirror(image: Image, dir_a: int, dir_b: int, row: int) -> bool:
+	for y: int in range(CELL_H):
+		for x: int in range(CELL_W):
+			var a := image.get_pixel(dir_a * CELL_W + x, row * CELL_H + y)
+			var b := image.get_pixel(dir_b * CELL_W + (CELL_W - 1 - x), row * CELL_H + y)
+			if a.a == 0.0 and b.a == 0.0:
+				continue
+			if a.a == 0.0 or b.a == 0.0 or not a.is_equal_approx(b):
+				return false
+	return true
+
+
+func _head_skin_xs(image: Image, direction: int, row: int) -> Array[float]:
+	var xs: Array[float] = []
+	for y: int in range(8, 20):
+		for x: int in range(12, 36):
+			var color := image.get_pixel(direction * CELL_W + x, row * CELL_H + y)
 			if color.a > 0.0 and color.r > 0.45 and color.g > 0.22 \
 					and color.r > color.b * 1.25:
-				points.append(Vector2i(x, y))
-	return points
+				xs.append(float(x))
+	xs.sort()
+	return xs
 
 
-func _mean_x(points: Array[Vector2i]) -> float:
-	assert_gt(points.size(), 0, "프로필 얼굴 피부 표본이 있어야 한다")
-	var total := 0.0
-	for point: Vector2i in points:
-		total += float(point.x)
-	return total / float(points.size())
+func _percentile(sorted_xs: Array[float], q: float) -> float:
+	if sorted_xs.is_empty():
+		return -1.0
+	return sorted_xs[int(float(sorted_xs.size() - 1) * q)]
 
 
-func _has_dark_eye_pixels(image: Image, direction: int) -> bool:
-	var dark_count := 0
-	for y: int in range(10, 16):
-		for x: int in range(17, 31):
-			var color := image.get_pixel(direction * CELL_WIDTH + x, y)
-			if color.a > 0.0 and color.get_luminance() < 0.22:
-				dark_count += 1
-	return dark_count >= 4
+func _has_eye_pixels(image: Image, direction: int, row: int) -> bool:
+	var count := 0
+	for y: int in range(13, 21):
+		for x: int in range(14, 34):
+			var color := image.get_pixel(direction * CELL_W + x, row * CELL_H + y)
+			if color.a > 0.0 and color.get_luminance() < 0.2:
+				var left := image.get_pixel(direction * CELL_W + x - 1, row * CELL_H + y)
+				var right := image.get_pixel(direction * CELL_W + x + 1, row * CELL_H + y)
+				for side: Color in [left, right]:
+					if side.a > 0.0 and side.r > 0.45 and side.r > side.b * 1.25:
+						count += 1
+						break
+	return count >= 2

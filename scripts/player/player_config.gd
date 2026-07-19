@@ -6,8 +6,8 @@ const DEFAULT_RUN_NOISE: NoiseProfile = preload("res://data/senses/noise_run.tre
 const DEFAULT_CROUCH_NOISE: NoiseProfile = preload("res://data/senses/noise_sneak.tres")
 const DEFAULT_BUSH_RUN_NOISE: NoiseProfile = preload("res://data/senses/noise_bush_run.tres")
 
-@export var walk_speed: float = 115.0
-@export var run_speed: float = 185.0
+@export var walk_speed: float = 90.0
+@export var run_speed: float = 150.0
 @export var crouch_speed: float = 70.0
 @export var walk_noise_profile: NoiseProfile = DEFAULT_WALK_NOISE
 @export var run_noise_profile: NoiseProfile = DEFAULT_RUN_NOISE
