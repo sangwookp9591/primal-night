@@ -18,3 +18,8 @@ offset_top = -18.0
 offset_right = 10.0
 offset_bottom = 4.0
 color = Color(0.95, 0.5, 0.15, 1)
+
+[node name="SmokeColumn" type="Polygon2D" parent="."]
+visible = false
+polygon = PackedVector2Array(-9, -19, -15, -48, -8, -82, 3, -110, 12, -76, 8, -43, 12, -19)
+color = Color(0.24, 0.27, 0.29, 0.72)

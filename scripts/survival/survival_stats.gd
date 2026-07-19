@@ -32,6 +32,8 @@ const POISON_DURATION_SECONDS: float = 120.0
 const FOOD_POISON_DRAIN_MULTIPLIER: float = 4.0
 const VOMIT_INTERVAL_SECONDS: float = 12.0
 const POISON_DAMAGE_PER_SECOND: float = 0.6
+const CHARCOAL_MASK_SECONDS: float = 180.0
+const CHARCOAL_SMELL_MULTIPLIER: float = 0.15
 
 const STAGE_GOOD: StringName = &"양호"
 const STAGE_WARN: StringName = &"주의"
@@ -47,6 +49,7 @@ var wetness: float = 0.0
 var food_poison_remaining: float = 0.0
 var poison_remaining: float = 0.0
 var poison_potency: float = 0.0
+var charcoal_mask_remaining: float = 0.0
 
 var _body: Node2D = null
 var _campfire_registry: Node = null
@@ -98,6 +101,10 @@ func simulate(delta: float) -> void:
 	water = maxf(water - config.water_drain_per_second * delta, 0.0)
 	food = maxf(food - config.food_drain_per_second * delta, 0.0)
 	_simulate_food_safety(delta)
+	if charcoal_mask_remaining > 0.0:
+		charcoal_mask_remaining = maxf(charcoal_mask_remaining - delta, 0.0)
+		if charcoal_mask_remaining <= 0.0:
+			_refresh_clothing_smell()
 	if _body is Player:
 		var player := _body as Player
 		if player.health.is_alive() and not player.health.is_bleeding:
@@ -108,7 +115,7 @@ func simulate(delta: float) -> void:
 	var outfit := _outfit()
 	var warmth := clampf(float(outfit.modifiers.get("warmth", 0.0)) if outfit != null else 0.0,
 		0.0, 0.8)
-	if _near_fire():
+	if _near_fire() and charcoal_mask_remaining <= 0.0:
 		temperature = minf(temperature + config.temperature_regen_near_fire * delta, STAT_MAX)
 	else:
 		var drain_multiplier := (1.0 - warmth * 0.6) \
@@ -184,6 +191,30 @@ func restore_temperature(amount: float) -> void:
 func apply_antidote() -> void:
 	food_poison_remaining *= 0.5
 	poison_remaining *= 0.5
+
+
+func apply_charcoal_mask() -> void:
+	charcoal_mask_remaining = CHARCOAL_MASK_SECONDS
+	_refresh_clothing_smell()
+
+
+func wash_charcoal_mask() -> void:
+	charcoal_mask_remaining = 0.0
+	_refresh_clothing_smell()
+
+
+func charcoal_smell_multiplier() -> float:
+	return CHARCOAL_SMELL_MULTIPLIER if charcoal_mask_remaining > 0.0 else 1.0
+
+
+func try_use_charcoal() -> bool:
+	if not _body is Player:
+		return false
+	var player := _body as Player
+	if not player.inventory.remove_item(&"charcoal", 1):
+		return false
+	apply_charcoal_mask()
+	return true
 
 
 func apply_food_risk(food_poisoned: bool, potency: float) -> void:
@@ -326,6 +357,8 @@ func _simulate_wetness(delta: float) -> void:
 		var drying := outfit.drying_speed if outfit != null else 1.0
 		var rate := FIRE_DRY_PER_SECOND if _near_fire() else DRY_PER_SECOND * drying
 		wetness = maxf(wetness - rate * delta, 0.0)
+	if charcoal_mask_remaining > 0.0 and wetness >= 0.75:
+		wash_charcoal_mask()
 	_apply_wet_feedback()
 
 func _apply_wet_feedback() -> void:
@@ -375,7 +408,8 @@ func _refresh_clothing_smell() -> void:
 	var outfit := _outfit()
 	if outfit != null and outfit.smell_modifier > 0.0:
 		_smell_grid.register_smell_source(self, Callable(self, "_smell_position"),
-			CLOTHING_SMELL_BASE * outfit.smell_modifier * (1.0 + wetness),
+			CLOTHING_SMELL_BASE * outfit.smell_modifier * (1.0 + wetness)
+				* charcoal_smell_multiplier(),
 			0.75, &"clothing")
 
 func _smell_position() -> Vector2:

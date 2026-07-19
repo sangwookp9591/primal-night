@@ -8,11 +8,15 @@ extends Node2D
 const DEFAULT_CONFIG: CampfireConfig = preload("res://data/props/campfire_config.tres")
 const STATE_SHEET: Texture2D = preload("res://assets/sprites/props/campfire_states_sheet.png")
 const CELL_SIZE := Vector2(128.0, 128.0)
+const FUEL_ADD_SECONDS: float = 90.0
+const SMOKE_LURE_RADIUS: float = 480.0
 
 @export var config: CampfireConfig = DEFAULT_CONFIG
 
 var is_lit: bool = false
 var fuel_remaining: float = 0.0
+var smoky: bool = false
+var charcoal_available: bool = false
 
 var _event_bus: Node = null
 var _registry: Node = null
@@ -54,13 +58,14 @@ func _process(delta: float) -> void:
 
 	fuel_remaining = maxf(fuel_remaining - delta, 0.0)
 	if fuel_remaining <= 0.0:
-		extinguish()
+		extinguish(true)
 
 func light() -> void:
 	if is_lit:
 		return
 
 	is_lit = true
+	charcoal_available = false
 	fuel_remaining = config.fuel_seconds
 	var sprite := get_node_or_null("CampfireSprite") as AnimatedSprite2D
 	if sprite != null:
@@ -75,11 +80,13 @@ func light() -> void:
 	if _event_bus != null and multiplayer.is_server():
 		_event_bus.campfire_lit.emit(self, global_position, config.light_radius)
 
-func extinguish() -> void:
+func extinguish(fuel_exhausted: bool = false) -> void:
 	if not is_lit:
 		return
 
 	is_lit = false
+	charcoal_available = fuel_exhausted
+	set_smoky(false)
 	fuel_remaining = 0.0
 	var sprite := get_node_or_null("CampfireSprite") as AnimatedSprite2D
 	if sprite != null:
@@ -92,6 +99,30 @@ func extinguish() -> void:
 
 func get_radius() -> float:
 	return config.light_radius
+
+
+func add_fuel(wet: bool) -> bool:
+	if not is_lit:
+		return false
+	fuel_remaining += FUEL_ADD_SECONDS
+	set_smoky(wet)
+	if wet and _event_bus != null and multiplayer.is_server():
+		_event_bus.noise_emitted.emit(global_position, SMOKE_LURE_RADIUS, self)
+	return true
+
+
+func collect_charcoal() -> bool:
+	if is_lit or not charcoal_available:
+		return false
+	charcoal_available = false
+	return true
+
+
+func set_smoky(value: bool) -> void:
+	smoky = value and is_lit
+	var smoke := get_node_or_null("SmokeColumn") as CanvasItem
+	if smoke != null:
+		smoke.visible = smoky
 
 
 func _exit_tree() -> void:

@@ -32,7 +32,7 @@ func _ready() -> void:
 func can_interact(who: Node) -> bool:
 	if campfire != null:
 		var cook := who as Player
-		return campfire.is_lit and cook != null and not cook_kind(cook).is_empty()
+		return cook != null and not cook_kind(cook).is_empty()
 
 	var player: Player = who as Player
 	if player == null:
@@ -46,7 +46,18 @@ func get_hold_seconds() -> float:
 
 func get_prompt() -> String:
 	if campfire != null:
-		return "골수 스프 끓이기" if _nearby_cook_kind() == &"marrow_soup" else "고기 굽기"
+		var kind := _nearby_cook_kind()
+		if kind == &"marrow_soup":
+			return "골수 스프 끓이기"
+		if kind == &"charcoal":
+			return "숯 회수"
+		if kind == &"fuel_wet" or kind == &"fuel_dry":
+			return "젖은 나무 넣기" if kind == &"fuel_wet" else "마른 나무 넣기"
+		if kind == &"oil_trap":
+			return "기름 함정 펼치기"
+		if kind == &"rub_charcoal":
+			return "숯을 몸에 문지르기"
+		return "고기 굽기"
 	# 표시 문구와 수치는 데이터에서 만든다 (설계서 5.6: UI 하드코딩 금지).
 	var stone: ItemData = _game_data.get_item(&"stone")
 	var wood: ItemData = _game_data.get_item(&"wood")
@@ -109,18 +120,46 @@ func apply_cook(player: Player) -> bool:
 func cook_kind(player: Player) -> StringName:
 	if player == null:
 		return &""
+	if campfire != null and not campfire.is_lit:
+		return &"charcoal" if campfire.charcoal_available else &""
 	if player.inventory.has_item(&"bone", 2) and (
 			player.inventory.has_item(&"waterskin_full", 1)
 			or player.inventory.has_item(&"waterskin_half", 1)):
 		return &"marrow_soup"
 	if player.inventory.has_item(&"raw_meat", 1):
 		return &"cooked_meat"
+	if player.inventory.has_item(&"oil_trap", 1):
+		return &"oil_trap"
+	if player.inventory.has_item(&"charcoal", 1):
+		return &"rub_charcoal"
+	if player.inventory.has_item(&"wood", 1):
+		return &"fuel_wet" if player.stats.wetness >= 0.35 else &"fuel_dry"
 	return &""
 
 
 func apply_cook_kind(player: Player, kind: StringName) -> bool:
 	if player == null or campfire == null or not campfire.is_lit:
+		if kind == &"charcoal" and player != null and campfire != null \
+				and campfire.collect_charcoal():
+			if player.inventory.add_item(&"charcoal", 1) == 1:
+				return true
+			campfire.charcoal_available = true
 		return false
+	if kind == &"fuel_wet" or kind == &"fuel_dry":
+		if not player.inventory.remove_item(&"wood", 1):
+			return false
+		if not campfire.add_fuel(kind == &"fuel_wet"):
+			player.inventory.add_item(&"wood", 1)
+			return false
+		return true
+	if kind == &"oil_trap":
+		var trap_position := global_position + Vector2(72.0, 0.0)
+		var trap := OilTrap.install(get_parent(), player, trap_position) \
+			if multiplayer.is_server() else OilTrap.install_replica(
+				get_parent(), player, trap_position)
+		return trap != null
+	if kind == &"rub_charcoal":
+		return player.stats.try_use_charcoal()
 	if kind == &"marrow_soup":
 		return _apply_soup(player)
 	if kind != &"cooked_meat":

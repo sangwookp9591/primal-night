@@ -104,7 +104,7 @@ func test_materials_are_not_consumed_if_the_build_is_cancelled() -> void:
 	assert_eq(player.inventory.count_of(&"stone"), config.stone_cost, "취소하면 돌을 소비하지 않는다")
 	assert_eq(player.inventory.count_of(&"wood"), config.wood_cost, "취소하면 나무를 소비하지 않는다")
 
-func test_a_built_site_cannot_be_built_again() -> void:
+func test_a_built_site_accepts_fuel_without_building_a_second_fire() -> void:
 	var config: CampfireConfig = _make_config()
 	var spawned: Array = await _spawn(config, Vector2(24.0, 0.0))
 	var player: Player = spawned[0]
@@ -115,7 +115,10 @@ func test_a_built_site_cannot_be_built_again() -> void:
 
 	_stock(player, config)
 
-	assert_false(site.can_interact(player), "이미 모닥불이 있는 자리에 또 지을 수 없다")
+	var original_fire := site.campfire
+	assert_true(site.can_interact(player), "완성된 모닥불은 나무를 연료로 받을 수 있다")
+	assert_eq(site.cook_kind(player), &"fuel_dry")
+	assert_eq(site.campfire, original_fire, "연료 상호작용은 두 번째 모닥불을 만들지 않는다")
 
 ## 연료가 떨어지면 꺼지고 campfire_extinguished 를 발신한다.
 func test_campfire_burns_out_when_fuel_runs_dry() -> void:

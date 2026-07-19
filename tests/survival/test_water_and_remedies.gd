@@ -66,8 +66,8 @@ func test_soup_restores_food_water_and_temperature() -> void:
 	assert_eq(player.stats.temperature, 35.0)
 
 
-func test_new_atlas_contract_is_25_cells_and_fixed_indices() -> void:
-	assert_eq(WorldItem.ITEM_SHEET.get_size(), Vector2(1600, 128))
+func test_new_atlas_contract_preserves_food_cells_inside_29_cell_sheet() -> void:
+	assert_eq(WorldItem.ITEM_SHEET.get_size(), Vector2(1856, 128))
 	assert_eq(WorldItem.atlas_index_for(&"waterskin"), 20)
 	assert_eq(WorldItem.atlas_index_for(&"herb"), 21)
 	assert_eq(WorldItem.atlas_index_for(&"antidote_salad"), 22)

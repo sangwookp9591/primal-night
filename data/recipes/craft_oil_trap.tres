@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/items/oil_trap.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/actions/action_definition.gd" id="3"]
+
+[sub_resource type="Resource" id="Action"]
+script = ExtResource("3")
+id = &"craft_oil_trap"
+duration = 2.0
+
+[resource]
+script = ExtResource("1")
+id = &"craft_oil_trap"
+ingredients = {&"tallow": 2, &"fiber": 1}
+result = ExtResource("2")
+result_count = 1
+action = SubResource("Action")
+observation_hint = "지방을 섬유에 먹이면 불길이 바닥에 오래 남는다."
+observation_success = "불은 랩터를 막지만 내 퇴로도 함께 막는다."

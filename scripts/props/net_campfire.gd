@@ -185,7 +185,7 @@ func confirm_campfire_cook(site_path: String, player_id: String,
 
 func _can_cook(who: Player, site: CampfireSite) -> bool:
 	return who != null and is_instance_valid(who) and site != null \
-		and site.campfire != null and site.campfire.is_lit \
+		and site.campfire != null \
 		and who.global_position.distance_to(site.global_position) <= BUILD_MAX_DISTANCE_PX \
 		and not site.cook_kind(who).is_empty()
 

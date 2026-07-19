@@ -33,6 +33,10 @@ const ITEM_ATLAS_INDICES := {
 	&"antidote_salad": 22,
 	&"marrow_soup": 23,
 	&"tallow": 24,
+	&"charcoal": 25,
+	&"oil_trap": 26,
+	&"snare_kit": 27,
+	&"shelter_kit": 28,
 }
 
 @export var item_id: StringName = &"stone"
