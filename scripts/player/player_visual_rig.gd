@@ -16,6 +16,9 @@ const SLOT_TO_LAYER: Dictionary = {
 @onready var state_overlay: AnimatedSprite2D = %StateOverlay
 
 var _equipment: EquipmentComponent = null
+var _was_moving: bool = false
+var _motion_tween: Tween = null
+var _hit_tween: Tween = null
 
 
 func _ready() -> void:
@@ -36,10 +39,36 @@ func _ready() -> void:
 
 
 func update_from_velocity(player_velocity: Vector2, stance: int) -> void:
+	var moving := not player_velocity.is_zero_approx()
+	if moving != _was_moving:
+		_play_transition_squash(moving)
+		_was_moving = moving
 	base_body.update_from_velocity(player_velocity, stance)
 	# Animation changes are signalled immediately; this also makes direct,
 	# same-tick callers deterministic even when the frame number remains zero.
 	_sync_layers()
+
+
+func play_hit_feedback(direction: Vector2 = Vector2.LEFT) -> void:
+	if _hit_tween != null and _hit_tween.is_valid():
+		_hit_tween.kill()
+	modulate = Color(1.65, 1.65, 1.65, 1.0)
+	var jolt := direction.normalized() * 3.0 if not direction.is_zero_approx() else Vector2.LEFT * 3.0
+	position = jolt
+	_hit_tween = create_tween()
+	_hit_tween.set_parallel(true)
+	_hit_tween.tween_property(self, "modulate", Color.WHITE, 0.14)
+	_hit_tween.tween_property(self, "position", Vector2.ZERO, 0.14) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _play_transition_squash(starting: bool) -> void:
+	if _motion_tween != null and _motion_tween.is_valid():
+		_motion_tween.kill()
+	scale = Vector2(1.04, 0.96) if starting else Vector2(0.98, 1.03)
+	_motion_tween = create_tween()
+	_motion_tween.tween_property(self, "scale", Vector2.ONE, 0.11) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func apply_visual(layer_name: StringName, visual_id: StringName) -> bool:

@@ -270,7 +270,11 @@ func _request_attack() -> void:
 
 
 func _on_damage_taken(target: Node, _amount: float, _kind: StringName) -> void:
-	if target != self or dragged_carcass == null or not is_instance_valid(dragged_carcass):
+	if target != self:
+		return
+	if visual_rig != null:
+		visual_rig.play_hit_feedback(-facing_direction())
+	if dragged_carcass == null or not is_instance_valid(dragged_carcass):
 		return
 	dragged_carcass.stop_drag_authoritative()
 
@@ -338,9 +342,14 @@ func facing_direction() -> Vector2:
 func play_attack_feedback(direction: Vector2) -> void:
 	if visual_rig == null:
 		return
+	var facing := direction.normalized()
 	var tween := create_tween()
-	tween.tween_property(visual_rig, "position", direction.normalized() * 10.0, 0.08)
-	tween.tween_property(visual_rig, "position", Vector2.ZERO, 0.12)
+	tween.tween_property(visual_rig, "position", -facing * 3.0, 0.055) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(visual_rig, "position", facing * 14.0, 0.065) \
+		.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.tween_property(visual_rig, "position", Vector2.ZERO, 0.14) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func play_harvest_feedback(target_position: Vector2, strength: float = 1.0) -> void:

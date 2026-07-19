@@ -7,7 +7,9 @@ const DIRECTION_COUNT: int = 8
 const IDLE_ROWS: Array[int] = [0, 1]
 const WALK_ROWS: Array[int] = [2, 3, 4, 5]
 const WALK_REFERENCE_SPEED: float = 55.0
-const CHASE_SPEED_SCALE: float = 3.0
+const WALK_BASE_FPS: float = 5.0
+const WALK_STRIDE_DISTANCE: float = 44.0
+const CHASE_SPEED_SCALE: float = 200.0 * 4.0 / WALK_STRIDE_DISTANCE / WALK_BASE_FPS
 const STATE_CHASE: int = 2
 
 enum Direction { N, NE, E, SE, S, SW, W, NW }
@@ -88,8 +90,8 @@ static func build_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
 	for direction: int in range(DIRECTION_COUNT):
-		_add_animation(frames, false, direction, IDLE_ROWS, 1.5)
-		_add_animation(frames, true, direction, WALK_ROWS, 5.0)
+		_add_animation(frames, false, direction, IDLE_ROWS, 1.2)
+		_add_animation(frames, true, direction, WALK_ROWS, WALK_BASE_FPS)
 	return frames
 
 
@@ -125,7 +127,12 @@ func update_from_velocity(raptor_velocity: Vector2, raptor_state: int) -> void:
 		play(next_animation)
 	if not walking:
 		speed_scale = 1.0
-	elif raptor_state == STATE_CHASE:
-		speed_scale = CHASE_SPEED_SCALE
 	else:
-		speed_scale = clampf(raptor_velocity.length() / WALK_REFERENCE_SPEED, 0.75, 1.25)
+		speed_scale = walk_fps_for_speed(raptor_velocity.length()) / WALK_BASE_FPS
+	rotation = lerpf(rotation,
+		signf(raptor_velocity.x) * 0.045 if walking and raptor_state == STATE_CHASE else 0.0,
+		0.35)
+
+
+static func walk_fps_for_speed(speed: float) -> float:
+	return maxf(speed, 0.0) * WALK_ROWS.size() / WALK_STRIDE_DISTANCE

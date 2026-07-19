@@ -20,6 +20,14 @@ func _carcass(at := Vector2.ZERO) -> Carcass:
 	add_child_autofree(carcass)
 	return carcass
 
+func test_scavenger_has_grounded_soft_shadow() -> void:
+	var scavenger := _scavenger()
+	var shadow := scavenger.get_node_or_null("GroundShadow") as Node2D
+	assert_not_null(shadow)
+	assert_lt(shadow.z_index, scavenger.get_node("Visual").z_index)
+	assert_not_null(shadow.get_node_or_null("SoftEdge"))
+	assert_not_null(shadow.get_node_or_null("Core"))
+
 func test_carcass_attracts_scavenger_and_consumes_one_reward_stage() -> void:
 	var scavenger := _scavenger(Vector2.ZERO)
 	var carcass := _carcass(Vector2(80.0, 0.0))

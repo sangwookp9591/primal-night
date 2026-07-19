@@ -44,6 +44,8 @@ func test_real_player_scene_loads_runtime_sheet_and_uses_foot_anchor() -> void:
 	assert_eq(animator.offset, Vector2(0.0, -32.0), "48x64 cell origin is the bottom-center foot contact")
 	assert_eq(animator.sprite_frames.get_frame_texture(&"idle_S", 0).get_size(), Vector2(48.0, 64.0))
 	assert_eq(animator.animation, &"idle_S")
+	assert_not_null(player.get_node_or_null("GroundShadow"))
+	assert_lt(player.get_node("GroundShadow").z_index, player.get_node("VisualRig").z_index)
 
 
 func test_player_velocity_updates_walk_animation_speed_and_idle_last_direction() -> void:
@@ -51,18 +53,39 @@ func test_player_velocity_updates_walk_animation_speed_and_idle_last_direction()
 	add_child_autofree(animator)
 	await wait_physics_frames(1)
 
-	animator.update_from_velocity(Vector2.RIGHT, Player.Stance.WALK)
+	animator.update_from_velocity(Vector2.RIGHT * 150.0, Player.Stance.WALK)
 	assert_eq(animator.animation, &"walk_E")
 	assert_eq(animator.speed_scale, 1.0)
 
-	animator.update_from_velocity(Vector2.RIGHT, Player.Stance.RUN)
+	animator.update_from_velocity(Vector2.RIGHT * 240.0, Player.Stance.RUN)
 	assert_eq(animator.animation, &"walk_E")
-	assert_eq(animator.speed_scale, 1.5)
+	assert_almost_eq(animator.speed_scale, 1.6, 0.001)
 
-	animator.update_from_velocity(Vector2.LEFT, Player.Stance.CROUCH)
+	animator.update_from_velocity(Vector2.LEFT * 90.0, Player.Stance.CROUCH)
 	assert_eq(animator.animation, &"walk_W")
 	assert_almost_eq(animator.speed_scale, 0.6, 0.001)
 
 	animator.update_from_velocity(Vector2.ZERO, Player.Stance.WALK)
 	assert_eq(animator.animation, &"idle_W", "idle keeps the last moving direction")
 	assert_eq(animator.speed_scale, 1.0)
+
+
+func test_walk_fps_matches_velocity_and_authored_stride() -> void:
+	for speed: float in [55.0, 90.0, 150.0, 240.0]:
+		var fps := PlayerSpriteAnimator.walk_fps_for_speed(speed)
+		assert_almost_eq(
+			PlayerSpriteAnimator.WALK_STRIDE_DISTANCE * fps \
+				/ PlayerSpriteAnimator.WALK_ROWS.size(),
+			speed, 0.001)
+
+
+func test_damage_event_triggers_visual_flash_without_moving_shadow() -> void:
+	var player: Player = add_child_autofree(PlayerScene.instantiate())
+	await wait_physics_frames(1)
+	var rig: PlayerVisualRig = player.get_node("VisualRig")
+	var shadow: Node2D = player.get_node("GroundShadow")
+	var shadow_position := shadow.position
+	player.health.take_damage(5.0, &"debug")
+	assert_ne(rig.modulate, Color.WHITE)
+	assert_eq(shadow.position, shadow_position,
+		"ground shadow must stay planted while the visual rig recoils")

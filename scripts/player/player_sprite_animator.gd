@@ -6,8 +6,11 @@ const CELL_SIZE: Vector2i = Vector2i(48, 64)
 const DIRECTION_COUNT: int = 8
 const IDLE_ROWS: Array[int] = [0, 1]
 const WALK_ROWS: Array[int] = [2, 3, 4, 5]
-const RUN_SPEED_SCALE: float = 1.5
-const CROUCH_SPEED_SCALE: float = 0.6
+const IDLE_FPS: float = 1.25
+const WALK_BASE_FPS: float = 8.0
+# 한 4프레임 보행 주기 동안 발이 지면을 미는 월드 거리. 실제 속도에서 FPS를
+# 역산해 부상·조준·수풀 감속 중에도 발 미끄러짐이 생기지 않게 한다.
+const WALK_STRIDE_DISTANCE: float = 75.0
 const STANCE_RUN: int = 1
 const STANCE_CROUCH: int = 2
 
@@ -54,8 +57,8 @@ static func build_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
 	for direction: int in range(DIRECTION_COUNT):
-		_add_animation(frames, false, direction, IDLE_ROWS, 2.0)
-		_add_animation(frames, true, direction, WALK_ROWS, 8.0)
+		_add_animation(frames, false, direction, IDLE_ROWS, IDLE_FPS)
+		_add_animation(frames, true, direction, WALK_ROWS, WALK_BASE_FPS)
 	return frames
 
 
@@ -80,21 +83,16 @@ static func _atlas_frame(column: int, row: int) -> Texture2D:
 	return frame
 
 
-func update_from_velocity(player_velocity: Vector2, stance: int) -> void:
+func update_from_velocity(player_velocity: Vector2, _stance: int) -> void:
 	var walking: bool = not player_velocity.is_zero_approx()
 	if walking:
 		last_direction = direction_for_vector(player_velocity)
 	var next_animation: StringName = animation_name(walking, last_direction)
 	if animation != next_animation:
 		play(next_animation)
-	speed_scale = speed_scale_for_stance(stance) if walking else 1.0
+	speed_scale = walk_fps_for_speed(player_velocity.length()) / WALK_BASE_FPS \
+		if walking else 1.0
 
 
-func speed_scale_for_stance(stance: int) -> float:
-	match stance:
-		STANCE_RUN:
-			return RUN_SPEED_SCALE
-		STANCE_CROUCH:
-			return CROUCH_SPEED_SCALE
-		_:
-			return 1.0
+static func walk_fps_for_speed(speed: float) -> float:
+	return maxf(speed, 0.0) * WALK_ROWS.size() / WALK_STRIDE_DISTANCE

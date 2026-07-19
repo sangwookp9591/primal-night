@@ -45,6 +45,8 @@ func test_real_raptor_scene_loads_sheet_and_hides_gray_box() -> void:
 	assert_eq(animator.offset, Vector2(0.0, -40.0))
 	assert_eq(animator.sprite_frames.get_frame_texture(&"idle_S", 0).get_size(), Vector2(96.0, 80.0))
 	assert_eq(animator.animation, &"idle_S")
+	assert_not_null(raptor.get_node_or_null("GroundShadow"))
+	assert_lt(raptor.get_node("GroundShadow").z_index, animator.z_index)
 
 
 func test_raptor_visual_updates_for_walk_chase_and_idle_last_direction() -> void:
@@ -59,10 +61,20 @@ func test_raptor_visual_updates_for_walk_chase_and_idle_last_direction() -> void
 	animator.update_from_velocity(Vector2.RIGHT * 200.0, Raptor.State.CHASE)
 	assert_eq(animator.animation, &"walk_E")
 	assert_almost_eq(animator.speed_scale, AnimatorScript.CHASE_SPEED_SCALE, 0.001)
+	assert_gt(animator.rotation, 0.0, "rightward chase leans into movement")
 
 	animator.update_from_velocity(Vector2.ZERO, Raptor.State.CHASE)
 	assert_eq(animator.animation, &"idle_E")
 	assert_eq(animator.speed_scale, 1.0)
+
+
+func test_walk_fps_matches_velocity_and_authored_stride() -> void:
+	for speed: float in [55.0, 105.0, 200.0]:
+		var fps := AnimatorScript.walk_fps_for_speed(speed)
+		assert_almost_eq(
+			AnimatorScript.WALK_STRIDE_DISTANCE * fps \
+				/ AnimatorScript.WALK_ROWS.size(),
+			speed, 0.001)
 
 
 func test_walk_frames_advance_and_have_distinct_authored_pixels() -> void:
