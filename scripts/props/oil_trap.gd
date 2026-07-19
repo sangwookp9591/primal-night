@@ -41,22 +41,14 @@ func _ready() -> void:
 func _configure_particles() -> void:
 	_flame_particles = ParticleFactory.add_particles(self, &"FlameParticles", 24, 0.55,
 		ParticleFactory.make_soft_texture(Color(1.0, 0.42, 0.06, 0.78)))
-	_flame_particles.position = Vector2(0.0, -10.0)
+	ParticleFactory.set_plume(_flame_particles, Vector2(0.0, -10.0), Vector2.UP, 32.0,
+		Vector2(18.0, 38.0), Vector2(0.4, 0.9))
 	_flame_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	_flame_particles.emission_rect_extents = Vector2(24.0, 8.0)
-	_flame_particles.direction = Vector2.UP
-	_flame_particles.spread = 32.0
-	_flame_particles.initial_velocity_min = 18.0
-	_flame_particles.initial_velocity_max = 38.0
-	_flame_particles.scale_amount_min = 0.4
-	_flame_particles.scale_amount_max = 0.9
 	_smoke_particles = ParticleFactory.add_particles(self, &"SmokeParticles", 12, 1.5,
 		ParticleFactory.make_soft_texture(Color(0.28, 0.29, 0.25, 0.2)))
-	_smoke_particles.position = Vector2(0.0, -18.0)
-	_smoke_particles.direction = Vector2.UP
-	_smoke_particles.spread = 22.0
-	_smoke_particles.initial_velocity_min = 8.0
-	_smoke_particles.initial_velocity_max = 15.0
+	ParticleFactory.set_plume(_smoke_particles, Vector2(0.0, -18.0), Vector2.UP, 22.0,
+		Vector2(8.0, 15.0), Vector2(1.0, 1.0))
 
 
 static func install(parent: Node, player: Player, at: Vector2) -> OilTrap:
@@ -98,10 +90,7 @@ func ignite(player: Player = null) -> bool:
 
 func _apply_ignited_visual() -> void:
 	ignited = true
-	if _warm_light != null:
-		_warm_light.enabled = true
-	_flame_particles.emitting = true
-	_smoke_particles.emitting = true
+	_set_fx_active(true)
 	flame_remaining = FLAME_SECONDS
 	($OilTrapSprite as Sprite2D).texture = _frame(1)
 	if _registry != null and multiplayer.is_server():
@@ -138,10 +127,7 @@ func extinguish() -> void:
 	if not ignited:
 		return
 	ignited = false
-	if _warm_light != null:
-		_warm_light.enabled = false
-	_flame_particles.emitting = false
-	_smoke_particles.emitting = false
+	_set_fx_active(false)
 	flame_remaining = 0.0
 	($OilTrapSprite as Sprite2D).texture = _frame(0)
 	if _registry != null:
@@ -154,12 +140,18 @@ func extinguish() -> void:
 func confirm_extinguish() -> void:
 	if not multiplayer.is_server():
 		ignited = false
-		if _warm_light != null:
-			_warm_light.enabled = false
-		_flame_particles.emitting = false
-		_smoke_particles.emitting = false
+		_set_fx_active(false)
 		flame_remaining = 0.0
 		($OilTrapSprite as Sprite2D).texture = _frame(0)
+
+
+## 화염 시각 요소(광원·불꽃·연기)를 한 번에 켜고 끈다 — 캠프파이어의
+## _set_particles_emitting 과 같은 역할.
+func _set_fx_active(active: bool) -> void:
+	if _warm_light != null:
+		_warm_light.enabled = active
+	_flame_particles.emitting = active
+	_smoke_particles.emitting = active
 
 
 static func _frame(index: int) -> AtlasTexture:

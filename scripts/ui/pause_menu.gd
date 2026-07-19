@@ -56,6 +56,12 @@ func resume() -> void:
 	get_tree().paused = false
 	visible = false
 
+## 사망 화면 전체 텍스트(원인+요약) — 두 라벨에서 파생하며 별도 상태를 두지 않는다.
+func death_screen_text() -> String:
+	return _death_cause.text if _death_summary.text.is_empty() \
+		else "%s\n\n%s" % [_death_cause.text, _death_summary.text]
+
+
 func show_death(cause: String) -> void:
 	_death_shown = true
 	var save_service := get_node_or_null(save_service_path) as SaveService
@@ -65,9 +71,8 @@ func show_death(cause: String) -> void:
 	_heading.text = "사망"
 	var chronicle := get_parent().get_node_or_null("CharacterChronicle") as CharacterChronicle
 	var summary := "" if chronicle == null else chronicle.reflection_text()
-	# _message는 기존 화면 데이터 계약/테스트를 위해 전체 문자열을 계속 보유한다.
-	# 실제 렌더는 원인과 요약을 분리해 제목 > 원인 > 통계·타임라인 위계를 만든다.
-	_message.text = cause if summary.is_empty() else "%s\n\n%s" % [cause, summary]
+	# 렌더는 원인과 요약을 분리해 제목 > 원인 > 통계·타임라인 위계를 만든다.
+	# 합본 문자열은 death_screen_text()가 필요 시 파생한다 — 상태로 저장하지 않는다.
 	_message.visible = false
 	_death_cause.text = cause
 	_death_cause.visible = true

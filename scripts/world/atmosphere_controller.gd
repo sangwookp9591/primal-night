@@ -20,6 +20,10 @@ var _canvas_modulate: CanvasModulate
 var _rain_intensity: float = 0.0
 var _torch_scan_elapsed: float = 0.0
 var _elapsed: float = 0.0
+## 깜빡임 대상 라이트 캐시 — _process 의 매 프레임 그룹 조회를 피한다.
+## 갱신은 0.25초 스캔 주기와 create_point_light 시점에만.
+var _flicker_lights: Array[PointLight2D] = []
+var _flicker_energies: PackedFloat32Array = PackedFloat32Array()
 
 
 func _ready() -> void:
@@ -40,14 +44,24 @@ func _process(delta: float) -> void:
 	if _torch_scan_elapsed >= TORCH_SCAN_SECONDS:
 		_torch_scan_elapsed = 0.0
 		_refresh_torch_lights()
-	var index := 0
+		_refresh_flicker_cache()
+	for index: int in range(_flicker_lights.size()):
+		var light := _flicker_lights[index]
+		if not is_instance_valid(light):
+			continue
+		light.energy = _flicker_energies[index] \
+			* (1.0 + sin(_elapsed * 6.7 + float(index) * 1.9) * 0.035)
+
+
+func _refresh_flicker_cache() -> void:
+	_flicker_lights.clear()
+	_flicker_energies.clear()
 	for node: Node in get_tree().get_nodes_in_group(&"atmosphere_light"):
 		var light := node as PointLight2D
 		if light == null:
 			continue
-		light.energy = float(light.get_meta(&"base_energy", 1.0)) \
-			* (1.0 + sin(_elapsed * 6.7 + float(index) * 1.9) * 0.035)
-		index += 1
+		_flicker_lights.append(light)
+		_flicker_energies.append(float(light.get_meta(&"base_energy", 1.0)))
 
 
 func target_color() -> Color:
@@ -78,19 +92,10 @@ static func create_point_light(owner: Node, light_name: String,
 	var existing := owner.get_node_or_null(NodePath(light_name)) as PointLight2D
 	if existing != null:
 		return existing
-	var gradient := Gradient.new()
-	gradient.colors = PackedColorArray([Color(1, 0.78, 0.42, 1), Color(1, 0.42, 0.12, 0)])
-	gradient.offsets = PackedFloat32Array([0.0, 1.0])
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.width = 128
-	texture.height = 128
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(0.5, 0.5)
-	texture.fill_to = Vector2(1.0, 0.5)
 	var light := PointLight2D.new()
 	light.name = light_name
-	light.texture = texture
+	light.texture = ParticleFactory.make_soft_texture(
+		Color(1, 0.78, 0.42, 1), Color(1, 0.42, 0.12, 0), Vector2i(128, 128))
 	light.texture_scale = radius_scale
 	light.color = Color(1.0, 0.72, 0.38)
 	light.energy = energy

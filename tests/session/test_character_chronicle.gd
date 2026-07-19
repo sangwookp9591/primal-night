@@ -135,7 +135,7 @@ func test_death_screen_keeps_cause_and_binds_extended_chronicle_summary() -> voi
 	var menu := main.get_node("PauseMenu") as PauseMenu
 
 	menu.show_death("멎지 않은 피 냄새가 랩터를 이끌었다.")
-	var screen_text: String = menu._message.text
+	var screen_text: String = menu.death_screen_text()
 	get_tree().paused = false
 
 	assert_string_contains(screen_text, "멎지 않은 피 냄새가 랩터를 이끌었다.")

@@ -60,7 +60,8 @@ func test_raptor_visual_updates_for_walk_chase_and_idle_last_direction() -> void
 
 	animator.update_from_velocity(Vector2.RIGHT * 200.0, Raptor.State.CHASE)
 	assert_eq(animator.animation, &"walk_E")
-	assert_almost_eq(animator.speed_scale, AnimatorScript.CHASE_SPEED_SCALE, 0.001)
+	assert_almost_eq(animator.speed_scale,
+		AnimatorScript.walk_fps_for_speed(200.0) / AnimatorScript.WALK_BASE_FPS, 0.001)
 	assert_gt(animator.rotation, 0.0, "rightward chase leans into movement")
 
 	animator.update_from_velocity(Vector2.ZERO, Raptor.State.CHASE)

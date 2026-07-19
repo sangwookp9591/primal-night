@@ -6,10 +6,8 @@ const CELL_SIZE: Vector2i = Vector2i(96, 80)
 const DIRECTION_COUNT: int = 8
 const IDLE_ROWS: Array[int] = [0, 1]
 const WALK_ROWS: Array[int] = [2, 3, 4, 5]
-const WALK_REFERENCE_SPEED: float = 55.0
 const WALK_BASE_FPS: float = 5.0
 const WALK_STRIDE_DISTANCE: float = 44.0
-const CHASE_SPEED_SCALE: float = 200.0 * 4.0 / WALK_STRIDE_DISTANCE / WALK_BASE_FPS
 const STATE_CHASE: int = 2
 
 enum Direction { N, NE, E, SE, S, SW, W, NW }
@@ -135,4 +133,4 @@ func update_from_velocity(raptor_velocity: Vector2, raptor_state: int) -> void:
 
 
 static func walk_fps_for_speed(speed: float) -> float:
-	return maxf(speed, 0.0) * WALK_ROWS.size() / WALK_STRIDE_DISTANCE
+	return StrideAnimation.walk_fps(speed, WALK_ROWS.size(), WALK_STRIDE_DISTANCE)

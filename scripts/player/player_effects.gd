@@ -32,16 +32,10 @@ func _create_particles() -> void:
 		Color(0.73, 0.65, 0.46, 0.34))
 	_dust = ParticleFactory.add_particles(self, &"FootDust", MAX_DUST_PARTICLES, 0.38,
 		dust_texture)
-	_dust.position = Vector2(0.0, -1.0)
+	ParticleFactory.set_plume(_dust, Vector2(0.0, -1.0), Vector2(0.0, -1.0), 70.0,
+		Vector2(8.0, 18.0), Vector2(0.35, 0.8), Vector2(0.0, 12.0))
 	_dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	_dust.emission_rect_extents = Vector2(8.0, 2.0)
-	_dust.direction = Vector2(0.0, -1.0)
-	_dust.spread = 70.0
-	_dust.initial_velocity_min = 8.0
-	_dust.initial_velocity_max = 18.0
-	_dust.gravity = Vector2(0.0, 12.0)
-	_dust.scale_amount_min = 0.35
-	_dust.scale_amount_max = 0.8
 
 	_melee_impact = ParticleFactory.add_particles(self, &"MeleeImpact", 10, 0.18,
 		ParticleFactory.make_soft_texture(Color(1.0, 0.78, 0.34, 0.85)))

@@ -41,25 +41,13 @@ func _ready() -> void:
 func _configure_particles() -> void:
 	_spark_particles = ParticleFactory.add_particles(self, &"SparkParticles", 18, 0.8,
 		ParticleFactory.make_soft_texture(Color(1.0, 0.55, 0.12, 0.92)))
-	_spark_particles.position = Vector2(0.0, -17.0)
-	_spark_particles.direction = Vector2.UP
-	_spark_particles.spread = 24.0
-	_spark_particles.initial_velocity_min = 25.0
-	_spark_particles.initial_velocity_max = 55.0
-	_spark_particles.gravity = Vector2(0.0, -12.0)
-	_spark_particles.scale_amount_min = 0.22
-	_spark_particles.scale_amount_max = 0.5
+	ParticleFactory.set_plume(_spark_particles, Vector2(0.0, -17.0), Vector2.UP, 24.0,
+		Vector2(25.0, 55.0), Vector2(0.22, 0.5), Vector2(0.0, -12.0))
 
 	_smoke_particles = ParticleFactory.add_particles(self, &"SmokeParticles", 12, 2.1,
 		ParticleFactory.make_soft_texture(Color(0.34, 0.37, 0.32, 0.26)))
-	_smoke_particles.position = Vector2(0.0, -22.0)
-	_smoke_particles.direction = Vector2.UP
-	_smoke_particles.spread = 18.0
-	_smoke_particles.initial_velocity_min = 9.0
-	_smoke_particles.initial_velocity_max = 18.0
-	_smoke_particles.gravity = Vector2(-2.0, -4.0)
-	_smoke_particles.scale_amount_min = 0.8
-	_smoke_particles.scale_amount_max = 1.7
+	ParticleFactory.set_plume(_smoke_particles, Vector2(0.0, -22.0), Vector2.UP, 18.0,
+		Vector2(9.0, 18.0), Vector2(0.8, 1.7), Vector2(-2.0, -4.0))
 
 	_ember_particles = ParticleFactory.add_particles(self, &"EmberParticles", 8, 0.48,
 		ParticleFactory.make_soft_texture(Color(1.0, 0.28, 0.04, 0.82)))

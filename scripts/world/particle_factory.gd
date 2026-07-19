@@ -5,14 +5,15 @@ extends RefCounted
 ## 모든 수치는 시각 전용이며 게임플레이 충돌/판정에는 참여하지 않는다.
 
 
-static func make_soft_texture(inner: Color, outer: Color = Color.TRANSPARENT) -> GradientTexture2D:
+static func make_soft_texture(inner: Color, outer: Color = Color.TRANSPARENT,
+		size: Vector2i = Vector2i(16, 16)) -> GradientTexture2D:
 	var gradient := Gradient.new()
 	gradient.set_color(0, inner)
 	gradient.set_color(1, outer)
 	var texture := GradientTexture2D.new()
 	texture.gradient = gradient
-	texture.width = 16
-	texture.height = 16
+	texture.width = size.x
+	texture.height = size.y
 	texture.fill = GradientTexture2D.FILL_RADIAL
 	texture.fill_from = Vector2(0.5, 0.5)
 	texture.fill_to = Vector2(1.0, 0.5)
@@ -29,6 +30,20 @@ static func add_particles(parent: Node, particle_name: StringName, amount: int,
 	particles.emitting = false
 	parent.add_child(particles)
 	return particles
+
+
+## 지속 방출형(모닥불 연기·불꽃·발 먼지 등) 공통 프리셋 — set_burst 와 대칭.
+static func set_plume(particles: CPUParticles2D, offset: Vector2, direction: Vector2,
+		spread: float, speed: Vector2, scale_range: Vector2,
+		gravity: Vector2 = Vector2.ZERO) -> void:
+	particles.position = offset
+	particles.direction = direction
+	particles.spread = spread
+	particles.initial_velocity_min = speed.x
+	particles.initial_velocity_max = speed.y
+	particles.gravity = gravity
+	particles.scale_amount_min = scale_range.x
+	particles.scale_amount_max = scale_range.y
 
 
 static func set_burst(particles: CPUParticles2D, direction: Vector2, spread: float,

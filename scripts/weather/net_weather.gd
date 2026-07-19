@@ -37,9 +37,7 @@ func _ready() -> void:
 
 func _create_rain_particles() -> void:
 	var streak_texture := ParticleFactory.make_soft_texture(
-		Color(0.68, 0.79, 0.9, 0.45))
-	streak_texture.width = 3
-	streak_texture.height = 28
+		Color(0.68, 0.79, 0.9, 0.45), Color.TRANSPARENT, Vector2i(3, 28))
 	_rain_streaks = ParticleFactory.add_particles(self, &"RainStreaks", MAX_RAIN_STREAKS,
 		0.75, streak_texture)
 	_rain_streaks.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
@@ -65,17 +63,8 @@ func _create_rain_particles() -> void:
 	_wet_vignette.name = "WetVignette"
 	_wet_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_wet_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(0.02, 0.07, 0.11, 0.0))
-	gradient.set_color(1, Color(0.02, 0.07, 0.11, 0.22))
-	var vignette_texture := GradientTexture2D.new()
-	vignette_texture.gradient = gradient
-	vignette_texture.width = 256
-	vignette_texture.height = 144
-	vignette_texture.fill = GradientTexture2D.FILL_RADIAL
-	vignette_texture.fill_from = Vector2(0.5, 0.5)
-	vignette_texture.fill_to = Vector2(1.0, 0.5)
-	_wet_vignette.texture = vignette_texture
+	_wet_vignette.texture = ParticleFactory.make_soft_texture(
+		Color(0.02, 0.07, 0.11, 0.0), Color(0.02, 0.07, 0.11, 0.22), Vector2i(256, 144))
 	_wet_vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	add_child(_wet_vignette)
 
@@ -96,7 +85,9 @@ func _physics_process(_delta: float) -> void:
 		if elapsed < window.x:
 			next_warning = clampf(1.0 - (window.x - elapsed) / WARNING_SECONDS, 0.0, 1.0)
 			break
-	if next_raining != raining or not is_equal_approx(next_intensity, intensity) \
+	# intensity 도 warning 처럼 스텝 양자화한다 — 램프 구간에서 매 물리틱
+	# RPC 가 발사되는 것을 막는다 (변화 폭이 유의미할 때만 전파).
+	if next_raining != raining or absf(next_intensity - intensity) >= 0.02 \
 			or absf(next_warning - warning_strength) >= 0.02:
 		apply_weather(next_raining, next_intensity, next_warning)
 		if multiplayer.get_peers().size() > 0:
@@ -149,10 +140,15 @@ func _apply_visuals() -> void:
 	_rain_streaks.emission_rect_extents = Vector2(viewport_size.x * 0.58, 24.0)
 	_rain_splashes.position = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.88)
 	_rain_splashes.emission_rect_extents = Vector2(viewport_size.x * 0.52, 5.0)
-	_rain_streaks.amount = clampi(roundi(MAX_RAIN_STREAKS * maxf(effective, 0.25)),
+	# set_amount 는 같은 값이어도 파티클 버퍼를 리셋한다 — 변할 때만 대입.
+	var streak_amount := clampi(roundi(MAX_RAIN_STREAKS * maxf(effective, 0.25)),
 		1, MAX_RAIN_STREAKS)
-	_rain_splashes.amount = clampi(roundi(MAX_RAIN_SPLASHES * maxf(effective, 0.25)),
+	if _rain_streaks.amount != streak_amount:
+		_rain_streaks.amount = streak_amount
+	var splash_amount := clampi(roundi(MAX_RAIN_SPLASHES * maxf(effective, 0.25)),
 		1, MAX_RAIN_SPLASHES)
+	if _rain_splashes.amount != splash_amount:
+		_rain_splashes.amount = splash_amount
 	_rain_streaks.emitting = raining
 	_rain_splashes.emitting = raining
 	_wet_vignette.visible = raining
