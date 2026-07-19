@@ -383,8 +383,8 @@ func _bake_navigation(ground: TileMapLayer) -> void:
 ## 월드 좌표가 어느 Zone 위인가. 플레이 불가면 빈 문자열.
 func zone_at_world(world_pos: Vector2) -> String:
 	var cell: Vector2i = ($Ground as TileMapLayer).local_to_map(world_pos - MAP_PIXEL_OFFSET)
-	var col: int = cell.x / TILES_PER_CHUNK
-	var row: int = cell.y / TILES_PER_CHUNK
+	var col: int = floori(float(cell.x) / float(TILES_PER_CHUNK))
+	var row: int = floori(float(cell.y) / float(TILES_PER_CHUNK))
 	if col < 0 or col >= GRID or row < 0 or row >= GRID:
 		return ""
 	var label: String = DOC_GRID[row][col]

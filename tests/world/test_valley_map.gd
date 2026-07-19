@@ -27,6 +27,11 @@ func _make_valley() -> ValleyMap:
 	return valley
 
 
+func _world_for_ground_cell(valley: ValleyMap, cell: Vector2i) -> Vector2:
+	var ground: TileMapLayer = valley.get_node("Ground")
+	return ValleyMapScript.MAP_PIXEL_OFFSET + ground.map_to_local(cell)
+
+
 # --- 배치도 계약 (문서 §2/§9) ------------------------------------------------
 
 func test_scene_has_isometric_layers_and_navigation() -> void:
@@ -237,6 +242,48 @@ func test_gameplay_coordinates_are_not_on_collision_tiles() -> void:
 		var cell: Vector2i = collision.local_to_map(local)
 		assert_eq(collision.get_cell_source_id(cell), -1,
 			"%s 좌표에 충돌 타일이 있으면 안 된다 (플레이어가 벽에 낀다)" % name)
+
+
+func test_zone_lookup_rejects_negative_boundary_cells_instead_of_truncating_to_z03() -> void:
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(1)
+
+	var west_of_z03_row := Vector2i(-1, 4 * ValleyMapScript.TILES_PER_CHUNK + 16)
+	var north_of_map := Vector2i(2 * ValleyMapScript.TILES_PER_CHUNK + 16, -1)
+
+	assert_eq(valley.zone_at_world(_world_for_ground_cell(valley, west_of_z03_row)), "",
+		"서쪽 경계 밖 음수 셀은 col 0의 Z03 청크로 잘리면 안 된다")
+	assert_eq(valley.zone_at_world(_world_for_ground_cell(valley, north_of_map)), "",
+		"북쪽 경계 밖 음수 셀은 row 0 청크로 잘리면 안 된다")
+
+
+func test_zone_lookup_rejects_exactly_outside_chunk_edges() -> void:
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(1)
+
+	var east_edge := Vector2i(ValleyMapScript.GRID * ValleyMapScript.TILES_PER_CHUNK, 64)
+	var south_edge := Vector2i(64, ValleyMapScript.GRID * ValleyMapScript.TILES_PER_CHUNK)
+
+	assert_eq(valley.zone_at_world(_world_for_ground_cell(valley, east_edge)), "")
+	assert_eq(valley.zone_at_world(_world_for_ground_cell(valley, south_edge)), "")
+
+
+func test_long_distance_chronicle_samples_do_not_record_unvisited_z03_from_west_boundary() -> void:
+	var valley: ValleyMap = _make_valley()
+	await wait_physics_frames(1)
+	var chronicle := add_child_autofree(CharacterChronicle.new()) as CharacterChronicle
+	var z01_sample := _world_for_ground_cell(
+		valley, ValleyMapScript.chunk_cell_origin(Vector2i(1, 1)) + Vector2i(16, 16))
+	var z02_sample := _world_for_ground_cell(
+		valley, ValleyMapScript.chunk_cell_origin(Vector2i(4, 2)) + Vector2i(16, 16))
+	var off_map_west_sample := _world_for_ground_cell(
+		valley, Vector2i(-1, 4 * ValleyMapScript.TILES_PER_CHUNK + 16))
+
+	chronicle.track_position_sample(z01_sample, valley.zone_at_world(z01_sample))
+	chronicle.track_position_sample(z02_sample, valley.zone_at_world(z02_sample))
+	chronicle.track_position_sample(off_map_west_sample, valley.zone_at_world(off_map_west_sample))
+
+	assert_eq(Array(chronicle.visited_zones), ["Z01", "Z02"])
 
 
 # --- main.tscn 실씬 통합 계약 ------------------------------------------------
