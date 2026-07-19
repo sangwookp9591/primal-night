@@ -25,6 +25,7 @@ WHITE = [(238, 236, 228), (206, 203, 192), (168, 165, 154)]
 BRIEF = [(96, 98, 108), (70, 72, 82)]
 
 SKINS = {SKIN_HI, SKIN_MID, SKIN_LO}
+PAINT_EXTRA = None
 REDS = {RED_HI, RED_LO}
 OLIVES = {OLIVE_HI, OLIVE_LO}
 DARKS = {DARK_A, DARK_B}
@@ -128,7 +129,134 @@ def convert_cell(cell, bake_clothes):
                 opx[x, ny] = (*(WHITE[0] if c in (OLIVE_HI, TAN, RED_HI) else WHITE[1]), 255)
             else:
                 bpx[x, ny] = (*(SKIN_MID if c in (OLIVE_HI, TAN, RED_HI) else SKIN_LO), 255)
+    # ---- 실루엣 재성형: 색칠이 아니라 '반팔 티+반바지' 형태로 ----
+    ELBOW_Y = 31        # 소매 절단선(이 아래 팔뚝은 맨살)
+    HEM_Y = WAIST_Y - 1  # 셔츠 밑단
+    SKIN_RAMP = {0: SKIN_MID, 1: SKIN_LO}
+
+    def spans(pxm, y):
+        xs = [x for x in range(48) if pxm[x, y][3] > 0]
+        if not xs: return None
+        return xs[0], xs[-1]
+
+    # 1) 소매→팔뚝: y ELBOW_Y+1..WAIST_Y 에서 실루엣 가장자리 4px 밴드의
+    #    오버레이(흰색)를 제거하고, base 는 1px 침식 후 스킨으로
+    for y in range(ELBOW_Y, WAIST_Y + 1):
+        sp = spans(bpx, y - 0)
+        if sp is None: continue
+        x0, x1 = sp
+        if x1 - x0 < 12: continue
+        for side, rng in ((0, range(x0, x0 + 4)), (1, range(x1 - 3, x1 + 1))):
+            edge = x0 if side == 0 else x1
+            for x in rng:
+                if opx[x, y][3] > 0:
+                    opx[x, y] = (0, 0, 0, 0)
+                if bpx[x, y][3] > 0 and abs(x - edge) == 0:
+                    bpx[x, y] = (0, 0, 0, 0)      # 팔뚝 1px 슬림
+                elif bpx[x, y][3] > 0 and bpx[x, y][:3] not in SKINS \
+                        and bpx[x, y][:3] not in (DARK_A, DARK_B):
+                    bpx[x, y] = (*SKIN_MID, 255)
+    # 2) 후드 깃 제거: y 17..22 에서 머리 폭(전행 헤어 스팬)+1 밖의 몸 픽셀 삭제
+    head_sp = spans(bpx, 14) or spans(bpx, 15)
+    if head_sp:
+        h0, h1 = head_sp
+        for y in range(17, 23):
+            sp = spans(bpx, y)
+            if sp is None: continue
+            for x in range(48):
+                if bpx[x, y][3] > 0 and (x < h0 - 1 or x > h1 + 1):
+                    bpx[x, y] = (0, 0, 0, 0)
+                    opx[x, y] = (0, 0, 0, 0)
+    # 3) 몸통 슬림: y 24..WAIST_Y 폭 17 초과 행 양끝 1px 침식
+    for y in range(24, WAIST_Y + 1):
+        sp = spans(bpx, y)
+        if sp is None: continue
+        x0, x1 = sp
+        if x1 - x0 + 1 > 17:
+            for x in (x0, x1):
+                bpx[x, y] = (0, 0, 0, 0)
+                opx[x, y] = (0, 0, 0, 0)
+    # 4) 밑단·반바지 분리: 셔츠 밑단 W2 라인, 반바지는 한 톤 어둡게
+    for y in range(HEM_Y, HEM_Y + 1):
+        for x in range(48):
+            if opx[x, y][3] > 0:
+                opx[x, y] = (*WHITE[2], 255)
+    for y in range(WAIST_Y + 1, SHORTS_END + 1):
+        for x in range(48):
+            if opx[x, y][3] > 0 and opx[x, y][:3] == WHITE[0]:
+                opx[x, y] = (*WHITE[1], 255)
+    # 4.5) 팔뚝 존 스무딩: 가장자리 3px 밴드(y ELBOW..WAIST)를 깨끗한 스킨 2톤으로
+    for y in range(ELBOW_Y + 1, WAIST_Y + 1):
+        sp = spans(bpx, y)
+        if sp is None: continue
+        x0, x1 = sp
+        if x1 - x0 < 12: continue
+        for x in list(range(x0, x0 + 3)) + list(range(x1 - 2, x1 + 1)):
+            if bpx[x, y][3] == 0: continue
+            if bpx[x, y][:3] in (DARK_A, DARK_B): continue
+            bpx[x, y] = (*(SKIN_MID if x <= x0 + 1 or x == x1 - 2 else SKIN_LO), 255)
+
+    # 5) 새 실루엣 외곽선 재생성(base): 투명과 접한 몸 픽셀을 다크로
+    for y in range(14, SHORTS_END + 2):
+        for x in range(48):
+            if bpx[x, y][3] == 0: continue
+            if bpx[x, y][:3] in (DARK_A, DARK_B): continue
+            exposed = any(
+                not (0 <= x + dx < 48 and 0 <= y + dy < 64) or bpx[x + dx, y + dy][3] == 0
+                for dx, dy in ((1, 0), (-1, 0)))
+            if exposed and bpx[x, y][:3] in SKINS:
+                r, g, b = bpx[x, y][:3]
+                bpx[x, y] = (int(r * 0.55), int(g * 0.55), int(b * 0.55), 255)
     return base, over
+
+TEE_TOP, SLEEVE_END, TEE_HEM = 23, 30, 40
+SHORTS_TOP, SHORTS_HEM = 41, 46
+W0, W1, W2 = (240, 238, 230), (210, 207, 197), (172, 169, 158)
+
+def draw_white_set(base):
+    """베이스 실루엣 위에 깨끗한 반팔 티+반바지를 새로 그린다(색칠이 아니라 의복)."""
+    bpx = base.load()
+    over = Image.new('RGBA', (48, 64), (0, 0, 0, 0))
+    opx = over.load()
+    def span(y):
+        xs = [x for x in range(48) if bpx[x, y][3] > 0]
+        return (xs[0], xs[-1]) if xs else None
+    PAINTABLE = SKINS | {tuple(BRIEF[0]), tuple(BRIEF[1])}
+    for y in range(TEE_TOP - 2, TEE_HEM + 1):
+        sp = span(y)
+        if sp is None: continue
+        x0, x1 = sp
+        # 캡 소매 아래로는 팔(가장자리 3px) 노출
+        if y > SLEEVE_END and x1 - x0 >= 12:
+            x0, x1 = x0 + 3, x1 - 3
+        w = max(1, x1 - x0)
+        for x in range(x0, x1 + 1):
+            # 스킨/브리프 픽셀만 덮는다 — 어깨 경사 추종, 헤어·외곽선 보존
+            if bpx[x, y][3] == 0 or bpx[x, y][:3] not in PAINTABLE:
+                continue
+            t = (x - x0) / w
+            c = W0 if t < 0.35 else (W1 if t < 0.8 else W2)
+            if y == TEE_HEM: c = W2
+            opx[x, y] = (*c, 255)
+    for y in range(SHORTS_TOP, SHORTS_HEM + 1):
+        sp = span(y)
+        if sp is None: continue
+        x0, x1 = sp
+        w = max(1, x1 - x0)
+        for x in range(x0, x1 + 1):
+            t = (x - x0) / w
+            c = W1 if t < 0.4 else (W1 if t < 0.8 else W2)
+            if y == SHORTS_HEM: c = W2
+            opx[x, y] = (*c, 255)
+        mid = (x0 + x1) // 2
+        if y >= SHORTS_TOP + 2: opx[mid, y] = (*W2, 255)
+    # 목선 노치: 티 상단 중앙 2px 스킨 노출
+    sp = span(TEE_TOP)
+    if sp:
+        mid = (sp[0] + sp[1]) // 2
+        for x in (mid, mid + 1):
+            if opx[x, TEE_TOP][3] > 0: opx[x, TEE_TOP] = (0, 0, 0, 0)
+    return over
 
 def build():
     src = Image.open(SRC).convert('RGBA')
@@ -139,7 +267,8 @@ def build():
             cell = src.crop((col * 48, row * 64, (col + 1) * 48, (row + 1) * 64))
             if mir:
                 cell = cell.transpose(Image.FLIP_LEFT_RIGHT)
-            base, over = convert_cell(cell, True)
+            base, _legacy_over = convert_cell(cell, True)
+            over = draw_white_set(base)
             base_sheet.paste(base, (d * 48, row * 64))
             over_sheet.paste(over, (d * 48, row * 64))
     return base_sheet, over_sheet

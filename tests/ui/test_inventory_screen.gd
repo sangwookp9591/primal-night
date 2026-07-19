@@ -60,8 +60,10 @@ func test_tab_focus_collision_is_resolved_by_input_map_choice() -> void:
 		"W5-T7 chose WEEK5_6_PLAN §6 option 1: Tab is removed from ui_focus_next")
 	assert_false(_action_has_key(&"ui_focus_prev", KEY_TAB),
 		"W5-T7 chose WEEK5_6_PLAN §6 option 1: Tab is removed from ui_focus_prev")
-	assert_true(_action_has_key(&"toggle_inventory", KEY_TAB),
-		"Tab is reserved for the inventory/notebook screen")
+	assert_true(_action_has_key(&"toggle_inventory", KEY_I),
+		"I 키가 인벤토리/노트 화면 토글이다 (플레이테스트 피드백)")
+	assert_true(_action_has_key(&"unequip_slot", KEY_X),
+		"X 키가 선택 슬롯 해제다 — Esc는 닫기 전용")
 
 
 func test_tab_toggles_inventory_screen_even_with_focused_control() -> void:
@@ -74,11 +76,11 @@ func test_tab_toggles_inventory_screen_even_with_focused_control() -> void:
 	(made.root as Node).add_child(focus_sink)
 	focus_sink.grab_focus()
 
-	_press_key(KEY_TAB)
-	assert_true(screen.is_open(), "literal Tab input should open the screen")
+	_press_key(KEY_I)
+	assert_true(screen.is_open(), "literal I input should open the screen")
 
-	_press_key(KEY_TAB)
-	assert_false(screen.is_open(), "literal Tab input should close the screen")
+	_press_key(KEY_I)
+	assert_false(screen.is_open(), "literal I input should close the screen")
 
 
 func test_inventory_screen_displays_slots_weight_and_accumulated_notes() -> void:
@@ -114,9 +116,14 @@ func test_equipment_slots_and_keyboard_equip_unequip_are_available() -> void:
 	assert_true(screen.equipment_text(&"back").contains("-"))
 	assert_true(screen.equipment_text(&"main_hand").contains("-"))
 
-	_press_key(KEY_ESCAPE)
+	_press_key(KEY_X)
 	assert_eq(player.equipment.get_equipped(&"outfit"), &"")
 	assert_eq(player.inventory.count_of(&"white_underwear"), 1)
+
+	# Esc는 해제가 아니라 닫기
+	_press_key(KEY_ESCAPE)
+	assert_false(screen.visible, "Esc는 인벤토리를 닫는다")
+	screen.open()
 
 	_press_key(KEY_ENTER)
 	assert_eq(player.equipment.get_equipped(&"outfit"), &"white_underwear")

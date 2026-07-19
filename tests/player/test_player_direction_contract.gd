@@ -44,13 +44,14 @@ func test_direction_columns_keep_face_orientation_contract() -> void:
 
 
 func _cells_mirror(image: Image, dir_a: int, dir_b: int, row: int) -> bool:
+	# 실루엣(알파)만 미러 동일성을 요구한다 — 색은 광원 방향 일관성(좌상단)을
+	# 위해 미러 후에도 다시 칠해지므로 좌우가 같을 수 없다.
 	for y: int in range(CELL_H):
 		for x: int in range(CELL_W):
-			var a := image.get_pixel(dir_a * CELL_W + x, row * CELL_H + y)
-			var b := image.get_pixel(dir_b * CELL_W + (CELL_W - 1 - x), row * CELL_H + y)
-			if a.a == 0.0 and b.a == 0.0:
-				continue
-			if a.a == 0.0 or b.a == 0.0 or not a.is_equal_approx(b):
+			var a := image.get_pixel(dir_a * CELL_W + x, row * CELL_H + y).a > 0.0
+			var b := image.get_pixel(
+				dir_b * CELL_W + (CELL_W - 1 - x), row * CELL_H + y).a > 0.0
+			if a != b:
 				return false
 	return true
 

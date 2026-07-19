@@ -75,8 +75,10 @@ func _input(event: InputEvent) -> void:
 				_transfer_selected_to_storage()
 			else:
 				_activate_selected_item()
-		elif event.is_action_pressed(&"ui_cancel"):
+		elif event.is_action_pressed(&"unequip_slot"):
 			_unequip_selected_slot()
+		elif event.is_action_pressed(&"ui_cancel"):
+			close()
 		get_viewport().set_input_as_handled()
 
 

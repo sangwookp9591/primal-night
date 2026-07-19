@@ -43,7 +43,7 @@ custom_minimum_size = Vector2(520, 0)
 theme_override_constants/separation = 10
 
 [node name="InventoryTitle" type="Label" parent="Root/Panel/Layout/Columns/Inventory"]
-text = "장비  [←/→] 슬롯  [↑/↓] 소지품  [Enter] 장착  [Esc] 해제"
+text = "장비  [←/→] 슬롯  [↑/↓] 소지품  [Enter] 장착  [X] 해제  [Esc] 닫기"
 theme_type_variation = &"BodyMuted"
 
 [node name="EquipmentSlots" type="HBoxContainer" parent="Root/Panel/Layout/Columns/Inventory"]

@@ -48,7 +48,11 @@ place_lure={
 ; 전용으로 두고, UI 포커스 순회는 방향키/명시 조작에 맡긴다.
 toggle_inventory={
 "deadzone": 0.5,
-"events": [Object(InputEventKey,"physical_keycode":4194306)]
+"events": [Object(InputEventKey,"physical_keycode":73)]
+}
+unequip_slot={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":88)]
 }
 ui_focus_next={
 "deadzone": 0.5,

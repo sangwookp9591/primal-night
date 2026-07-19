@@ -2,7 +2,7 @@ class_name InputBindingService
 extends Node
 
 const DEFAULT_CONFIG_PATH := "user://input_bindings.cfg"
-const CONFIG_VERSION: int = 2
+const CONFIG_VERSION: int = 3
 const ACTIONS: Array[StringName] = [
 	&"move_up",
 	&"move_down",
@@ -102,8 +102,24 @@ func load_bindings() -> Error:
 			InputMap.action_add_event(action, event)
 	if version < CONFIG_VERSION:
 		_restore_missing_default_mouse_bindings()
+		_migrate_inventory_key_to_i(version)
 		return save_bindings()
 	return OK
+
+
+## v3: 인벤토리 토글 Tab→I (플레이테스트 피드백). 사용자가 Tab 기본값을
+## 그대로 쓰던 경우에만 이전하고, 커스텀 바인딩은 존중한다.
+func _migrate_inventory_key_to_i(from_version: int) -> void:
+	if from_version >= 3:
+		return
+	var events := InputMap.action_get_events(&"toggle_inventory")
+	var only_default_tab := events.size() == 1 and events[0] is InputEventKey \
+		and (events[0] as InputEventKey).physical_keycode == KEY_TAB
+	if only_default_tab:
+		InputMap.action_erase_events(&"toggle_inventory")
+		var key := InputEventKey.new()
+		key.physical_keycode = KEY_I
+		InputMap.action_add_event(&"toggle_inventory", key)
 
 func binding_text(action: StringName) -> String:
 	if not InputMap.has_action(action):
