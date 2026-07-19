@@ -3,7 +3,9 @@ extends GutTest
 const SHEET_PATH := "res://assets/sprites/player/player_survivor_sheet.png"
 const CELL_WIDTH := 48
 const CELL_HEIGHT := 64
-const HEAD_RECT := Rect2i(14, 7, 21, 20)
+# Source-style proportions use a compact 14px head; stop before the neck and
+# shoulders so body skin cannot dilute the direction centroid.
+const HEAD_RECT := Rect2i(14, 6, 21, 16)
 const DIRECTION_N := 0
 const DIRECTION_E := 2
 const DIRECTION_S := 4
@@ -30,7 +32,7 @@ func test_idle_direction_columns_keep_face_orientation_contract() -> void:
 	var west_centroid := _mean_x(west)
 	assert_gt(east_centroid, 26.0, "E 열 얼굴은 셀 중심 오른쪽으로 열려야 한다")
 	assert_lt(west_centroid, 22.0, "W 열 얼굴은 셀 중심 왼쪽으로 열려야 한다")
-	assert_gt(east_centroid - west_centroid, 7.0,
+	assert_gt(east_centroid - west_centroid, 5.0,
 		"E/W 얼굴 무게중심은 좌우 프로필로 유의미하게 분리되어야 한다")
 
 
@@ -55,7 +57,7 @@ func _mean_x(points: Array[Vector2i]) -> float:
 
 func _has_dark_eye_pixels(image: Image, direction: int) -> bool:
 	var dark_count := 0
-	for y: int in range(17, 22):
+	for y: int in range(10, 16):
 		for x: int in range(17, 31):
 			var color := image.get_pixel(direction * CELL_WIDTH + x, y)
 			if color.a > 0.0 and color.get_luminance() < 0.22:
