@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=4 uid="uid://playerscene"]
+[gd_scene load_steps=16 format=4 uid="uid://playerscene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://resources/player/player_config.tres" id="2_config"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/player/player_sprite_animator.gd" id="10_spriteanimator"]
 [ext_resource type="Script" path="res://scripts/equipment/equipment_component.gd" id="11_equipment"]
 [ext_resource type="Script" path="res://scripts/player/player_visual_rig.gd" id="12_visualrig"]
+[ext_resource type="Script" path="res://scripts/player/player_effects.gd" id="13_effects"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(28, 20)
@@ -83,6 +84,10 @@ shape = SubResource("RectangleShape2D_player")
 zoom = Vector2(3, 3)
 position_smoothing_enabled = true
 position_smoothing_speed = 6.0
+
+[node name="PlayerEffects" type="Node2D" parent="."]
+z_index = 20
+script = ExtResource("13_effects")
 
 [node name="HealthComponent" type="Node" parent="."]
 script = ExtResource("3_health")

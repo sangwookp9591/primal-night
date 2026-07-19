@@ -252,7 +252,8 @@ func _rebuild_storage_labels() -> void:
 			label.queue_free()
 	_storage_labels.clear()
 	var title := Label.new()
-	title.text = "보관함 (Enter: 넣기 / Space: 꺼내기)"
+	title.text = "보관함  [Enter: 넣기]  [Space: 꺼내기]"
+	title.theme_type_variation = &"KeyPrompt"
 	_notes.add_child(title)
 	_storage_labels.append(title)
 	for _index: int in range(_storage.inventory.slot_count):

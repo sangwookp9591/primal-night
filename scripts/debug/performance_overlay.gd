@@ -11,7 +11,7 @@ var _histogram: PackedInt32Array = PackedInt32Array()
 var _sample_index: int = 0
 var _sample_count: int = 0
 var _refresh_elapsed_sec: float = 0.0
-var _visible_in_debug: bool = true
+var _visible_in_debug: bool = false
 var _label: Label
 
 func _ready() -> void:
@@ -28,6 +28,8 @@ func _ready() -> void:
 	_label.add_theme_font_size_override("font_size", 14)
 	add_child(_label)
 	_refresh_text()
+	visible = _visible_in_debug
+	set_process(_visible_in_debug)
 
 func _process(delta: float) -> void:
 	if not _visible_in_debug:

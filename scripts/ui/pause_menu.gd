@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const TITLE_SCENE := "res://scenes/ui/title/title_screen.tscn"
 const MAIN_SCENE := "res://scenes/main.tscn"
+const SHARED_THEME: Theme = preload("res://scenes/ui/theme/primal_night_theme.tres")
 
 @export var save_service_path: NodePath = ^"../SaveService"
 @export var player_path: NodePath = ^"../Player"
@@ -11,6 +12,8 @@ const MAIN_SCENE := "res://scenes/main.tscn"
 var _panel: PanelContainer
 var _heading: Label
 var _message: Label
+var _death_cause: Label
+var _death_summary: Label
 var _continue: Button
 var _save: Button
 var _reload: Button
@@ -38,6 +41,9 @@ func open_pause() -> void:
 	_heading.text = "일시정지" if multiplayer.get_peers().is_empty() else "메뉴"
 	_message.text = "" if multiplayer.get_peers().is_empty() \
 		else "협동 세션의 시간과 세계는 계속 흐릅니다."
+	_message.visible = true
+	_death_cause.visible = false
+	_death_summary.visible = false
 	_continue.visible = true
 	_save.visible = multiplayer.is_server()
 	_reload.visible = false
@@ -58,8 +64,15 @@ func show_death(cause: String) -> void:
 	get_tree().paused = multiplayer.get_peers().is_empty()
 	_heading.text = "사망"
 	var chronicle := get_parent().get_node_or_null("CharacterChronicle") as CharacterChronicle
-	_message.text = cause if chronicle == null else "%s\n\n%s" % [
-		cause, chronicle.reflection_text()]
+	var summary := "" if chronicle == null else chronicle.reflection_text()
+	# _message는 기존 화면 데이터 계약/테스트를 위해 전체 문자열을 계속 보유한다.
+	# 실제 렌더는 원인과 요약을 분리해 제목 > 원인 > 통계·타임라인 위계를 만든다.
+	_message.text = cause if summary.is_empty() else "%s\n\n%s" % [cause, summary]
+	_message.visible = false
+	_death_cause.text = cause
+	_death_cause.visible = true
+	_death_summary.text = summary
+	_death_summary.visible = not summary.is_empty()
 	_continue.visible = false
 	_save.visible = false
 	_reload.visible = SaveService.has_save()
@@ -91,9 +104,15 @@ func _on_damage_taken(target: Node, _amount: float, _kind: StringName) -> void:
 
 func _build_ui() -> void:
 	_panel = PanelContainer.new()
-	_panel.custom_minimum_size = Vector2(430, 0)
+	_panel.custom_minimum_size = Vector2(520, 0)
+	var dimmer := ColorRect.new()
+	dimmer.color = Color(0.015, 0.012, 0.009, 0.76)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(dimmer)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.theme = SHARED_THEME
 	add_child(center)
 	center.add_child(_panel)
 	var column := VBoxContainer.new()
@@ -101,12 +120,26 @@ func _build_ui() -> void:
 	_panel.add_child(column)
 	_heading = Label.new()
 	_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_heading.add_theme_font_size_override(&"font_size", 28)
+	_heading.theme_type_variation = &"TitleLabel"
+	_heading.add_theme_font_size_override(&"font_size", 30)
 	column.add_child(_heading)
 	_message = Label.new()
 	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message.theme_type_variation = &"BodyMuted"
 	column.add_child(_message)
+	_death_cause = Label.new()
+	_death_cause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death_cause.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_death_cause.theme_type_variation = &"DeathCause"
+	_death_cause.visible = false
+	column.add_child(_death_cause)
+	_death_summary = Label.new()
+	_death_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_death_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_death_summary.theme_type_variation = &"DeathSummary"
+	_death_summary.visible = false
+	column.add_child(_death_summary)
 	_continue = _button("계속", resume)
 	_save = _button("저장", _save_pressed)
 	_reload = _button("마지막 저장에서 다시", _reload_pressed)

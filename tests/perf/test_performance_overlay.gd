@@ -37,18 +37,15 @@ func test_f3_key_event_toggles_visibility_once() -> void:
 	var toggled: bool = overlay.handle_debug_toggle(event)
 
 	assert_true(toggled)
-	assert_false(overlay.visible)
+	assert_true(overlay.visible,
+		"상용 기본값은 숨김 — F3 한 번에 표시로 전환된다")
 
 func test_hidden_overlay_does_not_record_or_refresh_in_process() -> void:
 	var overlay: CanvasLayer = autofree(OverlayScript.new())
 	overlay.refresh_interval_sec = 0.01
 	overlay._ready()
-	var event: InputEventKey = InputEventKey.new()
-	event.keycode = KEY_F3
-	event.pressed = true
-	overlay.handle_debug_toggle(event)
-
 	overlay._process(1.0)
 
-	assert_eq(overlay.get_recorded_sample_count(), 0)
+	assert_eq(overlay.get_recorded_sample_count(), 0,
+		"기본 숨김 상태에서는 표본을 기록하지 않는다")
 	assert_eq(overlay._refresh_elapsed_sec, 0.0)

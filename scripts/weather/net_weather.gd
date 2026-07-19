@@ -6,6 +6,8 @@ signal weather_changed(raining: bool, intensity: float)
 const RAIN_DURATION_SECONDS: float = 105.0
 const WARNING_SECONDS: float = 25.0
 const DEFAULT_SESSION_SEED: int = 731_941
+const MAX_RAIN_STREAKS: int = 180
+const MAX_RAIN_SPLASHES: int = 48
 
 @export var clock_path: NodePath = ^"../SessionClock"
 @export var session_seed: int = DEFAULT_SESSION_SEED
@@ -16,6 +18,9 @@ var warning_strength: float = 0.0
 var schedule: Array[Vector2] = []
 var _clock: SessionClock
 var _overlay: ColorRect
+var _rain_streaks: CPUParticles2D
+var _rain_splashes: CPUParticles2D
+var _wet_vignette: TextureRect
 
 func _ready() -> void:
 	add_to_group(&"weather")
@@ -26,7 +31,53 @@ func _ready() -> void:
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_overlay)
+	_create_rain_particles()
 	_apply_visuals()
+
+
+func _create_rain_particles() -> void:
+	var streak_texture := ParticleFactory.make_soft_texture(
+		Color(0.68, 0.79, 0.9, 0.45))
+	streak_texture.width = 3
+	streak_texture.height = 28
+	_rain_streaks = ParticleFactory.add_particles(self, &"RainStreaks", MAX_RAIN_STREAKS,
+		0.75, streak_texture)
+	_rain_streaks.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_rain_streaks.direction = Vector2(-0.28, 1.0).normalized()
+	_rain_streaks.spread = 3.0
+	_rain_streaks.initial_velocity_min = 650.0
+	_rain_streaks.initial_velocity_max = 820.0
+	_rain_streaks.scale_amount_min = 0.18
+	_rain_streaks.scale_amount_max = 0.38
+
+	_rain_splashes = ParticleFactory.add_particles(self, &"RainSplashes", MAX_RAIN_SPLASHES,
+		0.22, ParticleFactory.make_soft_texture(Color(0.64, 0.78, 0.88, 0.34)))
+	_rain_splashes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_rain_splashes.direction = Vector2.UP
+	_rain_splashes.spread = 72.0
+	_rain_splashes.initial_velocity_min = 24.0
+	_rain_splashes.initial_velocity_max = 58.0
+	_rain_splashes.gravity = Vector2(0.0, 260.0)
+	_rain_splashes.scale_amount_min = 0.18
+	_rain_splashes.scale_amount_max = 0.42
+
+	_wet_vignette = TextureRect.new()
+	_wet_vignette.name = "WetVignette"
+	_wet_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wet_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.02, 0.07, 0.11, 0.0))
+	gradient.set_color(1, Color(0.02, 0.07, 0.11, 0.22))
+	var vignette_texture := GradientTexture2D.new()
+	vignette_texture.gradient = gradient
+	vignette_texture.width = 256
+	vignette_texture.height = 144
+	vignette_texture.fill = GradientTexture2D.FILL_RADIAL
+	vignette_texture.fill_from = Vector2(0.5, 0.5)
+	vignette_texture.fill_to = Vector2(1.0, 0.5)
+	_wet_vignette.texture = vignette_texture
+	_wet_vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	add_child(_wet_vignette)
 
 func _physics_process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -90,3 +141,19 @@ func _apply_visuals() -> void:
 	var darkness := maxf(intensity * 0.18, warning_strength * 0.10)
 	_overlay.color = Color(0.04, 0.09, 0.16, darkness)
 	_overlay.visible = darkness > 0.001
+	if _rain_streaks == null:
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var effective := intensity if raining else 0.0
+	_rain_streaks.position = Vector2(viewport_size.x * 0.5, -32.0)
+	_rain_streaks.emission_rect_extents = Vector2(viewport_size.x * 0.58, 24.0)
+	_rain_splashes.position = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.88)
+	_rain_splashes.emission_rect_extents = Vector2(viewport_size.x * 0.52, 5.0)
+	_rain_streaks.amount = clampi(roundi(MAX_RAIN_STREAKS * maxf(effective, 0.25)),
+		1, MAX_RAIN_STREAKS)
+	_rain_splashes.amount = clampi(roundi(MAX_RAIN_SPLASHES * maxf(effective, 0.25)),
+		1, MAX_RAIN_SPLASHES)
+	_rain_streaks.emitting = raining
+	_rain_splashes.emitting = raining
+	_wet_vignette.visible = raining
+	_wet_vignette.modulate.a = 0.35 + 0.45 * effective

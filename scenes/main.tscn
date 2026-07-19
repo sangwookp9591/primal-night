@@ -1,4 +1,4 @@
-[gd_scene load_steps=38 format=4 uid="uid://primalnightmain"]
+[gd_scene load_steps=39 format=4 uid="uid://primalnightmain"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/valley.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -37,6 +37,7 @@
 [ext_resource type="Script" path="res://scripts/world/net_harvest.gd" id="35_netharvest"]
 [ext_resource type="Script" path="res://scripts/world/world_installations.gd" id="36_installations"]
 [ext_resource type="Script" path="res://scripts/world/atmosphere_controller.gd" id="37_atmosphere"]
+[ext_resource type="Script" path="res://scripts/world/ambient_particles.gd" id="38_particles"]
 
 [node name="Main" type="Node2D"]
 
@@ -72,6 +73,10 @@ color = Color(1, 0.96, 0.88, 1)
 
 [node name="AtmosphereController" type="Node" parent="."]
 script = ExtResource("37_atmosphere")
+
+[node name="AmbientParticles" type="Node2D" parent="."]
+z_index = 80
+script = ExtResource("38_particles")
 
 [node name="Raptor" parent="." instance=ExtResource("7_raptor")]
 position = Vector2(-800, 800)

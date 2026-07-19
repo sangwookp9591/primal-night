@@ -21,17 +21,60 @@ var charcoal_available: bool = false
 var _event_bus: Node = null
 var _registry: Node = null
 var _warm_light: PointLight2D
+var _spark_particles: CPUParticles2D
+var _smoke_particles: CPUParticles2D
+var _ember_particles: CPUParticles2D
 
 func _ready() -> void:
 	add_to_group(&"campfire")
 	_configure_visual()
 	_warm_light = AtmosphereController.create_point_light(self, "WarmLight", 2.35, 1.15)
 	_warm_light.enabled = is_lit
+	_configure_particles()
 	if has_node("/root/EventBus"):
 		_event_bus = get_node("/root/EventBus")
 	if has_node("/root/CampfireRegistry"):
 		_registry = get_node("/root/CampfireRegistry")
 	set_process(false)
+
+
+func _configure_particles() -> void:
+	_spark_particles = ParticleFactory.add_particles(self, &"SparkParticles", 18, 0.8,
+		ParticleFactory.make_soft_texture(Color(1.0, 0.55, 0.12, 0.92)))
+	_spark_particles.position = Vector2(0.0, -17.0)
+	_spark_particles.direction = Vector2.UP
+	_spark_particles.spread = 24.0
+	_spark_particles.initial_velocity_min = 25.0
+	_spark_particles.initial_velocity_max = 55.0
+	_spark_particles.gravity = Vector2(0.0, -12.0)
+	_spark_particles.scale_amount_min = 0.22
+	_spark_particles.scale_amount_max = 0.5
+
+	_smoke_particles = ParticleFactory.add_particles(self, &"SmokeParticles", 12, 2.1,
+		ParticleFactory.make_soft_texture(Color(0.34, 0.37, 0.32, 0.26)))
+	_smoke_particles.position = Vector2(0.0, -22.0)
+	_smoke_particles.direction = Vector2.UP
+	_smoke_particles.spread = 18.0
+	_smoke_particles.initial_velocity_min = 9.0
+	_smoke_particles.initial_velocity_max = 18.0
+	_smoke_particles.gravity = Vector2(-2.0, -4.0)
+	_smoke_particles.scale_amount_min = 0.8
+	_smoke_particles.scale_amount_max = 1.7
+
+	_ember_particles = ParticleFactory.add_particles(self, &"EmberParticles", 8, 0.48,
+		ParticleFactory.make_soft_texture(Color(1.0, 0.28, 0.04, 0.82)))
+	_ember_particles.position = Vector2(0.0, -8.0)
+	_ember_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_ember_particles.emission_rect_extents = Vector2(12.0, 4.0)
+	_ember_particles.scale_amount_min = 0.35
+	_ember_particles.scale_amount_max = 0.75
+	_set_particles_emitting(is_lit)
+
+
+func _set_particles_emitting(value: bool) -> void:
+	for particles: CPUParticles2D in [_spark_particles, _smoke_particles, _ember_particles]:
+		if particles != null:
+			particles.emitting = value
 
 func _configure_visual() -> void:
 	var sprite := get_node_or_null("CampfireSprite") as AnimatedSprite2D
@@ -70,6 +113,7 @@ func light() -> void:
 	is_lit = true
 	if _warm_light != null:
 		_warm_light.enabled = true
+	_set_particles_emitting(true)
 	charcoal_available = false
 	fuel_remaining = config.fuel_seconds
 	var sprite := get_node_or_null("CampfireSprite") as AnimatedSprite2D
@@ -92,6 +136,7 @@ func extinguish(fuel_exhausted: bool = false) -> void:
 	is_lit = false
 	if _warm_light != null:
 		_warm_light.enabled = false
+	_set_particles_emitting(false)
 	charcoal_available = fuel_exhausted
 	set_smoky(false)
 	fuel_remaining = 0.0
@@ -130,6 +175,10 @@ func set_smoky(value: bool) -> void:
 	var smoke := get_node_or_null("SmokeColumn") as CanvasItem
 	if smoke != null:
 		smoke.visible = smoky
+	if _smoke_particles != null:
+		# 젖은 장작은 연기 기둥이 굵고 오래 남지만 전체 상한은 28개다.
+		_smoke_particles.amount = 28 if smoky else 12
+		_smoke_particles.lifetime = 3.0 if smoky else 2.1
 
 
 func _exit_tree() -> void:

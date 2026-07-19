@@ -1,20 +1,18 @@
-[gd_resource type="Theme" load_steps=9 format=3 uid="uid://primalnightuitheme"]
+[gd_resource type="Theme" load_steps=13 format=3 uid="uid://primalnightuitheme"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.14902, 0.12549, 0.0901961, 0.88)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.909804, 0.839216, 0.705882, 0.16)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-content_margin_left = 12.0
-content_margin_top = 10.0
-content_margin_right = 12.0
-content_margin_bottom = 10.0
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/panel_wood_32.svg" id="1_panel"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_panel"]
+texture = ExtResource("1_panel")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 14.0
+modulate_color = Color(1, 1, 1, 0.96)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top_bar"]
 bg_color = Color(0.0235294, 0.0196078, 0.0117647, 0.78)
@@ -61,7 +59,7 @@ corner_radius_bottom_left = 1
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_empty"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_focus"]
-bg_color = Color(0.878431, 0.643137, 0.345098, 0.12)
+bg_color = Color(0.878431, 0.643137, 0.345098, 0.16)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -71,6 +69,34 @@ corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+bg_color = Color(0.23, 0.176, 0.105, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.878431, 0.643137, 0.345098, 0.72)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_keycap"]
+bg_color = Color(0.04, 0.032, 0.022, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 2
+border_color = Color(0.658824, 0.611765, 0.517647, 0.75)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 5.0
 
 [resource]
 default_font_size = 12
@@ -88,13 +114,40 @@ Label/colors/font_shadow_color = Color(0, 0, 0, 0.45)
 Label/constants/shadow_offset_x = 0
 Label/constants/shadow_offset_y = 1
 Label/font_sizes/font_size = 12
-PanelContainer/styles/panel = SubResource("StyleBoxFlat_panel")
+PanelContainer/styles/panel = SubResource("StyleBoxTexture_panel")
 ProgressBar/styles/background = SubResource("StyleBoxFlat_bar_bg")
 ProgressBar/styles/fill = SubResource("StyleBoxFlat_bar_fill")
 Button/styles/normal = SubResource("StyleBoxFlat_slot")
-Button/styles/hover = SubResource("StyleBoxFlat_button_focus")
+Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_focus")
-Button/styles/focus = SubResource("StyleBoxEmpty_empty")
+Button/styles/focus = SubResource("StyleBoxFlat_button_focus")
+Button/colors/font_hover_color = Color(1, 0.846, 0.58, 1)
+Button/colors/font_focus_color = Color(1, 0.846, 0.58, 1)
+Button/constants/outline_size = 1
 TopReadout/styles/panel = SubResource("StyleBoxFlat_top_bar")
+TopReadout/base_type = &"PanelContainer"
 SlotFrame/styles/panel = SubResource("StyleBoxFlat_slot")
+SlotFrame/base_type = &"Label"
 DimProgressBar/styles/fill = SubResource("StyleBoxFlat_bar_fill_dim")
+DimProgressBar/base_type = &"ProgressBar"
+TitleLabel/base_type = &"Label"
+TitleLabel/font_sizes/font_size = 42
+TitleLabel/colors/font_color = Color(0.94, 0.78, 0.49, 1)
+TitleLabel/colors/font_shadow_color = Color(0, 0, 0, 0.9)
+TitleLabel/constants/shadow_offset_x = 2
+TitleLabel/constants/shadow_offset_y = 3
+SectionHeading/base_type = &"Label"
+SectionHeading/font_sizes/font_size = 18
+SectionHeading/colors/font_color = Color(0.878431, 0.643137, 0.345098, 1)
+BodyMuted/base_type = &"Label"
+BodyMuted/colors/font_color = Color(0.658824, 0.611765, 0.517647, 1)
+KeyPrompt/base_type = &"Label"
+KeyPrompt/styles/normal = SubResource("StyleBoxFlat_keycap")
+KeyPrompt/colors/font_color = Color(0.92549, 0.890196, 0.823529, 1)
+DeathCause/base_type = &"Label"
+DeathCause/font_sizes/font_size = 17
+DeathCause/colors/font_color = Color(0.95, 0.76, 0.55, 1)
+DeathSummary/base_type = &"Label"
+DeathSummary/font_sizes/font_size = 13
+DeathSummary/colors/font_color = Color(0.82, 0.78, 0.69, 1)
+DeathSummary/constants/line_spacing = 4

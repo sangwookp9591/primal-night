@@ -12,6 +12,8 @@ var flame_remaining: float = 0.0
 var _registry: Node = null
 var _event_bus: Node = null
 var _warm_light: PointLight2D
+var _flame_particles: CPUParticles2D
+var _smoke_particles: CPUParticles2D
 
 
 func _ready() -> void:
@@ -32,7 +34,29 @@ func _ready() -> void:
 	add_child(sprite)
 	_warm_light = AtmosphereController.create_point_light(self, "WarmLight", 1.55, 0.95)
 	_warm_light.enabled = false
+	_configure_particles()
 	set_process(multiplayer.is_server())
+
+
+func _configure_particles() -> void:
+	_flame_particles = ParticleFactory.add_particles(self, &"FlameParticles", 24, 0.55,
+		ParticleFactory.make_soft_texture(Color(1.0, 0.42, 0.06, 0.78)))
+	_flame_particles.position = Vector2(0.0, -10.0)
+	_flame_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_flame_particles.emission_rect_extents = Vector2(24.0, 8.0)
+	_flame_particles.direction = Vector2.UP
+	_flame_particles.spread = 32.0
+	_flame_particles.initial_velocity_min = 18.0
+	_flame_particles.initial_velocity_max = 38.0
+	_flame_particles.scale_amount_min = 0.4
+	_flame_particles.scale_amount_max = 0.9
+	_smoke_particles = ParticleFactory.add_particles(self, &"SmokeParticles", 12, 1.5,
+		ParticleFactory.make_soft_texture(Color(0.28, 0.29, 0.25, 0.2)))
+	_smoke_particles.position = Vector2(0.0, -18.0)
+	_smoke_particles.direction = Vector2.UP
+	_smoke_particles.spread = 22.0
+	_smoke_particles.initial_velocity_min = 8.0
+	_smoke_particles.initial_velocity_max = 15.0
 
 
 static func install(parent: Node, player: Player, at: Vector2) -> OilTrap:
@@ -76,6 +100,8 @@ func _apply_ignited_visual() -> void:
 	ignited = true
 	if _warm_light != null:
 		_warm_light.enabled = true
+	_flame_particles.emitting = true
+	_smoke_particles.emitting = true
 	flame_remaining = FLAME_SECONDS
 	($OilTrapSprite as Sprite2D).texture = _frame(1)
 	if _registry != null and multiplayer.is_server():
@@ -114,6 +140,8 @@ func extinguish() -> void:
 	ignited = false
 	if _warm_light != null:
 		_warm_light.enabled = false
+	_flame_particles.emitting = false
+	_smoke_particles.emitting = false
 	flame_remaining = 0.0
 	($OilTrapSprite as Sprite2D).texture = _frame(0)
 	if _registry != null:
@@ -128,6 +156,8 @@ func confirm_extinguish() -> void:
 		ignited = false
 		if _warm_light != null:
 			_warm_light.enabled = false
+		_flame_particles.emitting = false
+		_smoke_particles.emitting = false
 		flame_remaining = 0.0
 		($OilTrapSprite as Sprite2D).texture = _frame(0)
 
