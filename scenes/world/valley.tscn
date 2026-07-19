@@ -10,19 +10,15 @@
 script = ExtResource("1_valleymap")
 
 [node name="Ground" type="TileMapLayer" parent="."]
-y_sort_enabled = true
 tile_set = ExtResource("2_valleytileset")
 
 [node name="Collision" type="TileMapLayer" parent="."]
-y_sort_enabled = true
 tile_set = ExtResource("2_valleytileset")
 
 [node name="SliceBoundary" type="TileMapLayer" parent="."]
-y_sort_enabled = true
 tile_set = ExtResource("2_valleytileset")
 
 [node name="Occlusion" type="TileMapLayer" parent="."]
-y_sort_enabled = true
 tile_set = ExtResource("2_valleytileset")
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]

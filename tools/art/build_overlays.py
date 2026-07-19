@@ -28,14 +28,14 @@ def geom(dir_idx, row):
     idle = row < 2
     bob = (1 if row == 1 else 0) if idle else bps.WALK_FR[row - 2][3]
     adx = 0 if idle else bps.WALK_FR[row - 2][2]
-    neck_y = 20 + bob
+    neck_y = 17 + bob
     torso_top = neck_y + 2
-    brief_top, brief_bot = 37 + bob, 41 + bob
+    brief_top, brief_bot = 36 + bob, 40 + bob
     quarter = dir_idx in (1, 3)
     if dir_idx in bps.PROFILE:
-        x0, x1 = bps.CENTER - 4, bps.CENTER + 4
+        x0, x1 = bps.CENTER - 4, bps.CENTER + 3
     else:
-        hw = 5 if quarter else 6
+        hw = 4 if quarter else 5
         x0, x1 = bps.CENTER - hw, bps.CENTER + hw
     hand_y = brief_top + 3
     if dir_idx in bps.PROFILE:

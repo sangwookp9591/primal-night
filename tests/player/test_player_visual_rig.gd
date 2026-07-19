@@ -114,13 +114,13 @@ func test_direction_columns_put_face_on_south_and_back_of_head_on_north() -> voi
 		var south_skin := _count_skin_in_head(image, PlayerSpriteAnimator.Direction.S, row)
 		var north_skin := _count_skin_in_head(image, PlayerSpriteAnimator.Direction.N, row)
 		assert_gt(south_skin, north_skin + 20, "row %d S must expose the face" % row)
-		# v3 프로시저럴 헤드: 눈 y=15+바디밥(행 1·3·5), 눈 픽셀 x=21/27.
-		var south_y := row * 64 + 15 + (1 if row in [1, 3, 5] else 0)
-		assert_lt(image.get_pixel(4 * 48 + 21, south_y).r, 0.2,
+		# v3 PZ 비례 헤드: 눈 y=11+바디밥(행 1·3·5), 눈 픽셀 x=22/26.
+		var south_y := row * 64 + 11 + (1 if row in [1, 3, 5] else 0)
+		assert_lt(image.get_pixel(4 * 48 + 22, south_y).r, 0.2,
 			"row %d S left eye" % row)
-		assert_lt(image.get_pixel(4 * 48 + 27, south_y).r, 0.2,
+		assert_lt(image.get_pixel(4 * 48 + 26, south_y).r, 0.2,
 			"row %d S right eye" % row)
-		var north_y := row * 64 + 16 + (1 if row in [1, 3, 5] else 0)
+		var north_y := row * 64 + 12 + (1 if row in [1, 3, 5] else 0)
 		assert_lt(image.get_pixel(0 * 48 + 24, north_y).r, 0.25,
 			"row %d N crown is black hair" % row)
 

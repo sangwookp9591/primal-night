@@ -48,9 +48,13 @@ func test_scene_has_isometric_layers_and_navigation() -> void:
 	assert_not_null(navigation)
 	assert_eq(ground.tile_set.tile_shape, TileSet.TILE_SHAPE_ISOMETRIC)
 	assert_eq(ground.tile_set.tile_size, Vector2i(64, 32))
-	assert_true(ground.y_sort_enabled)
-	assert_true(collision.y_sort_enabled)
-	assert_true(occlusion.y_sort_enabled)
+	# 평면 타일 레이어는 y-sort 금지 — 쿼드런트(청크) 단위 정렬로 대형 스프라이트가
+	# 직선으로 잘리는 아티팩트의 원인. 전역 정렬은 World 루트 y-sort가 담당한다.
+	assert_false(ground.y_sort_enabled)
+	assert_false(collision.y_sort_enabled)
+	assert_false(occlusion.y_sort_enabled)
+	assert_true(valley.y_sort_enabled,
+		"World 루트가 y-sort 체인을 제공해야 크리처·식생 가림 순서가 성립한다")
 
 
 func test_open_slice_has_dense_collision_free_y_sorted_vegetation() -> void:

@@ -3,9 +3,8 @@ extends GutTest
 const SHEET_PATH := "res://assets/sprites/player/player_survivor_sheet.png"
 const CELL_WIDTH := 48
 const CELL_HEIGHT := 64
-# Source-style proportions use a compact 14px head; stop before the neck and
-# shoulders so body skin cannot dilute the direction centroid.
-const HEAD_RECT := Rect2i(14, 6, 21, 16)
+# PZ 비례 헤드(11px, y6..16): 목·어깨 스킨이 무게중심을 희석하지 않게 머리만 잡는다.
+const HEAD_RECT := Rect2i(16, 5, 17, 12)
 const DIRECTION_N := 0
 const DIRECTION_E := 2
 const DIRECTION_S := 4
@@ -24,15 +23,15 @@ func test_idle_direction_columns_keep_face_orientation_contract() -> void:
 	var east := _head_skin_points(image, DIRECTION_E)
 	var west := _head_skin_points(image, DIRECTION_W)
 
-	assert_gt(south.size(), 70, "S 열은 눈·입을 둘 충분한 정면 얼굴 피부를 노출한다")
+	assert_gt(south.size(), 40, "S 열은 눈·입을 둘 충분한 정면 얼굴 피부를 노출한다")
 	assert_lt(north.size(), south.size() / 4, "N 열은 S 열보다 얼굴 피부가 대폭 적어야 한다")
 	assert_true(_has_dark_eye_pixels(image, DIRECTION_S), "S 열 정면 얼굴에는 두 눈이 있어야 한다")
 
 	var east_centroid := _mean_x(east)
 	var west_centroid := _mean_x(west)
-	assert_gt(east_centroid, 26.0, "E 열 얼굴은 셀 중심 오른쪽으로 열려야 한다")
-	assert_lt(west_centroid, 22.0, "W 열 얼굴은 셀 중심 왼쪽으로 열려야 한다")
-	assert_gt(east_centroid - west_centroid, 5.0,
+	assert_gt(east_centroid, 25.2, "E 열 얼굴은 셀 중심 오른쪽으로 열려야 한다")
+	assert_lt(west_centroid, 22.8, "W 열 얼굴은 셀 중심 왼쪽으로 열려야 한다")
+	assert_gt(east_centroid - west_centroid, 3.5,
 		"E/W 얼굴 무게중심은 좌우 프로필로 유의미하게 분리되어야 한다")
 
 

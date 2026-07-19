@@ -151,6 +151,9 @@ func _ready() -> void:
 	boundary.position = MAP_PIXEL_OFFSET
 	$Occlusion.position = MAP_PIXEL_OFFSET
 	$Landmarks.position = MAP_PIXEL_OFFSET
+	# 전역 y-sort 체인(Main→World→Vegetation): 크리처·소품·식생이 y 기준으로
+	# 가림 순서를 갖는다. 타일 레이어는 평면이라 y-sort에서 제외(쿼드런트 잘림 방지).
+	y_sort_enabled = true
 	_vegetation_layer = Node2D.new()
 	_vegetation_layer.name = "Vegetation"
 	_vegetation_layer.y_sort_enabled = true

@@ -43,99 +43,75 @@ def skinrun(opx, x0, x1, y):
         t = (x - x0) / max(1, w)
         put(opx, x, y, S0 if t < 0.30 else (S1 if t < 0.74 else S2))
 
-# ---------------- 머리 ----------------
+# ---------------- 머리 (PZ 비례: 11x11, y6..16) ----------------
 def head_S(opx, dy=0, quarter=0):
-    """정면 머리. quarter=+1이면 SE(시선 오른쪽): 얼굴 축 +1, 왼쪽 헤어 두껍게."""
     q = quarter
-    # 헤어 스컬 (y6..11)
-    run(opx, 20 + q, 28 + q, 6 + dy, H1)
-    run(opx, 19 + q, 29 + q, 7 + dy, H1)
-    put(opx, 20 + q, 7 + dy, H0); put(opx, 21 + q, 7 + dy, H0)
-    run(opx, 18 + q, 30 + q, 8 + dy, H1)
-    run(opx, 19 + q, 22 + q, 8 + dy, H0)
-    run(opx, 18 + q, 30 + q, 9 + dy, H1)
-    put(opx, 19 + q, 9 + dy, H0)
-    run(opx, 18 + q, 30 + q, 10 + dy, H1)
-    run(opx, 18 + q, 30 + q, 11 + dy, H1)
-    put(opx, 30 + q, 9 + dy, H2); put(opx, 30 + q, 10 + dy, H2); put(opx, 30 + q, 11 + dy, H2)
-    # 프린지(y12): 두 갈래 터프
-    y = 12 + dy
-    run(opx, 18 + q, 21 + q, y, H1); put(opx, 21 + q, y, H2)
-    run(opx, 22 + q, 23 + q, y, S1)
-    run(opx, 24 + q, 26 + q, y, H2)
-    run(opx, 27 + q, 28 + q, y, S1)
-    put(opx, 29 + q, y, H2); put(opx, 30 + q, y, H2)
-    # 얼굴 (y13..19)
-    y = 13 + dy
-    put(opx, 18 + q, y, H1); skinrun(opx, 19 + q, 29 + q, y); put(opx, 30 + q, y, H2)
-    y = 14 + dy  # 눈썹 그림자 + 귀
-    put(opx, 17 + q, y, S2); put(opx, 18 + q, y, H1)
-    run(opx, 19 + q, 29 + q, y, S1)
-    run(opx, 21 + q, 22 + q, y, S2); run(opx, 26 + q, 27 + q, y, S2)
-    put(opx, 30 + q, y, H2); put(opx, 31 + q, y, S2)
-    y = 15 + dy  # 눈
-    put(opx, 17 + q, y, S2)
-    skinrun(opx, 18 + q, 30 + q, y)
-    put(opx, 21 + q, y, EYEK); put(opx, 22 + q, y, EYEK)
-    put(opx, 26 + q, y, EYEK); put(opx, 27 + q, y, EYEK)
-    put(opx, 31 + q, y, S3)
-    y = 16 + dy
-    skinrun(opx, 18 + q, 30 + q, y)
-    y = 17 + dy
-    skinrun(opx, 19 + q, 29 + q, y)
-    y = 18 + dy  # 입
-    skinrun(opx, 19 + q, 29 + q, y)
-    run(opx, 23 + q, 25 + q, y, S2)
-    y = 19 + dy  # 턱
+    run(opx, 21 + q, 27 + q, 6 + dy, H1)
+    run(opx, 20 + q, 28 + q, 7 + dy, H1)
+    run(opx, 21 + q, 23 + q, 7 + dy, H0)
+    run(opx, 19 + q, 29 + q, 8 + dy, H1)
+    put(opx, 20 + q, 8 + dy, H0)
+    run(opx, 19 + q, 29 + q, 9 + dy, H1)
+    put(opx, 29 + q, 9 + dy, H2)
+    # 프린지 + 이마
+    y = 10 + dy
+    run(opx, 19 + q, 20 + q, y, H1)
+    run(opx, 21 + q, 27 + q, y, S1)
+    put(opx, 23 + q, y, H2); put(opx, 24 + q, y, H2)
+    run(opx, 28 + q, 29 + q, y, H2)
+    # 눈
+    y = 11 + dy
+    put(opx, 19 + q, y, H1)
     skinrun(opx, 20 + q, 28 + q, y)
+    put(opx, 22 + q, y, EYEK); put(opx, 26 + q, y, EYEK)
+    put(opx, 29 + q, y, H2)
+    y = 12 + dy
+    skinrun(opx, 19 + q, 29 + q, y)
+    y = 13 + dy
+    skinrun(opx, 20 + q, 28 + q, y)
+    # 입
+    y = 14 + dy
+    skinrun(opx, 20 + q, 28 + q, y)
+    put(opx, 24 + q, y, S2)
+    y = 15 + dy
+    skinrun(opx, 21 + q, 27 + q, y)
+    y = 16 + dy
+    run(opx, 22 + q, 26 + q, y, S1); put(opx, 26 + q, y, S2)
 
 def head_N(opx, dy=0, quarter=0):
-    """후면 머리(전부 헤어). quarter=+1이면 NE: 오른쪽 뺨 슬리버."""
     q = quarter
-    run(opx, 20 + q, 28 + q, 6 + dy, H1)
-    run(opx, 19 + q, 29 + q, 7 + dy, H1)
-    run(opx, 20 + q, 23 + q, 7 + dy, H0)
-    for y in range(8, 12):
-        run(opx, 18 + q, 30 + q, y + dy, H1)
-    put(opx, 19 + q, 8 + dy, H0); put(opx, 19 + q, 9 + dy, H0)
-    for y in range(12, 18):
-        run(opx, 18 + q, 30 + q, y + dy, H1)
-        put(opx, 21 + q, y + dy, H2); put(opx, 25 + q, y + dy, H2); put(opx, 29 + q, y + dy, H2)
-    run(opx, 19 + q, 29 + q, 18 + dy, H2)
-    run(opx, 21 + q, 27 + q, 19 + dy, H2)
-    if quarter:  # NE 뺨·귀 슬리버
-        for y in range(13, 17):
-            put(opx, 30 + q, y + dy, S1 if y > 14 else S2)
-        put(opx, 29 + q, 15 + dy, S2)
+    run(opx, 21 + q, 27 + q, 6 + dy, H1)
+    run(opx, 20 + q, 28 + q, 7 + dy, H1)
+    run(opx, 21 + q, 24 + q, 7 + dy, H0)
+    for y in range(8, 14):
+        run(opx, 19 + q, 29 + q, y + dy, H1)
+    put(opx, 20 + q, 8 + dy, H0)
+    for y in range(10, 14):
+        put(opx, 22 + q, y + dy, H2); put(opx, 26 + q, y + dy, H2)
+    run(opx, 20 + q, 28 + q, 14 + dy, H2)
+    run(opx, 21 + q, 27 + q, 15 + dy, H2)
+    run(opx, 22 + q, 26 + q, 16 + dy, H2)
+    if quarter:
+        for y in range(11, 15):
+            put(opx, 29 + q, y + dy, S1 if y > 12 else S2)
 
 def head_E(opx, dy=0):
-    """우측 프로필: 뒷머리 볼륨 + 앞 1/3 얼굴, 코·귀."""
-    run(opx, 20, 28, 6 + dy, H1)
-    run(opx, 19, 29, 7 + dy, H1); run(opx, 20, 22, 7 + dy, H0)
-    for y in range(8, 12):
-        run(opx, 18, 30, y + dy, H1)
-    put(opx, 19, 8 + dy, H0)
-    put(opx, 18, 10 + dy, H2)
-    # y12: 앞머리 끝 + 이마
-    run(opx, 18, 26, 12 + dy, H1); run(opx, 27, 30, 12 + dy, S1)
-    run(opx, 18, 25, 13 + dy, H1); run(opx, 26, 30, 13 + dy, S1)
-    # y14: 눈썹
-    run(opx, 18, 24, 14 + dy, H1); run(opx, 25, 30, 14 + dy, S1)
-    run(opx, 27, 29, 14 + dy, S2)
-    # y15: 눈 + 코 시작
-    run(opx, 18, 23, 15 + dy, H2); run(opx, 24, 30, 15 + dy, S1)
-    put(opx, 28, 15 + dy, EYEK)
-    put(opx, 31, 15 + dy, S1); put(opx, 32, 15 + dy, S2)  # 콧등
-    # y16: 코끝·귀
-    run(opx, 19, 22, 16 + dy, H2); run(opx, 23, 30, 16 + dy, S1)
-    put(opx, 24, 16 + dy, S2); put(opx, 25, 16 + dy, S2)  # 귀
-    put(opx, 31, 16 + dy, S2); put(opx, 32, 16 + dy, S3)  # 코끝
-    # y17: 턱선
-    run(opx, 20, 21, 17 + dy, H2); run(opx, 22, 29, 17 + dy, S1)
-    put(opx, 24, 17 + dy, S3)      # 귓불
-    # y18: 입·턱
-    run(opx, 23, 28, 18 + dy, S1); put(opx, 28, 18 + dy, S2)
-    run(opx, 23, 27, 19 + dy, S2)
+    run(opx, 21, 27, 6 + dy, H1)
+    run(opx, 20, 28, 7 + dy, H1); run(opx, 21, 23, 7 + dy, H0)
+    run(opx, 19, 29, 8 + dy, H1)
+    run(opx, 19, 29, 9 + dy, H1)
+    run(opx, 19, 25, 10 + dy, H1); run(opx, 26, 29, 10 + dy, S1)
+    run(opx, 19, 24, 11 + dy, H2); run(opx, 25, 29, 11 + dy, S1)
+    put(opx, 27, 11 + dy, EYEK)
+    put(opx, 30, 11 + dy, S2)               # 콧등
+    run(opx, 20, 23, 12 + dy, H2); run(opx, 24, 29, 12 + dy, S1)
+    put(opx, 30, 12 + dy, S3)               # 코끝
+    put(opx, 24, 12 + dy, S2)               # 귀
+    run(opx, 21, 28, 13 + dy, S1)
+    put(opx, 24, 13 + dy, S3)
+    run(opx, 22, 28, 14 + dy, S1); put(opx, 28, 14 + dy, S2)
+    run(opx, 22, 27, 15 + dy, S2)
+    run(opx, 23, 26, 16 + dy, S1)
 
 def draw_head(opx, dir_idx, dy):
     if dir_idx == 4: head_S(opx, dy)
@@ -154,9 +130,9 @@ def body_cell(opx, dir_idx, row):
         fdx = bdx = adx = 0; bob = breath
     else:
         fdx, bdx, adx, bob = WALK_FR[row - 2]
-    neck_y = 20 + bob
+    neck_y = 17 + bob
     torso_top = neck_y + 2
-    brief_top, brief_bot = 37 + bob, 41 + bob
+    brief_top, brief_bot = 36 + bob, 40 + bob
     leg_top, foot_y = brief_bot + 1, BASELINE
     hand_y = brief_top + 3
 
@@ -168,7 +144,7 @@ def body_cell(opx, dir_idx, row):
 
     if dir_idx in FRONTAL or dir_idx in BACK:
         quarter = dir_idx in (1, 3)
-        half_w = 5 if quarter else 6
+        half_w = 4 if quarter else 5
         x0, x1 = CENTER - half_w, CENTER + half_w
         # 어깨 라운드
         skinrun(opx, x0 + 1, x1 - 1, torso_top)
@@ -191,9 +167,9 @@ def body_cell(opx, dir_idx, row):
         lift_b = 2 if (not idle and bdx > 2) else 0
         lcx, rcx = CENTER - 3, CENTER + 3
         for y in range(leg_top, foot_y - 1 - lift_f + 1):
-            skinrun(opx, lcx - 2, lcx + 1, y)
+            skinrun(opx, lcx - 1, lcx + 1, y)
         for y in range(leg_top, foot_y - 1 - lift_b + 1):
-            skinrun(opx, rcx - 1, rcx + 2, y)
+            skinrun(opx, rcx - 1, rcx + 1, y)
         # 발(맨발 톤 다운)
         run(opx, lcx - 2, lcx + 1, foot_y - lift_f, S2)
         put(opx, lcx - 2, foot_y - lift_f, S1)
@@ -218,7 +194,7 @@ def body_cell(opx, dir_idx, row):
         put(opx, x1 + 3 + ra // 3, hand_y + 1, S2)
     else:
         # 측면(E) — W는 전체 미러
-        x0, x1 = CENTER - 4, CENTER + 4
+        x0, x1 = CENTER - 4, CENTER + 3
         skinrun(opx, x0 + 1, x1 - 1, torso_top)
         for y in range(torso_top + 1, brief_top):
             shrink = 1 if (y - torso_top) > (brief_top - torso_top) * 0.6 else 0
